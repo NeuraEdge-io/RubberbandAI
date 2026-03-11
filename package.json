@@ -1,8 +1,7 @@
 {
-  "name": "rubberbandai",
-  "private": true,
+  "name": "screenai",
   "version": "1.0.0",
-  "type": "module",
+  "private": true,
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -14,6 +13,6 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.0.8"
+    "vite": "^5.1.4"
   }
 }
