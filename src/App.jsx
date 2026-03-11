@@ -96,7 +96,7 @@ body{background:var(–bg);color:var(–txt);font-family:‘DM Mono’,‘Courie
 .lstep.done{color:var(–green);}
 .lstep-ico{width:19px;height:19px;border-radius:50%;border:1px solid var(–b2);display:flex;align-items:center;justify-content:center;font-size:9.5px;flex-shrink:0;}
 .lstep.active .lstep-ico{border-color:var(–green);background:rgba(0,232,122,.08);color:var(–green);}
-.lstep.done  .lstep-ico{border-color:var(–green);background:rgba(0,232,122,.14);color:var(–green);}
+.lstep.done .lstep-ico{border-color:var(–green);background:rgba(0,232,122,.14);color:var(–green);}
 .prog-bar{height:3px;background:var(–dim2);border-radius:2px;margin-top:18px;overflow:hidden;}
 .prog-fill{height:100%;border-radius:2px;transition:width .5s ease;}
 .prog-fill.green{background:var(–green);}
@@ -629,13 +629,13 @@ contracts.sort((a,b)=>b.delta*Math.sign(b.delta===a.delta?0:1)-(a.delta*Math.sig
 let insights=null;
 try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:`Options analyst. ${optTicker} stock at $${tickerData.p}, IV=${tickerData.iv}%, strategy=${optStrat}, expiration=${optExp}. Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`}]})});if(res.ok){const e=await res.json();const raw=(e.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();try{insights=JSON.parse(raw);}catch{}if(!insights){try{const m=raw.match(/\{[\s\S]*\}/);if(m)insights=JSON.parse(m[0]);}catch{}}}}catch{}
 if(!insights) insights={
-  summary:`${tickerData.n} presents a ${tickerData.iv>60?"high IV":"moderate IV"} environment with ${optExp} options. ${optStrat} setup is ${tickerData.iv>60?"ideal for premium selling":"favorable for directional plays"} given current market conditions.`,
-  topPlay:`Best play: ${contracts[0]?.contractLabel} at $${contracts[0]?.entryPrice} — targets $${contracts[0]?.t1}→$${contracts[0]?.t2}→$${contracts[0]?.t3} with stop at $${contracts[0]?.stopLoss}.`,
-  entryTiming:`Enter on a ${contracts[0]?.optType==="call"?"pullback to support or breakout above resistance":"bounce off resistance or break below support"} with volume confirmation. Ideal entry window: first 30-60 min of session or after key level test.`,
-  riskWarning:`Max risk per contract: $${contracts[0]?.entryTotalCost}. Never risk more than 1-2% of portfolio on a single options position. IV crush risk ${tickerData.iv>60?"HIGH":"MODERATE"} — size accordingly.`,
-  ivAnalysis:`Current IV of ${tickerData.iv}% is ${tickerData.iv>60?"elevated — consider selling premium or debit spreads to reduce vega exposure":"moderate — directional debit plays offer reasonable risk/reward"}. IV Rank and IV Percentile indicate ${tickerData.iv>60?"options are expensive":"options are fairly priced"}.`,
-  keyLevels:{support:`$${(tickerData.p*0.96).toFixed(2)}`,resistance:`$${(tickerData.p*1.04).toFixed(2)}`,breakeven:`$${(tickerData.p*1.02).toFixed(2)}`},
-  tags:[optTicker,optStrat,optExp,tickerData.iv>60?"High IV":"Normal IV","Entry Analysis"],
+summary:`${tickerData.n} presents a ${tickerData.iv>60?"high IV":"moderate IV"} environment with ${optExp} options. ${optStrat} setup is ${tickerData.iv>60?"ideal for premium selling":"favorable for directional plays"} given current market conditions.`,
+topPlay:`Best play: ${contracts[0]?.contractLabel} at $${contracts[0]?.entryPrice} — targets $${contracts[0]?.t1}→$${contracts[0]?.t2}→$${contracts[0]?.t3} with stop at $${contracts[0]?.stopLoss}.`,
+entryTiming:`Enter on a ${contracts[0]?.optType==="call"?"pullback to support or breakout above resistance":"bounce off resistance or break below support"} with volume confirmation. Ideal entry window: first 30-60 min of session or after key level test.`,
+riskWarning:`Max risk per contract: $${contracts[0]?.entryTotalCost}. Never risk more than 1-2% of portfolio on a single options position. IV crush risk ${tickerData.iv>60?"HIGH":"MODERATE"} — size accordingly.`,
+ivAnalysis:`Current IV of ${tickerData.iv}% is ${tickerData.iv>60?"elevated — consider selling premium or debit spreads to reduce vega exposure":"moderate — directional debit plays offer reasonable risk/reward"}. IV Rank and IV Percentile indicate ${tickerData.iv>60?"options are expensive":"options are fairly priced"}.`,
+keyLevels:{support:`$${(tickerData.p*0.96).toFixed(2)}`,resistance:`$${(tickerData.p*1.04).toFixed(2)}`,breakeven:`$${(tickerData.p*1.02).toFixed(2)}`},
+tags:[optTicker,optStrat,optExp,tickerData.iv>60?"High IV":"Normal IV","Entry Analysis"],
 };
 
 if(runId.current!==rid)return;
@@ -674,320 +674,320 @@ return (
 </header>
 
 ```
-    {/* TAB BAR */}
-    <div className="tab-bar">
-      <div className={`tab ${tab==="stocks"?"active":""}`} onClick={()=>setTab("stocks")}>
-        <span className="tab-ico">📊</span> Stock Screener
-        {stocks.length>0&&<span className="tab-badge">{stocks.length}</span>}
-      </div>
-      <div className={`tab ${tab==="options"?"active":""}`} onClick={()=>setTab("options")}>
-        <span className="tab-ico">⚡</span> Options Screener
-        {oContracts.length>0&&<span className="tab-badge">{oContracts.length}</span>}
-      </div>
-    </div>
+{/* TAB BAR */}
+<div className="tab-bar">
+<div className={`tab ${tab==="stocks"?"active":""}`} onClick={()=>setTab("stocks")}>
+<span className="tab-ico">📊</span> Stock Screener
+{stocks.length>0&&<span className="tab-badge">{stocks.length}</span>}
+</div>
+<div className={`tab ${tab==="options"?"active":""}`} onClick={()=>setTab("options")}>
+<span className="tab-ico">⚡</span> Options Screener
+{oContracts.length>0&&<span className="tab-badge">{oContracts.length}</span>}
+</div>
+</div>
 
-    {/* ══════════ STOCK TAB ══════════ */}
-    {tab==="stocks"&&(
-      <div className="page">
-        <div className="hero">
-          <h1>Find every <span>hidden gem</span><br/>in the market.</h1>
-          <p>Scans {UNIVERSE.length}+ stocks across all caps, sectors & geographies. Fresh unique picks every run.</p>
-        </div>
+{/* ══════════ STOCK TAB ══════════ */}
+{tab==="stocks"&&(
+<div className="page">
+<div className="hero">
+<h1>Find every <span>hidden gem</span><br/>in the market.</h1>
+<p>Scans {UNIVERSE.length}+ stocks across all caps, sectors & geographies. Fresh unique picks every run.</p>
+</div>
 
-        <div className="panel">
-          <div className="panel-title">Screen Configuration</div>
-          <div className="g3" style={{marginBottom:14}}>
-            <div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={strategy} onChange={e=>setStrategy(e.target.value)} disabled={sLoading}>{STRATEGIES.map(s=><option key={s}>{s}</option>)}</select></div></div>
-            <div className="fld"><label>Sector</label><div className="sel-wrap"><select value={sector} onChange={e=>setSector(e.target.value)} disabled={sLoading}>{SECTORS.map(s=><option key={s}>{s}</option>)}</select></div></div>
-            <div className="fld"><label>Market / Geography</label><div className="sel-wrap"><select value={market} onChange={e=>setMarket(e.target.value)} disabled={sLoading}>{MARKETS.map(m=><option key={m}>{m}</option>)}</select></div></div>
-          </div>
-          <button className="btn-green" onClick={runStocks} disabled={sLoading}>
-            {sLoading?<><div className="spin"/>Scanning Market…</>:"Run Screen — Find All Matching Stocks"}
-          </button>
-        </div>
+<div className="panel">
+<div className="panel-title">Screen Configuration</div>
+<div className="g3" style={{marginBottom:14}}>
+<div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={strategy} onChange={e=>setStrategy(e.target.value)} disabled={sLoading}>{STRATEGIES.map(s=><option key={s}>{s}</option>)}</select></div></div>
+<div className="fld"><label>Sector</label><div className="sel-wrap"><select value={sector} onChange={e=>setSector(e.target.value)} disabled={sLoading}>{SECTORS.map(s=><option key={s}>{s}</option>)}</select></div></div>
+<div className="fld"><label>Market / Geography</label><div className="sel-wrap"><select value={market} onChange={e=>setMarket(e.target.value)} disabled={sLoading}>{MARKETS.map(m=><option key={m}>{m}</option>)}</select></div></div>
+</div>
+<button className="btn-green" onClick={runStocks} disabled={sLoading}>
+{sLoading?<><div className="spin"/>Scanning Market…</>:"Run Screen — Find All Matching Stocks"}
+</button>
+</div>
 
-        {sLoading&&(
-          <div className="loading-box">
-            <div className="lsteps">{STOCK_STEPS.map((s,i)=><div key={i} className={`lstep ${sStep>i?"done":sStep===i?"active":""}`}><div className="lstep-ico">{sStep>i?"✓":sStep===i?"…":i+1}</div><span>{s}</span></div>)}</div>
-            <div className="prog-bar"><div className="prog-fill green" style={{width:`${sProgress}%`}}/></div>
-          </div>
-        )}
+{sLoading&&(
+<div className="loading-box">
+<div className="lsteps">{STOCK_STEPS.map((s,i)=><div key={i} className={`lstep ${sStep>i?"done":sStep===i?"active":""}`}><div className="lstep-ico">{sStep>i?"✓":sStep===i?"…":i+1}</div><span>{s}</span></div>)}</div>
+<div className="prog-bar"><div className="prog-fill green" style={{width:`${sProgress}%`}}/></div>
+</div>
+)}
 
-        {!sResult&&!sLoading&&(
-          <div className="empty"><div className="ico">🔍</div><h3>Ready to scan</h3><p>Configure your screen above and click Run to find matching stocks.</p></div>
-        )}
+{!sResult&&!sLoading&&(
+<div className="empty"><div className="ico">🔍</div><h3>Ready to scan</h3><p>Configure your screen above and click Run to find matching stocks.</p></div>
+)}
 
-        {sResult&&!sLoading&&(
-          <div className="results">
-            <div className="sum-box">
-              <div className="sum-title">{sResult.title}</div>
-              <div className="sum-body">{sResult.summary}</div>
-              {sResult.tags?.length>0&&<div className="tags">{sResult.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}
-            </div>
+{sResult&&!sLoading&&(
+<div className="results">
+<div className="sum-box">
+<div className="sum-title">{sResult.title}</div>
+<div className="sum-body">{sResult.summary}</div>
+{sResult.tags?.length>0&&<div className="tags">{sResult.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}
+</div>
 
-            <div className="stats-row">
-              <div className="stat-box"><div className="stat-val g">{displayStocks.length}</div><div className="stat-lbl">Stocks Matched</div></div>
-              <div className="stat-box"><div className="stat-val g">{strongBuys}</div><div className="stat-lbl">Strong Buys</div></div>
-              <div className="stat-box"><div className="stat-val p">{gems}</div><div className="stat-lbl">Hidden Gems</div></div>
-              <div className="stat-box"><div className="stat-val">{avgScore}</div><div className="stat-lbl">Avg Score</div></div>
-            </div>
+<div className="stats-row">
+<div className="stat-box"><div className="stat-val g">{displayStocks.length}</div><div className="stat-lbl">Stocks Matched</div></div>
+<div className="stat-box"><div className="stat-val g">{strongBuys}</div><div className="stat-lbl">Strong Buys</div></div>
+<div className="stat-box"><div className="stat-val p">{gems}</div><div className="stat-lbl">Hidden Gems</div></div>
+<div className="stat-box"><div className="stat-val">{avgScore}</div><div className="stat-lbl">Avg Score</div></div>
+</div>
 
-            <div className="sec-lbl">Screening Criteria</div>
-            <div className="crit-grid">
-              {sResult.criteria.map((c,i)=>(
-                <div className={`crit-card ${cl(i)}`} key={i}>
-                  <div className="cc-top"><div className="cc-name">{c.metric}</div><span className={`cc-pill ${cl(i)}`}>{c.threshold}</span></div>
-                  <div className="cc-desc">{c.description}</div>
-                  <div className="cc-bar"><div className="cc-track"><div className={`cc-fill ${cl(i)}`} style={{width:`${Math.min(100,Math.max(0,Number(c.importance)||70))}%`}}/></div><div className="cc-meta"><span>Importance</span><span>{c.importance}/100</span></div></div>
-                </div>
-              ))}
-            </div>
+<div className="sec-lbl">Screening Criteria</div>
+<div className="crit-grid">
+{sResult.criteria.map((c,i)=>(
+<div className={`crit-card ${cl(i)}`} key={i}>
+<div className="cc-top"><div className="cc-name">{c.metric}</div><span className={`cc-pill ${cl(i)}`}>{c.threshold}</span></div>
+<div className="cc-desc">{c.description}</div>
+<div className="cc-bar"><div className="cc-track"><div className={`cc-fill ${cl(i)}`} style={{width:`${Math.min(100,Math.max(0,Number(c.importance)||70))}%`}}/></div><div className="cc-meta"><span>Importance</span><span>{c.importance}/100</span></div></div>
+</div>
+))}
+</div>
 
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:8}}>
-              <div className="sec-lbl" style={{margin:0,flex:1}}>Matching Stocks <span style={{color:"var(--green)",fontSize:10,fontWeight:500,marginLeft:8}}>({displayStocks.length})</span></div>
-            </div>
-            <div className="filter-row">
-              {["All","Strong Buy","Hidden Gems","Large Cap","International"].map(f=><button key={f} className={`btn-sm ${sFilter===f?"active":""}`} onClick={()=>setSFilter(f)}>{f}</button>)}
-              <div className="spacer"/>
-              {["score","price","change"].map(s=><button key={s} className={`btn-sm ${sSortBy===s?"active":""}`} onClick={()=>setSSortBy(s)}>Sort: {s==="score"?"Score":s==="price"?"Price":"% Chg"}</button>)}
-            </div>
-            <div className="scan-info">Scanned: {new Date().toLocaleTimeString()} · <span>{UNIVERSE.length} stocks analyzed</span></div>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:8}}>
+<div className="sec-lbl" style={{margin:0,flex:1}}>Matching Stocks <span style={{color:"var(--green)",fontSize:10,fontWeight:500,marginLeft:8}}>({displayStocks.length})</span></div>
+</div>
+<div className="filter-row">
+{["All","Strong Buy","Hidden Gems","Large Cap","International"].map(f=><button key={f} className={`btn-sm ${sFilter===f?"active":""}`} onClick={()=>setSFilter(f)}>{f}</button>)}
+<div className="spacer"/>
+{["score","price","change"].map(s=><button key={s} className={`btn-sm ${sSortBy===s?"active":""}`} onClick={()=>setSSortBy(s)}>Sort: {s==="score"?"Score":s==="price"?"Price":"% Chg"}</button>)}
+</div>
+<div className="scan-info">Scanned: {new Date().toLocaleTimeString()} · <span>{UNIVERSE.length} stocks analyzed</span></div>
 
-            <div className="tbl-wrap">
-              <table>
-                <thead><tr><th>#</th><th>Ticker</th><th>Price</th><th>Mkt Cap</th><th>Score</th><th>Key Metrics</th><th>Thesis</th><th>Rating</th></tr></thead>
-                <tbody>
-                  {displayStocks.map((s,i)=>(
-                    <tr key={s.t+i}>
-                      <td style={{color:"var(--dim)",fontSize:10}}>{i+1}</td>
-                      <td><div className="tk">{s.t}</div><div className="co">{s.n}</div>{s.isGem&&<div className="gem">💎 Hidden Gem</div>}</td>
-                      <td><div className="price-v">{fmt(s.p)}</div><span className={`chg-v ${s.ch>=0?"up":"dn"}`}>{s.ch>=0?"+":""}{s.ch.toFixed(1)}%</span></td>
-                      <td><div className="mc-v">{s.mc}</div><div className="cap-v">{s.cap} · {s.sec}</div></td>
-                      <td><div className="score-wrap"><span className={`score-n ${sc(s.score)}`}>{s.score}</span><div className="score-b"><div className={`score-f ${sc(s.score)}`} style={{width:`${s.score}%`}}/></div></div></td>
-                      <td><div className="met-list">{(s.metrics||[]).map((m,j)=><div className="met-row" key={j}><span className="met-k">{m.k}</span><span className={`met-v2 ${m.pass?"pass":""}`}>{m.v}</span></div>)}</div></td>
-                      <td><div className="thesis-v">{s.thesis}</div></td>
-                      <td><span className={`rtag ${s.rating}`}>{ratingLabel(s.rating)}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="disc">⚠ For informational/educational purposes only. Not financial advice. Scores are AI-generated estimates. Always conduct thorough due diligence before investing.</div>
+<div className="tbl-wrap">
+<table>
+<thead><tr><th>#</th><th>Ticker</th><th>Price</th><th>Mkt Cap</th><th>Score</th><th>Key Metrics</th><th>Thesis</th><th>Rating</th></tr></thead>
+<tbody>
+{displayStocks.map((s,i)=>(
+<tr key={s.t+i}>
+<td style={{color:"var(--dim)",fontSize:10}}>{i+1}</td>
+<td><div className="tk">{s.t}</div><div className="co">{s.n}</div>{s.isGem&&<div className="gem">💎 Hidden Gem</div>}</td>
+<td><div className="price-v">{fmt(s.p)}</div><span className={`chg-v ${s.ch>=0?"up":"dn"}`}>{s.ch>=0?"+":""}{s.ch.toFixed(1)}%</span></td>
+<td><div className="mc-v">{s.mc}</div><div className="cap-v">{s.cap} · {s.sec}</div></td>
+<td><div className="score-wrap"><span className={`score-n ${sc(s.score)}`}>{s.score}</span><div className="score-b"><div className={`score-f ${sc(s.score)}`} style={{width:`${s.score}%`}}/></div></div></td>
+<td><div className="met-list">{(s.metrics||[]).map((m,j)=><div className="met-row" key={j}><span className="met-k">{m.k}</span><span className={`met-v2 ${m.pass?"pass":""}`}>{m.v}</span></div>)}</div></td>
+<td><div className="thesis-v">{s.thesis}</div></td>
+<td><span className={`rtag ${s.rating}`}>{ratingLabel(s.rating)}</span></td>
+</tr>
+))}
+</tbody>
+</table>
+</div>
+<div className="disc">⚠ For informational/educational purposes only. Not financial advice. Scores are AI-generated estimates. Always conduct thorough due diligence before investing.</div>
 
-            {sResult.redFlags?.length>0&&<><div className="sec-lbl" style={{marginTop:20}}>Red Flags to Avoid</div><div className="li-list">{sResult.redFlags.map((f,i)=><div className="li-item" key={i}><div className="li-ico x">✕</div><span>{f}</span></div>)}</div></>}
-            {sResult.proTips?.length>0&&<><div className="sec-lbl">Pro Tips</div><div className="li-list">{sResult.proTips.map((t,i)=><div className="li-item" key={i}><div className="li-ico ok">→</div><span>{t}</span></div>)}</div></>}
-          </div>
-        )}
-      </div>
-    )}
+{sResult.redFlags?.length>0&&<><div className="sec-lbl" style={{marginTop:20}}>Red Flags to Avoid</div><div className="li-list">{sResult.redFlags.map((f,i)=><div className="li-item" key={i}><div className="li-ico x">✕</div><span>{f}</span></div>)}</div></>}
+{sResult.proTips?.length>0&&<><div className="sec-lbl">Pro Tips</div><div className="li-list">{sResult.proTips.map((t,i)=><div className="li-item" key={i}><div className="li-ico ok">→</div><span>{t}</span></div>)}</div></>}
+</div>
+)}
+</div>
+)}
 
-    {/* ══════════ OPTIONS TAB ══════════ */}
-    {tab==="options"&&(
-      <div className="page">
-        <div className="hero">
-          <h1>Options <span className="orange">chain screener</span><br/>with exact entry points.</h1>
-          <p>Full Greeks · IV analysis · Day/Week/Month H&L ranges · Precise entry, targets & stops for maximum profit.</p>
-        </div>
+{/* ══════════ OPTIONS TAB ══════════ */}
+{tab==="options"&&(
+<div className="page">
+<div className="hero">
+<h1>Options <span className="orange">chain screener</span><br/>with exact entry points.</h1>
+<p>Full Greeks · IV analysis · Day/Week/Month H&L ranges · Precise entry, targets & stops for maximum profit.</p>
+</div>
 
-        <div className="panel">
-          <div className="panel-title">Options Configuration</div>
-          <div className="opt-controls">
-            <div className="fld"><label>Underlying Ticker</label><div className="sel-wrap"><select value={optTicker} onChange={e=>setOptTicker(e.target.value)} disabled={oLoading}>{OPTION_TICKERS.map(x=><option key={x.t} value={x.t}>{x.t} — {x.n} (${x.p})</option>)}</select></div></div>
-            <div className="fld"><label>Contract Type</label><div className="sel-wrap"><select value={optType} onChange={e=>setOptType(e.target.value)} disabled={oLoading}>{OPT_TYPES.map(x=><option key={x}>{x}</option>)}</select></div></div>
-            <div className="fld"><label>Expiration</label><div className="sel-wrap"><select value={optExp} onChange={e=>setOptExp(e.target.value)} disabled={oLoading}>{EXPIRATIONS.map(x=><option key={x}>{x}</option>)}</select></div></div>
-            <div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={optStrat} onChange={e=>setOptStrat(e.target.value)} disabled={oLoading}>{OPT_STRATEGIES.map(x=><option key={x}>{x}</option>)}</select></div></div>
-          </div>
-          <button className="btn-blue" onClick={runOptions} disabled={oLoading}>
-            {oLoading?<><div className="spin-white"/>Scanning Option Chain…</>:"⚡ Scan Option Chain — Generate Entry Points"}
-          </button>
-        </div>
+<div className="panel">
+<div className="panel-title">Options Configuration</div>
+<div className="opt-controls">
+<div className="fld"><label>Underlying Ticker</label><div className="sel-wrap"><select value={optTicker} onChange={e=>setOptTicker(e.target.value)} disabled={oLoading}>{OPTION_TICKERS.map(x=><option key={x.t} value={x.t}>{x.t} — {x.n} (${x.p})</option>)}</select></div></div>
+<div className="fld"><label>Contract Type</label><div className="sel-wrap"><select value={optType} onChange={e=>setOptType(e.target.value)} disabled={oLoading}>{OPT_TYPES.map(x=><option key={x}>{x}</option>)}</select></div></div>
+<div className="fld"><label>Expiration</label><div className="sel-wrap"><select value={optExp} onChange={e=>setOptExp(e.target.value)} disabled={oLoading}>{EXPIRATIONS.map(x=><option key={x}>{x}</option>)}</select></div></div>
+<div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={optStrat} onChange={e=>setOptStrat(e.target.value)} disabled={oLoading}>{OPT_STRATEGIES.map(x=><option key={x}>{x}</option>)}</select></div></div>
+</div>
+<button className="btn-blue" onClick={runOptions} disabled={oLoading}>
+{oLoading?<><div className="spin-white"/>Scanning Option Chain…</>:"⚡ Scan Option Chain — Generate Entry Points"}
+</button>
+</div>
 
-        {oLoading&&(
-          <div className="loading-box">
-            <div className="lsteps">{OPT_STEPS.map((s,i)=><div key={i} className={`lstep ${oStep>i?"done":oStep===i?"active":""}`}><div className="lstep-ico">{oStep>i?"✓":oStep===i?"…":i+1}</div><span>{s}</span></div>)}</div>
-            <div className="prog-bar"><div className="prog-fill blue" style={{width:`${oProgress}%`}}/></div>
-          </div>
-        )}
+{oLoading&&(
+<div className="loading-box">
+<div className="lsteps">{OPT_STEPS.map((s,i)=><div key={i} className={`lstep ${oStep>i?"done":oStep===i?"active":""}`}><div className="lstep-ico">{oStep>i?"✓":oStep===i?"…":i+1}</div><span>{s}</span></div>)}</div>
+<div className="prog-bar"><div className="prog-fill blue" style={{width:`${oProgress}%`}}/></div>
+</div>
+)}
 
-        {!oContracts.length&&!oLoading&&(
-          <div className="empty"><div className="ico">⚡</div><h3>Ready to scan options</h3><p>Select a ticker, expiration and strategy above.<br/>Get full Greeks, entry points, H&L ranges and AI insights.</p></div>
-        )}
+{!oContracts.length&&!oLoading&&(
+<div className="empty"><div className="ico">⚡</div><h3>Ready to scan options</h3><p>Select a ticker, expiration and strategy above.<br/>Get full Greeks, entry points, H&L ranges and AI insights.</p></div>
+)}
 
-        {oContracts.length>0&&!oLoading&&oInsights&&(
-          <div className="results">
-            {/* AI Summary */}
-            <div className="sum-box">
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                <div className="sum-title" style={{margin:0}}>{oTicker?.t} Options Analysis — {optExp}</div>
-                <span className={`sig ${oInsights.topPlay?.toLowerCase().includes("call")?"bullish":oInsights.topPlay?.toLowerCase().includes("put")?"bearish":"neutral"}`}>
-                  {oInsights.topPlay?.toLowerCase().includes("call")?"⬆ Bullish":"⬇ Bearish"}
-                </span>
-              </div>
-              <div className="sum-body">{oInsights.summary}</div>
-              {oInsights.tags?.length>0&&<div className="tags">{oInsights.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}
-            </div>
+{oContracts.length>0&&!oLoading&&oInsights&&(
+<div className="results">
+{/* AI Summary */}
+<div className="sum-box">
+<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+<div className="sum-title" style={{margin:0}}>{oTicker?.t} Options Analysis — {optExp}</div>
+<span className={`sig ${oInsights.topPlay?.toLowerCase().includes("call")?"bullish":oInsights.topPlay?.toLowerCase().includes("put")?"bearish":"neutral"}`}>
+{oInsights.topPlay?.toLowerCase().includes("call")?"⬆ Bullish":"⬇ Bearish"}
+</span>
+</div>
+<div className="sum-body">{oInsights.summary}</div>
+{oInsights.tags?.length>0&&<div className="tags">{oInsights.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}
+</div>
 
-            {/* Stats */}
-            <div className="stats-row">
-              <div className="stat-box"><div className="stat-val gold">{oTicker?.iv}%</div><div className="stat-lbl">Implied Vol</div></div>
-              <div className="stat-box"><div className="stat-val b">{oContracts.length}</div><div className="stat-lbl">Contracts Found</div></div>
-              <div className="stat-box"><div className="stat-val g">{oContracts.filter(c=>c.signal==="bullish").length}</div><div className="stat-lbl">Bullish Signals</div></div>
-              <div className="stat-box"><div className="stat-val r">{oContracts.filter(c=>c.signal==="bearish").length}</div><div className="stat-lbl">Bearish Signals</div></div>
-            </div>
+{/* Stats */}
+<div className="stats-row">
+<div className="stat-box"><div className="stat-val gold">{oTicker?.iv}%</div><div className="stat-lbl">Implied Vol</div></div>
+<div className="stat-box"><div className="stat-val b">{oContracts.length}</div><div className="stat-lbl">Contracts Found</div></div>
+<div className="stat-box"><div className="stat-val g">{oContracts.filter(c=>c.signal==="bullish").length}</div><div className="stat-lbl">Bullish Signals</div></div>
+<div className="stat-box"><div className="stat-val r">{oContracts.filter(c=>c.signal==="bearish").length}</div><div className="stat-lbl">Bearish Signals</div></div>
+</div>
 
-            {/* Key levels row */}
-            {oInsights.keyLevels&&(
-              <div className="panel" style={{marginBottom:20}}>
-                <div className="panel-title">Key Price Levels</div>
-                <div className="g4">
-                  <div className="stat-box" style={{margin:0}}><div className="stat-val r">{oInsights.keyLevels.support}</div><div className="stat-lbl">Support</div></div>
-                  <div className="stat-box" style={{margin:0}}><div className="stat-val g">{oInsights.keyLevels.resistance}</div><div className="stat-lbl">Resistance</div></div>
-                  <div className="stat-box" style={{margin:0}}><div className="stat-val b">{oInsights.keyLevels.breakeven}</div><div className="stat-lbl">Breakeven</div></div>
-                  <div className="stat-box" style={{margin:0}}><div className="stat-val" style={{fontSize:13,color:"var(--txt)"}}>{fmt(oTicker?.p||0)}</div><div className="stat-lbl">Current Price</div></div>
-                </div>
-                {oInsights.entryTiming&&<div style={{marginTop:14,padding:"12px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--b1)",fontSize:11.5,color:"#7a8fa8",lineHeight:1.7}}><span style={{color:"var(--gold)",fontWeight:700}}>⏱ Entry Timing: </span>{oInsights.entryTiming}</div>}
-                {oInsights.ivAnalysis&&<div style={{marginTop:8,padding:"12px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--b1)",fontSize:11.5,color:"#7a8fa8",lineHeight:1.7}}><span style={{color:"var(--blue)",fontWeight:700}}>📊 IV Analysis: </span>{oInsights.ivAnalysis}</div>}
-              </div>
-            )}
+{/* Key levels row */}
+{oInsights.keyLevels&&(
+<div className="panel" style={{marginBottom:20}}>
+<div className="panel-title">Key Price Levels</div>
+<div className="g4">
+<div className="stat-box" style={{margin:0}}><div className="stat-val r">{oInsights.keyLevels.support}</div><div className="stat-lbl">Support</div></div>
+<div className="stat-box" style={{margin:0}}><div className="stat-val g">{oInsights.keyLevels.resistance}</div><div className="stat-lbl">Resistance</div></div>
+<div className="stat-box" style={{margin:0}}><div className="stat-val b">{oInsights.keyLevels.breakeven}</div><div className="stat-lbl">Breakeven</div></div>
+<div className="stat-box" style={{margin:0}}><div className="stat-val" style={{fontSize:13,color:"var(--txt)"}}>{fmt(oTicker?.p||0)}</div><div className="stat-lbl">Current Price</div></div>
+</div>
+{oInsights.entryTiming&&<div style={{marginTop:14,padding:"12px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--b1)",fontSize:11.5,color:"#7a8fa8",lineHeight:1.7}}><span style={{color:"var(--gold)",fontWeight:700}}>⏱ Entry Timing: </span>{oInsights.entryTiming}</div>}
+{oInsights.ivAnalysis&&<div style={{marginTop:8,padding:"12px 14px",background:"var(--s2)",borderRadius:8,border:"1px solid var(--b1)",fontSize:11.5,color:"#7a8fa8",lineHeight:1.7}}><span style={{color:"var(--blue)",fontWeight:700}}>📊 IV Analysis: </span>{oInsights.ivAnalysis}</div>}
+</div>
+)}
 
-            {/* OPTION CONTRACTS */}
-            <div className="sec-lbl">Option Contracts ({oContracts.length})</div>
-            <div className="opt-cards">
-              {oContracts.map((c,i)=>(
-                <div key={i} className={`opt-card ${c.optType==="call"?"call-card":"put-card"}`}>
+{/* OPTION CONTRACTS */}
+<div className="sec-lbl">Option Contracts ({oContracts.length})</div>
+<div className="opt-cards">
+{oContracts.map((c,i)=>(
+<div key={i} className={`opt-card ${c.optType==="call"?"call-card":"put-card"}`}>
 
-                  {/* Card Header */}
-                  <div className="opt-card-header">
-                    <div className="opt-hdr-left">
-                      <span className={`opt-type-badge ${c.optType}`}>{c.optType.toUpperCase()}</span>
-                      <div>
-                        <div className="opt-ticker">{c.ticker} ${c.strike}</div>
-                        <div className="opt-name">{c.name} · {c.moneyLabel} · {c.dte} DTE</div>
-                      </div>
-                    </div>
-                    <div className="opt-hdr-right">
-                      <span className="opt-exp">{c.expLabel}</span>
-                      <span className={`sig ${c.signal}`}>{c.signal==="bullish"?"⬆ Bullish":c.signal==="bearish"?"⬇ Bearish":"◎ Neutral"}</span>
-                    </div>
-                  </div>
+{/* Card Header */}
+<div className="opt-card-header">
+<div className="opt-hdr-left">
+<span className={`opt-type-badge ${c.optType}`}>{c.optType.toUpperCase()}</span>
+<div>
+<div className="opt-ticker">{c.ticker} ${c.strike}</div>
+<div className="opt-name">{c.name} · {c.moneyLabel} · {c.dte} DTE</div>
+</div>
+</div>
+<div className="opt-hdr-right">
+<span className="opt-exp">{c.expLabel}</span>
+<span className={`sig ${c.signal}`}>{c.signal==="bullish"?"⬆ Bullish":c.signal==="bearish"?"⬇ Bearish":"◎ Neutral"}</span>
+</div>
+</div>
 
-                  {/* Entry Point Banner */}
-                  <div className={`entry-banner ${c.optType==="put"?"put-banner":""}`}>
-                    <div className="entry-left">
-                      <div className="entry-label">Optimal Entry Point</div>
-                      <div className={`entry-price ${c.optType==="put"?"put":""}`}>${c.entryPrice}</div>
-                      <div className="entry-sub">Bid ${c.bid} / Ask ${c.ask} · Spread ${c.spread} · Cost ${c.entryTotalCost}/contract</div>
-                    </div>
-                    <div className="entry-targets">
-                      <div className="tgt"><div className="tgt-lbl">Target 1</div><div className="tgt-val t1">${c.t1}</div></div>
-                      <div className="tgt"><div className="tgt-lbl">Target 2</div><div className="tgt-val t2">${c.t2}</div></div>
-                      <div className="tgt"><div className="tgt-lbl">Target 3</div><div className="tgt-val t3">${c.t3}</div></div>
-                      <div className="tgt"><div className="tgt-lbl">Stop Loss</div><div className="tgt-val stop">${c.stopLoss}</div></div>
-                      <div className="tgt"><div className="tgt-lbl">Max P&L</div><div className="tgt-val pnl">+${c.maxPnl} / -${c.maxLoss}</div></div>
-                    </div>
-                  </div>
+{/* Entry Point Banner */}
+<div className={`entry-banner ${c.optType==="put"?"put-banner":""}`}>
+<div className="entry-left">
+<div className="entry-label">Optimal Entry Point</div>
+<div className={`entry-price ${c.optType==="put"?"put":""}`}>${c.entryPrice}</div>
+<div className="entry-sub">Bid ${c.bid} / Ask ${c.ask} · Spread ${c.spread} · Cost ${c.entryTotalCost}/contract</div>
+</div>
+<div className="entry-targets">
+<div className="tgt"><div className="tgt-lbl">Target 1</div><div className="tgt-val t1">${c.t1}</div></div>
+<div className="tgt"><div className="tgt-lbl">Target 2</div><div className="tgt-val t2">${c.t2}</div></div>
+<div className="tgt"><div className="tgt-lbl">Target 3</div><div className="tgt-val t3">${c.t3}</div></div>
+<div className="tgt"><div className="tgt-lbl">Stop Loss</div><div className="tgt-val stop">${c.stopLoss}</div></div>
+<div className="tgt"><div className="tgt-lbl">Max P&L</div><div className="tgt-val pnl">+${c.maxPnl} / -${c.maxLoss}</div></div>
+</div>
+</div>
 
-                  {/* Core Metrics Grid */}
-                  <div className="opt-metrics">
-                    <div className="opt-metric"><div className="opt-m-lbl">Premium</div><div className="opt-m-val">${c.premium}</div><div className="opt-m-sub">Mid price</div></div>
-                    <div className="opt-metric"><div className="opt-m-lbl">Strike</div><div className="opt-m-val blue">${c.strike}</div><div className="opt-m-sub">{c.moneyLabel}</div></div>
-                    <div className="opt-metric"><div className="opt-m-lbl">Impl. Vol</div><div className="opt-m-val gold">{c.iv}%</div><div className="opt-m-sub">IV Rank {c.ivRank}</div></div>
-                    <div className="opt-metric"><div className="opt-m-lbl">IV Percentile</div><div className="opt-m-val purple">{c.ivPct30}%</div><div className="opt-m-sub">30-day pct</div></div>
-                    <div className="opt-metric"><div className="opt-m-lbl">Intrinsic</div><div className="opt-m-val">${Math.max(0,c.optType==="call"?c.premium-Math.max(0,(c.stockPrice-c.strike)):c.premium-Math.max(0,(c.strike-c.stockPrice))).toFixed(2)}</div><div className="opt-m-sub">Extrinsic: ${(c.premium-Math.max(0,c.optType==="call"?Math.max(0,(c.stockPrice-c.strike)):Math.max(0,(c.strike-c.stockPrice)))).toFixed(2)}</div></div>
-                    <div className="opt-metric"><div className="opt-m-lbl">Break-even</div><div className="opt-m-val cyan">${c.optType==="call"?(c.strike+c.premium).toFixed(2):(c.strike-c.premium).toFixed(2)}</div><div className="opt-m-sub">At expiry</div></div>
-                    <div className="opt-metric"><div className="opt-m-lbl">Multiplier</div><div className="opt-m-val">100x</div><div className="opt-m-sub">Per contract</div></div>
-                    <div className="opt-metric"><div className="opt-m-lbl">P/C Ratio</div><div className="opt-m-val">{c.pcRatio}</div><div className="opt-m-sub">{c.pcRatio<0.7?"Bullish":c.pcRatio>1.3?"Bearish":"Neutral"}</div></div>
-                  </div>
+{/* Core Metrics Grid */}
+<div className="opt-metrics">
+<div className="opt-metric"><div className="opt-m-lbl">Premium</div><div className="opt-m-val">${c.premium}</div><div className="opt-m-sub">Mid price</div></div>
+<div className="opt-metric"><div className="opt-m-lbl">Strike</div><div className="opt-m-val blue">${c.strike}</div><div className="opt-m-sub">{c.moneyLabel}</div></div>
+<div className="opt-metric"><div className="opt-m-lbl">Impl. Vol</div><div className="opt-m-val gold">{c.iv}%</div><div className="opt-m-sub">IV Rank {c.ivRank}</div></div>
+<div className="opt-metric"><div className="opt-m-lbl">IV Percentile</div><div className="opt-m-val purple">{c.ivPct30}%</div><div className="opt-m-sub">30-day pct</div></div>
+<div className="opt-metric"><div className="opt-m-lbl">Intrinsic</div><div className="opt-m-val">${Math.max(0,c.optType==="call"?c.premium-Math.max(0,(c.stockPrice-c.strike)):c.premium-Math.max(0,(c.strike-c.stockPrice))).toFixed(2)}</div><div className="opt-m-sub">Extrinsic: ${(c.premium-Math.max(0,c.optType==="call"?Math.max(0,(c.stockPrice-c.strike)):Math.max(0,(c.strike-c.stockPrice)))).toFixed(2)}</div></div>
+<div className="opt-metric"><div className="opt-m-lbl">Break-even</div><div className="opt-m-val cyan">${c.optType==="call"?(c.strike+c.premium).toFixed(2):(c.strike-c.premium).toFixed(2)}</div><div className="opt-m-sub">At expiry</div></div>
+<div className="opt-metric"><div className="opt-m-lbl">Multiplier</div><div className="opt-m-val">100x</div><div className="opt-m-sub">Per contract</div></div>
+<div className="opt-metric"><div className="opt-m-lbl">P/C Ratio</div><div className="opt-m-val">{c.pcRatio}</div><div className="opt-m-sub">{c.pcRatio<0.7?"Bullish":c.pcRatio>1.3?"Bearish":"Neutral"}</div></div>
+</div>
 
-                  {/* H&L Ranges */}
-                  <div className="hl-section">
-                    <div className="hl-title">Price Range Analysis — Option Contract H&L</div>
-                    <div className="hl-rows">
-                      {/* Day range */}
-                      {(()=>{const lo=c.dayRange.lo,hi=c.dayRange.hi,cur=c.premium,pct=(cur-lo)/(hi-lo)*100;return(
-                        <div className="hl-row">
-                          <span className="hl-period">DAY</span>
-                          <div className="hl-bar-wrap">
-                            <div className={`hl-bar-fill ${c.optType==="call"?"call-fill":"put-fill"}`} style={{left:`${(lo/hi)*60}%`,width:`${((hi-lo)/hi)*80}%`}}/>
-                            <div className="hl-current-marker" style={{left:`${Math.max(2,Math.min(95,pct))}%`}}/>
-                          </div>
-                          <div className="hl-vals"><span className="hl-lo">L ${lo.toFixed(2)}</span><span className="hl-cur">C ${cur.toFixed(2)}</span><span className="hl-hi">H ${hi.toFixed(2)}</span></div>
-                        </div>
-                      );})()}
-                      {/* Week range */}
-                      {(()=>{const lo=c.weekRange.lo,hi=c.weekRange.hi,cur=c.premium,pct=(cur-lo)/(hi-lo)*100;return(
-                        <div className="hl-row">
-                          <span className="hl-period">WEEK</span>
-                          <div className="hl-bar-wrap">
-                            <div className={`hl-bar-fill ${c.optType==="call"?"call-fill":"put-fill"}`} style={{left:`${(lo/hi)*50}%`,width:`${((hi-lo)/hi)*85}%`}}/>
-                            <div className="hl-current-marker" style={{left:`${Math.max(2,Math.min(95,pct))}%`}}/>
-                          </div>
-                          <div className="hl-vals"><span className="hl-lo">L ${lo.toFixed(2)}</span><span className="hl-cur">C ${cur.toFixed(2)}</span><span className="hl-hi">H ${hi.toFixed(2)}</span></div>
-                        </div>
-                      );})()}
-                      {/* Month range */}
-                      {c.monthRange&&(()=>{const lo=c.monthRange.lo,hi=c.monthRange.hi,cur=c.premium,pct=(cur-lo)/(hi-lo)*100;return(
-                        <div className="hl-row">
-                          <span className="hl-period">MONTH</span>
-                          <div className="hl-bar-wrap">
-                            <div className={`hl-bar-fill ${c.optType==="call"?"call-fill":"put-fill"}`} style={{left:`${(lo/hi)*40}%`,width:`${((hi-lo)/hi)*90}%`}}/>
-                            <div className="hl-current-marker" style={{left:`${Math.max(2,Math.min(95,pct))}%`}}/>
-                          </div>
-                          <div className="hl-vals"><span className="hl-lo">L ${lo.toFixed(2)}</span><span className="hl-cur">C ${cur.toFixed(2)}</span><span className="hl-hi">H ${hi.toFixed(2)}</span></div>
-                        </div>
-                      );})()}
-                    </div>
-                  </div>
+{/* H&L Ranges */}
+<div className="hl-section">
+<div className="hl-title">Price Range Analysis — Option Contract H&L</div>
+<div className="hl-rows">
+{/* Day range */}
+{(()=>{const lo=c.dayRange.lo,hi=c.dayRange.hi,cur=c.premium,pct=(cur-lo)/(hi-lo)*100;return(
+<div className="hl-row">
+<span className="hl-period">DAY</span>
+<div className="hl-bar-wrap">
+<div className={`hl-bar-fill ${c.optType==="call"?"call-fill":"put-fill"}`} style={{left:`${(lo/hi)*60}%`,width:`${((hi-lo)/hi)*80}%`}}/>
+<div className="hl-current-marker" style={{left:`${Math.max(2,Math.min(95,pct))}%`}}/>
+</div>
+<div className="hl-vals"><span className="hl-lo">L ${lo.toFixed(2)}</span><span className="hl-cur">C ${cur.toFixed(2)}</span><span className="hl-hi">H ${hi.toFixed(2)}</span></div>
+</div>
+);})()}
+{/* Week range */}
+{(()=>{const lo=c.weekRange.lo,hi=c.weekRange.hi,cur=c.premium,pct=(cur-lo)/(hi-lo)*100;return(
+<div className="hl-row">
+<span className="hl-period">WEEK</span>
+<div className="hl-bar-wrap">
+<div className={`hl-bar-fill ${c.optType==="call"?"call-fill":"put-fill"}`} style={{left:`${(lo/hi)*50}%`,width:`${((hi-lo)/hi)*85}%`}}/>
+<div className="hl-current-marker" style={{left:`${Math.max(2,Math.min(95,pct))}%`}}/>
+</div>
+<div className="hl-vals"><span className="hl-lo">L ${lo.toFixed(2)}</span><span className="hl-cur">C ${cur.toFixed(2)}</span><span className="hl-hi">H ${hi.toFixed(2)}</span></div>
+</div>
+);})()}
+{/* Month range */}
+{c.monthRange&&(()=>{const lo=c.monthRange.lo,hi=c.monthRange.hi,cur=c.premium,pct=(cur-lo)/(hi-lo)*100;return(
+<div className="hl-row">
+<span className="hl-period">MONTH</span>
+<div className="hl-bar-wrap">
+<div className={`hl-bar-fill ${c.optType==="call"?"call-fill":"put-fill"}`} style={{left:`${(lo/hi)*40}%`,width:`${((hi-lo)/hi)*90}%`}}/>
+<div className="hl-current-marker" style={{left:`${Math.max(2,Math.min(95,pct))}%`}}/>
+</div>
+<div className="hl-vals"><span className="hl-lo">L ${lo.toFixed(2)}</span><span className="hl-cur">C ${cur.toFixed(2)}</span><span className="hl-hi">H ${hi.toFixed(2)}</span></div>
+</div>
+);})()}
+</div>
+</div>
 
-                  {/* Greeks */}
-                  <div className="greeks-row">
-                    {[
-                      {sym:"Δ",name:"Delta",val:c.delta.toFixed(4),color:c.optType==="call"?"green":"red",pct:Math.abs(c.delta)*100},
-                      {sym:"Γ",name:"Gamma",val:c.gamma.toFixed(5),color:"blue",pct:Math.min(100,c.gamma*50000)},
-                      {sym:"Θ",name:"Theta",val:c.theta.toFixed(4),color:"red",pct:Math.min(100,Math.abs(c.theta)*200)},
-                      {sym:"V",name:"Vega",val:c.vega.toFixed(4),color:"purple",pct:Math.min(100,c.vega*80)},
-                      {sym:"ρ",name:"Rho",val:c.rho.toFixed(4),color:"cyan",pct:Math.min(100,Math.abs(c.rho)*400)},
-                    ].map(g=>(
-                      <div className="greek-box" key={g.sym}>
-                        <div className={`greek-sym`} style={{color:`var(--${g.color})`}}>{g.sym}</div>
-                        <div className="greek-name">{g.name}</div>
-                        <div className="greek-val">{g.val}</div>
-                        <div className="greek-bar-wrap"><div className="greek-bar-fill" style={{width:`${g.pct}%`,background:`var(--${g.color})`}}/></div>
-                      </div>
-                    ))}
-                  </div>
+{/* Greeks */}
+<div className="greeks-row">
+{[
+{sym:"Δ",name:"Delta",val:c.delta.toFixed(4),color:c.optType==="call"?"green":"red",pct:Math.abs(c.delta)*100},
+{sym:"Γ",name:"Gamma",val:c.gamma.toFixed(5),color:"blue",pct:Math.min(100,c.gamma*50000)},
+{sym:"Θ",name:"Theta",val:c.theta.toFixed(4),color:"red",pct:Math.min(100,Math.abs(c.theta)*200)},
+{sym:"V",name:"Vega",val:c.vega.toFixed(4),color:"purple",pct:Math.min(100,c.vega*80)},
+{sym:"ρ",name:"Rho",val:c.rho.toFixed(4),color:"cyan",pct:Math.min(100,Math.abs(c.rho)*400)},
+].map(g=>(
+<div className="greek-box" key={g.sym}>
+<div className={`greek-sym`} style={{color:`var(--${g.color})`}}>{g.sym}</div>
+<div className="greek-name">{g.name}</div>
+<div className="greek-val">{g.val}</div>
+<div className="greek-bar-wrap"><div className="greek-bar-fill" style={{width:`${g.pct}%`,background:`var(--${g.color})`}}/></div>
+</div>
+))}
+</div>
 
-                  {/* OI & Volume */}
-                  <div className="oi-row">
-                    <div className="oi-box"><div className="oi-lbl">Open Interest</div><div className="oi-val">{c.oi.toLocaleString()}</div><div className="oi-sub">{c.oi>10000?"High liquidity":c.oi>2000?"Moderate":"Low liquidity"}</div></div>
-                    <div className="oi-box"><div className="oi-lbl">Volume Today</div><div className="oi-val">{c.volume.toLocaleString()}</div><div className="oi-sub">{((c.volume/c.oi)*100).toFixed(1)}% of OI</div></div>
-                    <div className="oi-box"><div className="oi-lbl">Put/Call Ratio</div><div className="oi-val">{c.pcRatio}</div><div className="oi-sub">{c.pcRatio<0.7?"Bullish sentiment":c.pcRatio>1.3?"Bearish sentiment":"Neutral sentiment"}</div></div>
-                  </div>
+{/* OI & Volume */}
+<div className="oi-row">
+<div className="oi-box"><div className="oi-lbl">Open Interest</div><div className="oi-val">{c.oi.toLocaleString()}</div><div className="oi-sub">{c.oi>10000?"High liquidity":c.oi>2000?"Moderate":"Low liquidity"}</div></div>
+<div className="oi-box"><div className="oi-lbl">Volume Today</div><div className="oi-val">{c.volume.toLocaleString()}</div><div className="oi-sub">{((c.volume/c.oi)*100).toFixed(1)}% of OI</div></div>
+<div className="oi-box"><div className="oi-lbl">Put/Call Ratio</div><div className="oi-val">{c.pcRatio}</div><div className="oi-sub">{c.pcRatio<0.7?"Bullish sentiment":c.pcRatio>1.3?"Bearish sentiment":"Neutral sentiment"}</div></div>
+</div>
 
-                </div>
-              ))}
-            </div>
+</div>
+))}
+</div>
 
-            {/* Risk warning */}
-            {oInsights.riskWarning&&(
-              <div style={{padding:"14px 16px",background:"rgba(255,77,106,.06)",border:"1px solid rgba(255,77,106,.18)",borderRadius:9,marginBottom:16,fontSize:11.5,color:"#ff8fa3",lineHeight:1.7}}>
-                <span style={{fontWeight:700,color:"var(--red)"}}>⚠ Risk: </span>{oInsights.riskWarning}
-              </div>
-            )}
+{/* Risk warning */}
+{oInsights.riskWarning&&(
+<div style={{padding:"14px 16px",background:"rgba(255,77,106,.06)",border:"1px solid rgba(255,77,106,.18)",borderRadius:9,marginBottom:16,fontSize:11.5,color:"#ff8fa3",lineHeight:1.7}}>
+<span style={{fontWeight:700,color:"var(--red)"}}>⚠ Risk: </span>{oInsights.riskWarning}
+</div>
+)}
 
-            {/* Top play */}
-            {oInsights.topPlay&&(
-              <div style={{padding:"14px 16px",background:"rgba(0,232,122,.05)",border:"1px solid rgba(0,232,122,.15)",borderRadius:9,marginBottom:20,fontSize:11.5,color:"#7eeebb",lineHeight:1.7}}>
-                <span style={{fontWeight:700,color:"var(--green)"}}>⭐ Top Play: </span>{oInsights.topPlay}
-              </div>
-            )}
+{/* Top play */}
+{oInsights.topPlay&&(
+<div style={{padding:"14px 16px",background:"rgba(0,232,122,.05)",border:"1px solid rgba(0,232,122,.15)",borderRadius:9,marginBottom:20,fontSize:11.5,color:"#7eeebb",lineHeight:1.7}}>
+<span style={{fontWeight:700,color:"var(--green)"}}>⭐ Top Play: </span>{oInsights.topPlay}
+</div>
+)}
 
-            <div className="disc">⚠ Options trading involves substantial risk and is not suitable for all investors. These are AI-generated estimates for educational purposes only. Greeks, IV, and pricing are illustrative. Never risk more than you can afford to lose. Consult a licensed financial advisor.</div>
-          </div>
-        )}
-      </div>
-    )}
-  </div>
+<div className="disc">⚠ Options trading involves substantial risk and is not suitable for all investors. These are AI-generated estimates for educational purposes only. Greeks, IV, and pricing are illustrative. Never risk more than you can afford to lose. Consult a licensed financial advisor.</div>
+</div>
+)}
+</div>
+)}
+</div>
 </>
 ```
 
