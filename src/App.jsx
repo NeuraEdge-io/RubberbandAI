@@ -348,6 +348,23 @@ async function fetchQuote(ticker) {
   } catch { return null; }
 }
 
+// Fetch live IV from Finnhub option chain
+async function fetchLiveIV(ticker) {
+  try {
+    const r = await fetch(FINNHUB_URL+'/stock/option-chain?symbol='+ticker+'&token='+FINNHUB_KEY);
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (!d || !d.data || !d.data.length) return null;
+    const nearest = d.data[0];
+    const calls = (nearest.options && nearest.options.CALL) || [];
+    const puts = (nearest.options && nearest.options.PUT) || [];
+    const all = [...calls, ...puts];
+    const ivs = all.map(o=>o.impliedVolatility).filter(v=>v&&v>0&&v<5);
+    if (!ivs.length) return null;
+    return Math.round((ivs.reduce((a,b)=>a+b,0)/ivs.length)*100);
+  } catch { return null; }
+}
+
 async function batchFetch(tickers, onProgress) {
   const out = {};
   for (let i = 0; i < tickers.length; i++) {
@@ -524,9 +541,14 @@ export default function App() {
   const [oContracts,setOContracts]=useState([]);
   const [oTicker,setOTicker]=useState(null);
   const [oInsights,setOInsights]=useState(null);
+  const [ivCache,setIvCache]=useState({});
+  const [adminUnlocked,setAdminUnlocked]=useState(false);
+  const [adminPin,setAdminPin]=useState("");
+  const [adminError,setAdminError]=useState(false);
+  const ADMIN_PIN="2580";
   const [eName,setEName]=useState("");
   const [eEmail,setEEmail]=useState("");
-  const [eList,setEList]=useState(()=>{try{return JSON.parse(localStorage.getItem("sai_emails")||"[]");}catch{return [];}});
+  const [eList,setEList]=useState(()=>{try{return JSON.parse(localStorage.getItem("rubberband_emails")||"[]");}catch{return [];}});
   const [eOk,setEOk]=useState(false);
   const runId=useRef(0);
   const [clock,setClock]=useState(new Date().toLocaleTimeString());
@@ -552,7 +574,7 @@ export default function App() {
     return()=>clearInterval(id);
   },[]);
 
-  useEffect(()=>{try{localStorage.setItem("sai_emails",JSON.stringify(eList));}catch{};},[eList]);
+  useEffect(()=>{try{localStorage.setItem("rubberband_emails",JSON.stringify(eList));}catch{};},[eList]);
 
   const subscribe=()=>{
     if(!eEmail.includes("@"))return;
@@ -563,7 +585,7 @@ export default function App() {
 
   const exportCSV=()=>{
     const csv=["Name,Email,Date",...eList.map(e=>`${e.name},${e.email},${e.date}`)].join("\n");
-    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="screenai_subscribers.csv";a.click();
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="rubberband_subscribers.csv";a.click();
   };
 
   const liveUniverse=()=>UNIVERSE_BASE.map(s=>{
@@ -593,7 +615,16 @@ export default function App() {
     setOLoading(true);setOStep(0);setOProg(0);setOContracts([]);setOInsights(null);
     const base=OPT_BASE.find(x=>x.t===optTicker)||OPT_BASE[0];
     const lq=prices[base.t];
-    const td={...base,p:lq?lq.price:base.iv||100};
+    // Try live IV first, fall back to cached, then static baseline
+    let liveIV = ivCache[base.t] || null;
+    if (!liveIV) {
+      const fetched = await fetchLiveIV(base.t);
+      if (fetched && fetched > 5 && fetched < 300) {
+        liveIV = fetched;
+        setIvCache(prev=>({...prev,[base.t]:fetched}));
+      }
+    }
+    const td={...base,p:lq?lq.price:base.p||100,iv:liveIV||base.iv};
     const STEPS=["Fetching live underlying price","Calculating fair value","Computing Greeks (Δ Γ Θ V ρ)","Analyzing IV surface","Generating entry points","Building AI insights"];
     for(let i=0;i<STEPS.length;i++){await new Promise(r=>setTimeout(r,420));if(runId.current!==rid)return;setOStep(i+1);setOProg(Math.round(((i+1)/STEPS.length)*82));}
     const types=optType==="Calls Only"?["call"]:optType==="Puts Only"?["put"]:["call","put"];
@@ -622,7 +653,7 @@ export default function App() {
       <style>{CSS}</style>
       <div className="app">
         <header className="hdr">
-          <div className="logo"><div>SCREEN<b>.</b>AI</div><div className="logo-sub">STOCK + OPTIONS INTELLIGENCE</div></div>
+          <div className="logo"><div>RUBBERBAND<b>.</b>AI</div><div className="logo-sub">STOCK + OPTIONS INTELLIGENCE</div></div>
           <div className="hdr-right">
             <span className="chip live">● {clock}</span>
             <span className={`chip ${msClass}`}>{msLabel}</span>
@@ -633,18 +664,18 @@ export default function App() {
         <div className="tab-bar">
           <div className={`tab ${tab==="stocks"?"active":""}`} onClick={()=>setTab("stocks")}>📊 Stock Screener{stocks.length>0&&<span className="tab-badge">{stocks.length}</span>}</div>
           <div className={`tab ${tab==="options"?"active":""}`} onClick={()=>setTab("options")}>⚡ Options Screener{oContracts.length>0&&<span className="tab-badge">{oContracts.length}</span>}</div>
-          <div className={`tab ${tab==="admin"?"active":""}`} onClick={()=>setTab("admin")}>👥 Subscribers{eList.length>0&&<span className="tab-badge">{eList.length}</span>}</div>
+          <div style={{marginLeft:"auto",paddingRight:4}}><button onClick={()=>setTab("admin")} style={{background:"none",border:"none",cursor:"pointer",color:"var(--dim)",fontSize:10,opacity:.15,padding:"14px 8px",fontFamily:"DM Mono,monospace",letterSpacing:1}}>⬤</button></div>
         </div>
 
         {/* STOCK TAB */}
         {tab==="stocks"&&<div className="page">
           <div className="hero">
             <h1>Find every <span>hidden gem</span><br/>in the market.</h1>
-            <p>Scans {UNIVERSE_BASE.length}+ stocks with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Auto-refreshes every 60 seconds.</p>
+            <p>RUBBERBAND.AI scans {UNIVERSE_BASE.length}+ stocks with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Auto-refreshes every 60 seconds.</p>
           </div>
 
           <div className="email-banner">
-            <div><div className="eb-title">📬 Get Weekly AI Stock Picks — Free</div><div className="eb-sub">Top AI-screened picks delivered every Sunday. No spam, ever.</div>{eList.length>0&&<div className="eb-count">🔥 {eList.length} subscriber{eList.length!==1?"s":""} already in</div>}</div>
+            <div><div className="eb-title">📬 Get Weekly RUBBERBAND.AI Stock Picks — Free</div><div className="eb-sub">Top RUBBERBAND.AI picks delivered every Sunday. No spam, ever.</div>{eList.length>0&&<div className="eb-count">🔥 {eList.length} subscriber{eList.length!==1?"s":""} already in</div>}</div>
             {eOk?<div className="sub-ok">✅ You're in! Watch your inbox Sunday.</div>:<div className="eb-form"><input className="ei narrow" placeholder="First name" value={eName} onChange={e=>setEName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><input className="ei wide" placeholder="your@email.com" type="email" value={eEmail} onChange={e=>setEEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><button className="btn-sub" onClick={subscribe} disabled={!eEmail.includes("@")}>Subscribe Free →</button></div>}
           </div>
 
@@ -703,7 +734,7 @@ export default function App() {
           </div>
 
           <div className="email-banner" style={{marginBottom:20}}>
-            <div><div className="eb-title">📬 Get Weekly AI Stock &amp; Options Picks</div><div className="eb-sub">Top plays every Sunday. Free.</div></div>
+            <div><div className="eb-title">📬 Get Weekly RUBBERBAND.AI Picks</div><div className="eb-sub">Top plays every Sunday. Free.</div></div>
             {eOk?<div className="sub-ok">✅ You're in!</div>:<div className="eb-form"><input className="ei wide" placeholder="your@email.com" type="email" value={eEmail} onChange={e=>setEEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><button className="btn-sub" onClick={subscribe} disabled={!eEmail.includes("@")}>Subscribe →</button></div>}
           </div>
 
@@ -736,7 +767,7 @@ export default function App() {
               {oInsights.tags?.length>0&&<div className="tags">{oInsights.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}
             </div>
             <div className="stats-row">
-              <div className="sbox"><div className="sv gold">{oTicker?.iv}%</div><div className="sl">Implied Vol</div></div>
+              <div className="sbox"><div className="sv gold">{oTicker?.iv}%{ivCache[oTicker?.t]&&<span style={{fontSize:9,color:"var(--green)",display:"block",marginTop:2}}>● LIVE IV</span>}</div><div className="sl">Implied Vol</div></div>
               <div className="sbox"><div className="sv b">{oContracts.length}</div><div className="sl">Contracts</div></div>
               <div className="sbox"><div className="sv g">{oContracts.filter(c=>c.signal==="bullish").length}</div><div className="sl">Bullish</div></div>
               <div className="sbox"><div className="sv r">{oContracts.filter(c=>c.signal==="bearish").length}</div><div className="sl">Bearish</div></div>
@@ -762,24 +793,53 @@ export default function App() {
 
         {/* ADMIN TAB */}
         {tab==="admin"&&<div className="page">
-          <div className="hero">
-            <h1>Your <span>subscriber list</span></h1>
-            <p>Everyone who signed up for your weekly AI stock picks. Export as CSV to import into Mailchimp, ConvertKit, or any email platform.</p>
-          </div>
-          {eList.length===0?<div className="empty"><div className="ico">📬</div><h3>No subscribers yet</h3><p>Share your app — signups appear here instantly.</p></div>:<div className="panel">
-            <div className="panel-title">Subscribers ({eList.length})</div>
-            <div className="tbl-wrap"><table>
-              <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Date</th></tr></thead>
-              <tbody>{eList.map((e,i)=><tr key={i}><td style={{color:"var(--dim)",fontSize:10}}>{i+1}</td><td>{e.name}</td><td style={{color:"var(--green)"}}>{e.email}</td><td style={{color:"var(--dim)",fontSize:10}}>{e.date}</td></tr>)}</tbody>
-            </table></div>
-            <button className="export-btn" onClick={exportCSV}>⬇ Export CSV — Import to Mailchimp / ConvertKit</button>
-          </div>}
-          <div className="panel" style={{marginTop:20}}>
-            <div className="panel-title">Monetization Roadmap</div>
-            <div className="li-list">
-              {["Export your list and import into Mailchimp (free up to 500 contacts)","Send your first email Sunday with top 3 AI picks from this week","Add a Gumroad link to unlock the full 18-stock list for $9/month","Post a screen recording of the app on X/IG with your link","Add Webull or Tastytrade affiliate links next to each stock for passive income"].map((t,i)=><div className="li-item" key={i}><div className="li-ico ok">{i+1}</div><span>{t}</span></div>)}
+          {!adminUnlocked?(
+            <div style={{maxWidth:360,margin:"80px auto",textAlign:"center"}}>
+              <div style={{fontSize:32,marginBottom:16}}>🔒</div>
+              <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:20,marginBottom:8}}>Owner Access</div>
+              <div style={{fontSize:12,color:"var(--dim)",marginBottom:24,lineHeight:1.7}}>This area is only visible to you.<br/>Enter your PIN to continue.</div>
+              <div style={{display:"flex",flexDirection:"column",gap:10,alignItems:"center"}}>
+                <input
+                  type="password"
+                  maxLength={4}
+                  placeholder="Enter PIN"
+                  value={adminPin}
+                  onChange={e=>{setAdminPin(e.target.value);setAdminError(false);}}
+                  onKeyDown={e=>{if(e.key==="Enter"){if(adminPin===ADMIN_PIN){setAdminUnlocked(true);setAdminPin("");}else{setAdminError(true);setAdminPin("");}}}}
+                  style={{background:"var(--s2)",border:`1px solid ${adminError?"var(--red)":"var(--b2)"}`,color:"var(--txt)",fontFamily:"DM Mono,monospace",fontSize:22,padding:"12px 20px",borderRadius:10,outline:"none",width:180,textAlign:"center",letterSpacing:8}}
+                />
+                {adminError&&<div style={{fontSize:11,color:"var(--red)"}}>Incorrect PIN. Try again.</div>}
+                <button onClick={()=>{if(adminPin===ADMIN_PIN){setAdminUnlocked(true);setAdminPin("");}else{setAdminError(true);setAdminPin("");}}} style={{padding:"10px 28px",background:"var(--green)",color:"#000",border:"none",borderRadius:8,cursor:"pointer",fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,marginTop:4}}>Unlock →</button>
+              </div>
             </div>
-          </div>
+          ):(
+            <>
+              <div className="hero" style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+                <div><h1>Your <span>subscriber list</span></h1><p>Everyone signed up for your weekly AI picks. Export to import into Mailchimp or ConvertKit.</p></div>
+                <button onClick={()=>{setAdminUnlocked(false);setTab("stocks");}} style={{padding:"8px 16px",background:"var(--s2)",border:"1px solid var(--b2)",color:"var(--dim)",borderRadius:7,cursor:"pointer",fontFamily:"Syne,sans-serif",fontWeight:700,fontSize:11,marginTop:8}}>🔒 Lock</button>
+              </div>
+              <div className="stats-row" style={{marginBottom:20}}>
+                <div className="sbox"><div className="sv g">{eList.length}</div><div className="sl">Total Subscribers</div></div>
+                <div className="sbox"><div className="sv b">{eList.filter(e=>{const d=new Date(e.date);return(new Date()-d)<7*24*60*60*1000;}).length}</div><div className="sl">This Week</div></div>
+                <div className="sbox"><div className="sv gold">{eList.length>0?eList[eList.length-1].date:"—"}</div><div className="sl">Latest Signup</div></div>
+                <div className="sbox"><div className="sv p">{eList.filter(e=>e.name!=="Anonymous").length}</div><div className="sl">Named Contacts</div></div>
+              </div>
+              {eList.length===0?<div className="empty"><div className="ico">📬</div><h3>No subscribers yet</h3><p>Share RUBBERBAND.AI — signups appear here instantly.</p></div>:<div className="panel">
+                <div className="panel-title">Subscribers ({eList.length})</div>
+                <div className="tbl-wrap"><table>
+                  <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Date</th></tr></thead>
+                  <tbody>{eList.map((e,i)=><tr key={i}><td style={{color:"var(--dim)",fontSize:10}}>{i+1}</td><td>{e.name}</td><td style={{color:"var(--green)"}}>{e.email}</td><td style={{color:"var(--dim)",fontSize:10}}>{e.date}</td></tr>)}</tbody>
+                </table></div>
+                <button className="export-btn" onClick={exportCSV}>⬇ Export CSV — Import to Mailchimp / ConvertKit</button>
+              </div>}
+              <div className="panel" style={{marginTop:20}}>
+                <div className="panel-title">Monetization Roadmap</div>
+                <div className="li-list">
+                  {["Export your list and import into Mailchimp (free up to 500 contacts)","Send your first email Sunday with top 3 AI picks from this week","Add a Gumroad link to unlock the full 18-stock list for $9/month","Post a screen recording of RUBBERBAND.AI on X/IG with your link","Add Webull or Tastytrade affiliate links next to each stock for passive income"].map((t,i)=><div className="li-item" key={i}><div className="li-ico ok">{i+1}</div><span>{t}</span></div>)}
+                </div>
+              </div>
+            </>
+          )}
         </div>}
       </div>
     </>
