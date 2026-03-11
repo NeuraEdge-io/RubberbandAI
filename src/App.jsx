@@ -331,11 +331,10 @@ const UNIVERSE_BASE = [
   {t:"BIRK",n:"Birkenstock",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
   {t:"VITL",n:"Vital Farms",sec:"Consumer Staples",cap:"Small",geo:"US"},
   {t:"AMD",n:"AMD",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"AMZN",n:"Amazon.com",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
 ];
 
 const OPT_BASE = [
-  // ── Mega Cap Tech ──
+  // ── Mega Cap ──
   {t:"NVDA",n:"NVIDIA Corp",iv:68,cat:"Mega Cap"},
   {t:"AAPL",n:"Apple Inc",iv:24,cat:"Mega Cap"},
   {t:"TSLA",n:"Tesla Inc",iv:72,cat:"Mega Cap"},
@@ -363,11 +362,11 @@ const OPT_BASE = [
   {t:"HOOD",n:"Robinhood Markets",iv:78,cat:"High Vol"},
   {t:"GME",n:"GameStop",iv:92,cat:"High Vol"},
   {t:"AMC",n:"AMC Entertainment",iv:110,cat:"High Vol"},
-  {t:"BBAI",n:"BigBear.ai",iv:102,cat:"High Vol"},
   {t:"CIFR",n:"Cipher Mining",iv:118,cat:"High Vol"},
   {t:"MARA",n:"MARA Holdings",iv:105,cat:"High Vol"},
   {t:"RIOT",n:"Riot Platforms",iv:108,cat:"High Vol"},
   {t:"CLSK",n:"CleanSpark",iv:112,cat:"High Vol"},
+  {t:"OWN",n:"Ownership Corp",iv:88,cat:"High Vol"},
   // ── AI / Tech Growth ──
   {t:"SOUN",n:"SoundHound AI",iv:96,cat:"AI"},
   {t:"SERV",n:"Serve Robotics",iv:104,cat:"AI"},
@@ -382,14 +381,13 @@ const OPT_BASE = [
   {t:"SNOW",n:"Snowflake",iv:62,cat:"AI"},
   {t:"PATH",n:"UiPath",iv:64,cat:"AI"},
   {t:"GTLB",n:"GitLab",iv:66,cat:"AI"},
+  {t:"NBIS",n:"Nebius Group",iv:92,cat:"AI"},
   // ── eVTOL / Aerospace ──
   {t:"ACHR",n:"Archer Aviation",iv:108,cat:"eVTOL"},
   {t:"JOBY",n:"Joby Aviation",iv:96,cat:"eVTOL"},
-  {t:"LILM",n:"Lilium",iv:118,cat:"eVTOL"},
-  {t:"EVTL",n:"Vertical Aerospace",iv:114,cat:"eVTOL"},
   {t:"RKLB",n:"Rocket Lab USA",iv:94,cat:"eVTOL"},
+  {t:"EVTL",n:"Vertical Aerospace",iv:114,cat:"eVTOL"},
   // ── Biotech / Health ──
-  {t:"NBIS",n:"Nebius Group",iv:92,cat:"Biotech"},
   {t:"NUVL",n:"Nuvalent Inc",iv:78,cat:"Biotech"},
   {t:"AXSM",n:"Axsome Therapeutics",iv:82,cat:"Biotech"},
   {t:"BEAM",n:"Beam Therapeutics",iv:86,cat:"Biotech"},
@@ -405,18 +403,18 @@ const OPT_BASE = [
   {t:"NU",n:"Nu Holdings",iv:58,cat:"Fintech"},
   {t:"V",n:"Visa Inc",iv:18,cat:"Fintech"},
   {t:"PYPL",n:"PayPal",iv:44,cat:"Fintech"},
-  // ── Energy / EV ──
+  // ── EV / Energy ──
   {t:"RIVN",n:"Rivian Automotive",iv:88,cat:"EV/Energy"},
   {t:"LCID",n:"Lucid Group",iv:96,cat:"EV/Energy"},
   {t:"NIO",n:"NIO Inc",iv:82,cat:"EV/Energy"},
   {t:"XPEV",n:"XPeng Inc",iv:78,cat:"EV/Energy"},
   {t:"ENPH",n:"Enphase Energy",iv:66,cat:"EV/Energy"},
   {t:"FSLR",n:"First Solar",iv:52,cat:"EV/Energy"},
-  // ── Real Estate / SPAC / Other High Vol ──
-  {t:"OWN",n:"Ownership Corp",iv:88,cat:"High Vol"},
+  // ── Enterprise SaaS ──
   {t:"NOW",n:"ServiceNow",iv:34,cat:"Enterprise"},
   {t:"CRM",n:"Salesforce",iv:30,cat:"Enterprise"},
   {t:"HUBS",n:"HubSpot",iv:44,cat:"Enterprise"},
+  {t:"ADBE",n:"Adobe Inc",iv:32,cat:"Enterprise"},
   // ── Consumer / Retail ──
   {t:"SHOP",n:"Shopify",iv:56,cat:"Consumer"},
   {t:"MELI",n:"MercadoLibre",iv:44,cat:"Consumer"},
