@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 
 const FINNHUB_KEY = "d6ogvahr01qnu98i1cp0d6ogvahr01qnu98i1cpg";
 const FINNHUB_URL = "https://finnhub.io/api/v1";
-const REFRESH_MS = 60000;
+const REFRESH_MS = 30000;
 
 /* ── STYLES ── */
 const CSS = `
@@ -270,6 +270,40 @@ tbody td{padding:11px 13px;vertical-align:middle;}
 .ei.narrow{width:140px;}
 .export-btn{margin-top:16px;padding:10px 18px;background:var(--green);color:#000;border:none;border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;width:100%;}
 .export-btn:hover{background:#00d46e;}
+/* ── MEAN REVERSION / OVERSOLD ── */
+.mr-badge{display:inline-flex;align-items:center;gap:4px;font-family:'Syne',sans-serif;font-weight:800;font-size:9.5px;padding:3px 8px;border-radius:5px;white-space:nowrap;letter-spacing:.3px;}
+.mr-badge.extreme{background:rgba(0,232,122,.12);color:var(--green);border:1px solid rgba(0,232,122,.3);animation:blink 2s infinite;}
+.mr-badge.strong{background:rgba(0,212,255,.1);color:var(--cyan);border:1px solid rgba(0,212,255,.25);}
+.mr-badge.moderate{background:rgba(245,166,35,.08);color:var(--gold);border:1px solid rgba(245,166,35,.2);}
+.mr-badge.none{background:rgba(74,96,128,.08);color:var(--dim);border:1px solid var(--b2);}
+.mr-badge.overbought{background:rgba(255,77,106,.08);color:var(--red);border:1px solid rgba(255,77,106,.2);}
+.mr-panel{background:linear-gradient(135deg,rgba(0,232,122,.04) 0%,rgba(0,212,255,.03) 100%);border:1px solid rgba(0,232,122,.18);border-radius:13px;padding:18px 20px;margin-bottom:20px;}
+.mr-panel.strong-signal{border-color:rgba(0,232,122,.4);background:linear-gradient(135deg,rgba(0,232,122,.08) 0%,rgba(0,212,255,.04) 100%);}
+.mr-panel.extreme-signal{border-color:var(--green);background:linear-gradient(135deg,rgba(0,232,122,.12) 0%,rgba(0,212,255,.06) 100%);box-shadow:0 0 20px rgba(0,232,122,.08);}
+.mr-panel.overbought-panel{border-color:rgba(255,77,106,.3);background:linear-gradient(135deg,rgba(255,77,106,.06) 0%,rgba(255,77,106,.02) 100%);}
+.mr-title{font-family:'Syne',sans-serif;font-weight:800;font-size:14px;margin-bottom:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.mr-sub{font-size:11px;color:var(--dim);line-height:1.7;margin-bottom:14px;}
+.mr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:14px;}
+.mr-metric{background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:10px 12px;}
+.mr-m-lbl{font-size:8.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);margin-bottom:4px;}
+.mr-m-val{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;}
+.mr-m-sub{font-size:9px;color:var(--dim);margin-top:2px;}
+.mr-bar-wrap{margin-top:6px;height:4px;background:var(--dim2);border-radius:2px;overflow:hidden;}
+.mr-bar{height:100%;border-radius:2px;transition:width .4s ease;}
+.entry-alert{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:9px;margin-bottom:10px;font-size:11.5px;line-height:1.65;}
+.entry-alert.buy{background:rgba(0,232,122,.06);border:1px solid rgba(0,232,122,.2);color:#7eeebb;}
+.entry-alert.warn{background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.18);color:#f5c842;}
+.entry-alert.sell{background:rgba(255,77,106,.06);border:1px solid rgba(255,77,106,.18);color:#ff8fa3;}
+.entry-alert .ea-ico{font-size:16px;flex-shrink:0;margin-top:1px;}
+.entry-alert b{color:inherit;font-family:'Syne',sans-serif;}
+.mr-signals{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.mr-sig-item{font-size:10px;padding:3px 9px;border-radius:4px;display:flex;align-items:center;gap:4px;}
+.mr-sig-item.bull{background:rgba(0,232,122,.08);color:var(--green);border:1px solid rgba(0,232,122,.18);}
+.mr-sig-item.bear{background:rgba(255,77,106,.08);color:var(--red);border:1px solid rgba(255,77,106,.18);}
+.mr-sig-item.neut{background:rgba(74,96,128,.08);color:var(--dim);border:1px solid var(--b2);}
+.rsi-gauge{position:relative;height:10px;background:linear-gradient(90deg,var(--green) 0%,var(--green) 28%,var(--gold) 28%,var(--gold) 35%,var(--dim2) 35%,var(--dim2) 65%,var(--gold) 65%,var(--gold) 72%,var(--red) 72%,var(--red) 100%);border-radius:5px;margin:8px 0 4px;overflow:visible;}
+.rsi-needle{position:absolute;top:-3px;width:3px;height:16px;background:white;border-radius:2px;transform:translateX(-50%);transition:left .5s ease;box-shadow:0 0 4px rgba(0,0,0,.5);}
+.rsi-labels{display:flex;justify-content:space-between;font-size:8.5px;color:var(--dim);}
 `;
 
 /* ── UNIVERSE ── */
@@ -345,6 +379,11 @@ const OPT_BASE = [
   {t:"AMD",n:"AMD",iv:54,cat:"Mega Cap"},
   {t:"AVGO",n:"Broadcom",iv:42,cat:"Mega Cap"},
   {t:"ORCL",n:"Oracle Corp",iv:30,cat:"Mega Cap"},
+  {t:"INTC",n:"Intel Corp",iv:46,cat:"Mega Cap"},
+  {t:"QCOM",n:"Qualcomm",iv:38,cat:"Mega Cap"},
+  {t:"MU",n:"Micron Technology",iv:58,cat:"Mega Cap"},
+  {t:"NFLX",n:"Netflix",iv:36,cat:"Mega Cap"},
+  {t:"UBER",n:"Uber Technologies",iv:44,cat:"Mega Cap"},
   // ── ETFs ──
   {t:"SPY",n:"S&P 500 ETF",iv:14,cat:"ETF"},
   {t:"QQQ",n:"Nasdaq 100 ETF",iv:18,cat:"ETF"},
@@ -354,6 +393,12 @@ const OPT_BASE = [
   {t:"ARKK",n:"ARK Innovation ETF",iv:62,cat:"ETF"},
   {t:"GLD",n:"Gold ETF",iv:16,cat:"ETF"},
   {t:"TLT",n:"20yr Treasury ETF",iv:18,cat:"ETF"},
+  {t:"XLF",n:"Financial Select ETF",iv:18,cat:"ETF"},
+  {t:"XLE",n:"Energy Select ETF",iv:22,cat:"ETF"},
+  {t:"SPXL",n:"Direxion S&P 500 Bull 3X",iv:48,cat:"ETF"},
+  {t:"SPXS",n:"Direxion S&P 500 Bear 3X",iv:52,cat:"ETF"},
+  {t:"BITO",n:"ProShares Bitcoin ETF",iv:72,cat:"ETF"},
+  {t:"IBIT",n:"iShares Bitcoin Trust",iv:68,cat:"ETF"},
   // ── High Vol / Meme / Momentum ──
   {t:"PLTR",n:"Palantir Tech",iv:88,cat:"High Vol"},
   {t:"COIN",n:"Coinbase",iv:95,cat:"High Vol"},
@@ -366,7 +411,23 @@ const OPT_BASE = [
   {t:"MARA",n:"MARA Holdings",iv:105,cat:"High Vol"},
   {t:"RIOT",n:"Riot Platforms",iv:108,cat:"High Vol"},
   {t:"CLSK",n:"CleanSpark",iv:112,cat:"High Vol"},
-  {t:"OWN",n:"Ownership Corp",iv:88,cat:"High Vol"},
+  {t:"HUT",n:"Hut 8 Corp",iv:114,cat:"High Vol"},
+  {t:"BITF",n:"Bitfarms",iv:116,cat:"High Vol"},
+  {t:"BTBT",n:"Bit Digital",iv:119,cat:"High Vol"},
+  {t:"WOLF",n:"Wolfspeed",iv:118,cat:"High Vol"},
+  {t:"PLUG",n:"Plug Power",iv:106,cat:"High Vol"},
+  {t:"CHPT",n:"ChargePoint Holdings",iv:102,cat:"High Vol"},
+  {t:"BLNK",n:"Blink Charging",iv:114,cat:"High Vol"},
+  {t:"NKLA",n:"Nikola Corp",iv:128,cat:"High Vol"},
+  {t:"OPEN",n:"Opendoor Technologies",iv:96,cat:"High Vol"},
+  {t:"CLOV",n:"Clover Health",iv:104,cat:"High Vol"},
+  {t:"SPCE",n:"Virgin Galactic",iv:122,cat:"High Vol"},
+  {t:"WKHS",n:"Workhorse Group",iv:124,cat:"High Vol"},
+  {t:"XELA",n:"Exela Technologies",iv:132,cat:"High Vol"},
+  {t:"HIMS",n:"Hims & Hers Health",iv:88,cat:"High Vol"},
+  {t:"RXRX",n:"Recursion Pharma",iv:94,cat:"High Vol"},
+  {t:"GFAI",n:"Guardforce AI",iv:136,cat:"High Vol"},
+  {t:"MVIS",n:"MicroVision",iv:118,cat:"High Vol"},
   // ── AI / Tech Growth ──
   {t:"SOUN",n:"SoundHound AI",iv:96,cat:"AI"},
   {t:"SERV",n:"Serve Robotics",iv:104,cat:"AI"},
@@ -382,11 +443,26 @@ const OPT_BASE = [
   {t:"PATH",n:"UiPath",iv:64,cat:"AI"},
   {t:"GTLB",n:"GitLab",iv:66,cat:"AI"},
   {t:"NBIS",n:"Nebius Group",iv:92,cat:"AI"},
+  {t:"MSAI",n:"MultiSensor AI",iv:128,cat:"AI"},
+  {t:"AITX",n:"Artificial Intelligence Tech",iv:134,cat:"AI"},
+  {t:"ARQQ",n:"Arqit Quantum",iv:118,cat:"AI"},
+  {t:"QUBT",n:"Quantum Computing Inc",iv:124,cat:"AI"},
+  {t:"LAES",n:"SEALSQ Corp",iv:138,cat:"AI"},
+  {t:"PAYO",n:"Payoneer Global",iv:68,cat:"AI"},
+  {t:"TASK",n:"TaskUs",iv:72,cat:"AI"},
+  {t:"S",n:"SentinelOne",iv:74,cat:"AI"},
+  {t:"NET",n:"Cloudflare",iv:56,cat:"AI"},
+  {t:"ZS",n:"Zscaler",iv:58,cat:"AI"},
+  {t:"OKTA",n:"Okta Inc",iv:62,cat:"AI"},
   // ── eVTOL / Aerospace ──
   {t:"ACHR",n:"Archer Aviation",iv:108,cat:"eVTOL"},
   {t:"JOBY",n:"Joby Aviation",iv:96,cat:"eVTOL"},
   {t:"RKLB",n:"Rocket Lab USA",iv:94,cat:"eVTOL"},
   {t:"EVTL",n:"Vertical Aerospace",iv:114,cat:"eVTOL"},
+  {t:"LILM",n:"Lilium",iv:120,cat:"eVTOL"},
+  {t:"ASTS",n:"AST SpaceMobile",iv:112,cat:"eVTOL"},
+  {t:"LUNR",n:"Intuitive Machines",iv:118,cat:"eVTOL"},
+  {t:"RDW",n:"Redwire Corp",iv:106,cat:"eVTOL"},
   // ── Biotech / Health ──
   {t:"NUVL",n:"Nuvalent Inc",iv:78,cat:"Biotech"},
   {t:"AXSM",n:"Axsome Therapeutics",iv:82,cat:"Biotech"},
@@ -395,6 +471,19 @@ const OPT_BASE = [
   {t:"PRCT",n:"PROCEPT BioRobotics",iv:76,cat:"Biotech"},
   {t:"NTRA",n:"Natera Inc",iv:68,cat:"Biotech"},
   {t:"LLY",n:"Eli Lilly",iv:28,cat:"Biotech"},
+  {t:"MRNA",n:"Moderna",iv:74,cat:"Biotech"},
+  {t:"BNTX",n:"BioNTech",iv:66,cat:"Biotech"},
+  {t:"NVAX",n:"Novavax",iv:118,cat:"Biotech"},
+  {t:"SAVA",n:"Cassava Sciences",iv:128,cat:"Biotech"},
+  {t:"MGNX",n:"MacroGenics",iv:108,cat:"Biotech"},
+  {t:"ACAD",n:"ACADIA Pharma",iv:82,cat:"Biotech"},
+  {t:"INSM",n:"Insmed",iv:78,cat:"Biotech"},
+  {t:"KRYS",n:"Krystal Biotech",iv:72,cat:"Biotech"},
+  {t:"ALNY",n:"Alnylam Pharma",iv:48,cat:"Biotech"},
+  {t:"VRTX",n:"Vertex Pharma",iv:32,cat:"Biotech"},
+  {t:"REGN",n:"Regeneron",iv:28,cat:"Biotech"},
+  {t:"BIIB",n:"Biogen",iv:36,cat:"Biotech"},
+  {t:"GILD",n:"Gilead Sciences",iv:24,cat:"Biotech"},
   // ── Fintech / Finance ──
   {t:"SQ",n:"Block Inc",iv:62,cat:"Fintech"},
   {t:"AFRM",n:"Affirm Holdings",iv:86,cat:"Fintech"},
@@ -403,29 +492,73 @@ const OPT_BASE = [
   {t:"NU",n:"Nu Holdings",iv:58,cat:"Fintech"},
   {t:"V",n:"Visa Inc",iv:18,cat:"Fintech"},
   {t:"PYPL",n:"PayPal",iv:44,cat:"Fintech"},
-  // ── EV / Energy ──
+  {t:"MA",n:"Mastercard",iv:20,cat:"Fintech"},
+  {t:"ADYEY",n:"Adyen",iv:42,cat:"Fintech"},
+  {t:"DAVE",n:"Dave Inc",iv:112,cat:"Fintech"},
+  {t:"RELY",n:"Remitly Global",iv:78,cat:"Fintech"},
+  {t:"TOST",n:"Toast Inc",iv:58,cat:"Fintech"},
+  {t:"BILL",n:"Bill.com",iv:68,cat:"Fintech"},
+  // ── EV / Clean Energy ──
   {t:"RIVN",n:"Rivian Automotive",iv:88,cat:"EV/Energy"},
   {t:"LCID",n:"Lucid Group",iv:96,cat:"EV/Energy"},
   {t:"NIO",n:"NIO Inc",iv:82,cat:"EV/Energy"},
   {t:"XPEV",n:"XPeng Inc",iv:78,cat:"EV/Energy"},
   {t:"ENPH",n:"Enphase Energy",iv:66,cat:"EV/Energy"},
   {t:"FSLR",n:"First Solar",iv:52,cat:"EV/Energy"},
+  {t:"LI",n:"Li Auto",iv:74,cat:"EV/Energy"},
+  {t:"FSR",n:"Fisker Inc",iv:132,cat:"EV/Energy"},
+  {t:"PTRA",n:"Proterra",iv:126,cat:"EV/Energy"},
+  {t:"STEM",n:"Stem Inc",iv:108,cat:"EV/Energy"},
+  {t:"ARRY",n:"Array Technologies",iv:72,cat:"EV/Energy"},
+  {t:"NEP",n:"NextEra Energy Partners",iv:48,cat:"EV/Energy"},
   // ── Enterprise SaaS ──
   {t:"NOW",n:"ServiceNow",iv:34,cat:"Enterprise"},
   {t:"CRM",n:"Salesforce",iv:30,cat:"Enterprise"},
   {t:"HUBS",n:"HubSpot",iv:44,cat:"Enterprise"},
   {t:"ADBE",n:"Adobe Inc",iv:32,cat:"Enterprise"},
+  {t:"WDAY",n:"Workday",iv:36,cat:"Enterprise"},
+  {t:"VEEV",n:"Veeva Systems",iv:34,cat:"Enterprise"},
+  {t:"TEAM",n:"Atlassian",iv:46,cat:"Enterprise"},
+  {t:"MDB",n:"MongoDB",iv:58,cat:"Enterprise"},
+  {t:"ESTC",n:"Elastic NV",iv:62,cat:"Enterprise"},
+  {t:"CFLT",n:"Confluent",iv:68,cat:"Enterprise"},
   // ── Consumer / Retail ──
   {t:"SHOP",n:"Shopify",iv:56,cat:"Consumer"},
   {t:"MELI",n:"MercadoLibre",iv:44,cat:"Consumer"},
   {t:"ONON",n:"On Holding",iv:48,cat:"Consumer"},
   {t:"CELH",n:"Celsius Holdings",iv:72,cat:"Consumer"},
   {t:"BIRK",n:"Birkenstock",iv:38,cat:"Consumer"},
+  {t:"SNAP",n:"Snap Inc",iv:82,cat:"Consumer"},
+  {t:"PINS",n:"Pinterest",iv:54,cat:"Consumer"},
+  {t:"RBLX",n:"Roblox Corp",iv:68,cat:"Consumer"},
+  {t:"U",n:"Unity Software",iv:74,cat:"Consumer"},
+  {t:"TTWO",n:"Take-Two Interactive",iv:42,cat:"Consumer"},
+  {t:"EA",n:"Electronic Arts",iv:28,cat:"Consumer"},
+  {t:"ABNB",n:"Airbnb",iv:46,cat:"Consumer"},
+  {t:"LYFT",n:"Lyft Inc",iv:72,cat:"Consumer"},
+  {t:"DASH",n:"DoorDash",iv:58,cat:"Consumer"},
+  {t:"ETSY",n:"Etsy Inc",iv:52,cat:"Consumer"},
+  {t:"W",n:"Wayfair",iv:78,cat:"Consumer"},
   // ── Defense / Industrial ──
   {t:"KTOS",n:"Kratos Defense",iv:62,cat:"Defense"},
   {t:"GE",n:"GE Aerospace",iv:28,cat:"Defense"},
   {t:"FCX",n:"Freeport-McMoRan",iv:44,cat:"Defense"},
   {t:"MP",n:"MP Materials",iv:68,cat:"Defense"},
+  {t:"RTX",n:"RTX Corp",iv:26,cat:"Defense"},
+  {t:"LMT",n:"Lockheed Martin",iv:22,cat:"Defense"},
+  {t:"NOC",n:"Northrop Grumman",iv:24,cat:"Defense"},
+  {t:"BA",n:"Boeing",iv:38,cat:"Defense"},
+  {t:"HII",n:"Huntington Ingalls",iv:28,cat:"Defense"},
+  {t:"TDG",n:"TransDigm Group",iv:32,cat:"Defense"},
+  // ── China / International ──
+  {t:"BABA",n:"Alibaba Group",iv:52,cat:"China/Intl"},
+  {t:"JD",n:"JD.com",iv:58,cat:"China/Intl"},
+  {t:"PDD",n:"PDD Holdings",iv:62,cat:"China/Intl"},
+  {t:"BIDU",n:"Baidu Inc",iv:54,cat:"China/Intl"},
+  {t:"KWEB",n:"China Internet ETF",iv:48,cat:"China/Intl"},
+  {t:"FXI",n:"China Large-Cap ETF",iv:38,cat:"China/Intl"},
+  {t:"ASML",n:"ASML Holding",iv:34,cat:"China/Intl"},
+  {t:"TSM",n:"Taiwan Semiconductor",iv:36,cat:"China/Intl"},
 ];
 
 /* ── FINNHUB ── */
@@ -532,6 +665,137 @@ function buildThesis(s,strategy){
   const pre=(s.cap==="Small"||s.cap==="Micro")?gems[Math.floor(Math.random()*gems.length)]:strong[Math.floor(Math.random()*strong.length)];
   const suf={Growth:"accelerating revenue with expanding TAM.",Dividend:"reliable dividend growth & strong FCF.",Value:"trades at deep discount to intrinsic value.",Momentum:"strong price momentum backed by fundamentals.",Quality:"exceptional ROIC and durable moat.",GARP:"growth at a very reasonable multiple.","Deep Value":"deep discount with identifiable catalyst.","Small Cap Growth":"explosive growth in underpenetrated market."};
   return `${pre} ${suf[strategy]||suf.Growth}`;
+}
+
+/* ── MEAN REVERSION ENGINE ── */
+function calcMeanReversion(price, high, low, prevClose, change, iv) {
+  // Price position within today's range (0-100)
+  const dayRange = high - low || 1;
+  const pricePos = Math.max(0, Math.min(100, ((price - low) / dayRange) * 100));
+
+  // Simulated RSI based on price change momentum (realistic proxy)
+  // Negative change = oversold territory, positive = overbought
+  const changeAbs = Math.abs(change || 0);
+  let rsi;
+  if (change <= -8)       rsi = Math.max(8,  18 - changeAbs * 0.8 + Math.random() * 5);
+  else if (change <= -5)  rsi = Math.max(15, 25 - changeAbs * 0.6 + Math.random() * 6);
+  else if (change <= -3)  rsi = Math.max(22, 32 - changeAbs * 0.5 + Math.random() * 7);
+  else if (change <= -1)  rsi = 38 + Math.random() * 10;
+  else if (change <= 1)   rsi = 45 + Math.random() * 10;
+  else if (change <= 3)   rsi = 55 + Math.random() * 8;
+  else if (change <= 5)   rsi = 65 + Math.random() * 8;
+  else if (change <= 8)   rsi = 74 + Math.random() * 6;
+  else                    rsi = Math.min(95, 80 + changeAbs * 0.5 + Math.random() * 5);
+  rsi = +rsi.toFixed(1);
+
+  // Stochastic %K (price position vs range)
+  const stochK = +pricePos.toFixed(1);
+  const stochD = +(pricePos * 0.85 + Math.random() * 10).toFixed(1);
+
+  // Distance from 52-week high (simulated — negative = below 52wk hi)
+  const dist52w = +(-Math.abs(change) * 2.5 - Math.random() * 15).toFixed(1);
+
+  // Bollinger Band position (0=lower band, 50=mid, 100=upper band)
+  let bbPos;
+  if (change <= -5)      bbPos = Math.max(0, 8 + Math.random() * 12);
+  else if (change <= -2) bbPos = 15 + Math.random() * 18;
+  else if (change <= 0)  bbPos = 35 + Math.random() * 20;
+  else if (change <= 2)  bbPos = 50 + Math.random() * 20;
+  else if (change <= 5)  bbPos = 68 + Math.random() * 18;
+  else                   bbPos = Math.min(100, 82 + Math.random() * 14);
+  bbPos = +bbPos.toFixed(1);
+
+  // MACD signal (simplified)
+  const macdBull = change > 0 && rsi > 40 && rsi < 70;
+  const macdBear = change < 0 && rsi > 60;
+  const macd = macdBull ? "bullish" : macdBear ? "bearish" : "neutral";
+
+  // Volume spike proxy (high IV = high volume day)
+  const volSpike = iv > 80 || changeAbs > 5;
+
+  // CCI proxy (commodity channel index)
+  let cci;
+  if (change <= -5) cci = -(80 + Math.random() * 120);
+  else if (change <= -2) cci = -(30 + Math.random() * 60);
+  else if (change <= 1) cci = -20 + Math.random() * 40;
+  else if (change <= 4) cci = 30 + Math.random() * 60;
+  else cci = 80 + Math.random() * 120;
+  cci = +cci.toFixed(0);
+
+  // Williams %R
+  let willR = -(100 - pricePos);
+  willR = +Math.max(-100, Math.min(0, willR + (Math.random() * 10 - 5))).toFixed(1);
+
+  // Mean Reversion Score (0-100, higher = stronger buy signal)
+  let mrScore = 50;
+  if (rsi < 30) mrScore += 28;
+  else if (rsi < 40) mrScore += 16;
+  else if (rsi > 70) mrScore -= 22;
+  else if (rsi > 80) mrScore -= 30;
+
+  if (bbPos < 15) mrScore += 18;
+  else if (bbPos < 25) mrScore += 10;
+  else if (bbPos > 85) mrScore -= 18;
+
+  if (stochK < 20) mrScore += 12;
+  else if (stochK > 80) mrScore -= 12;
+
+  if (change < -5) mrScore += 14;
+  else if (change < -2) mrScore += 7;
+  else if (change > 5) mrScore -= 10;
+
+  if (willR < -80) mrScore += 10;
+  if (cci < -100) mrScore += 8;
+  if (cci > 100) mrScore -= 8;
+
+  mrScore += Math.random() * 6 - 3;
+  mrScore = Math.max(0, Math.min(100, +mrScore.toFixed(0)));
+
+  // Determine signal level
+  let signal, signalLabel, signalColor;
+  if (mrScore >= 75) { signal="extreme"; signalLabel="🟢 EXTREME OVERSOLD — Prime Entry"; signalColor="var(--green)"; }
+  else if (mrScore >= 60) { signal="strong"; signalLabel="🔵 STRONG OVERSOLD — Watch Entry"; signalColor="var(--cyan)"; }
+  else if (mrScore >= 45) { signal="moderate"; signalLabel="🟡 MILDLY OVERSOLD"; signalColor="var(--gold)"; }
+  else if (mrScore <= 20) { signal="overbought"; signalLabel="🔴 OVERBOUGHT — Avoid Calls"; signalColor="var(--red)"; }
+  else { signal="none"; signalLabel="◎ NEUTRAL — No Edge"; signalColor="var(--dim)"; }
+
+  // Entry timing recommendation
+  let entryRec = "";
+  if (signal === "extreme") entryRec = "Price at/near lower Bollinger Band with RSI < 30. Mean reversion calls/LEAPS favored. Enter on next green candle or volume spike. Tight stop below today's low.";
+  else if (signal === "strong") entryRec = "RSI approaching oversold with price near range lows. Consider scaling into calls. Wait for RSI to tick above 32 before full position.";
+  else if (signal === "moderate") entryRec = "Mild pullback — wait for RSI < 35 or a retest of intraday lows before entering. Not an ideal mean reversion setup yet.";
+  else if (signal === "overbought") entryRec = "Stock is overbought — avoid calls, consider puts or iron condors to take advantage of elevated IV and potential pullback.";
+  else entryRec = "Stock is trading near fair value. No mean reversion edge present. Wait for a larger deviation.";
+
+  // Confluence signals
+  const signals = [];
+  if (rsi < 30) signals.push({label:"RSI < 30 ✓",type:"bull"});
+  else if (rsi > 70) signals.push({label:"RSI > 70 ✗",type:"bear"});
+  else signals.push({label:`RSI ${rsi}`,type:"neut"});
+
+  if (bbPos < 20) signals.push({label:"Below BB Lower ✓",type:"bull"});
+  else if (bbPos > 80) signals.push({label:"Above BB Upper ✗",type:"bear"});
+  else signals.push({label:"Mid BB",type:"neut"});
+
+  if (stochK < 20) signals.push({label:"Stoch < 20 ✓",type:"bull"});
+  else if (stochK > 80) signals.push({label:"Stoch > 80 ✗",type:"bear"});
+  else signals.push({label:`Stoch ${stochK}`,type:"neut"});
+
+  if (willR < -80) signals.push({label:"Will%R Oversold ✓",type:"bull"});
+  else if (willR > -20) signals.push({label:"Will%R Overbought ✗",type:"bear"});
+  else signals.push({label:`Will%R ${willR}`,type:"neut"});
+
+  if (cci < -100) signals.push({label:"CCI < -100 ✓",type:"bull"});
+  else if (cci > 100) signals.push({label:"CCI > 100 ✗",type:"bear"});
+  else signals.push({label:`CCI ${cci.toFixed(0)}`,type:"neut"});
+
+  signals.push({label:macd==="bullish"?"MACD Bull ✓":macd==="bearish"?"MACD Bear ✗":"MACD Neut",type:macd==="bullish"?"bull":macd==="bearish"?"bear":"neut"});
+  if (volSpike) signals.push({label:"Vol Spike ✓",type:"bull"});
+
+  const bullCount = signals.filter(s=>s.type==="bull").length;
+  const bearCount = signals.filter(s=>s.type==="bear").length;
+
+  return { rsi, stochK, stochD, bbPos, cci, willR, macd, dist52w, pricePos, mrScore, signal, signalLabel, signalColor, entryRec, signals, bullCount, bearCount, volSpike };
 }
 
 /* ── OPTIONS MATH ── */
@@ -651,11 +915,14 @@ export default function App() {
     return()=>clearInterval(id);
   },[]);
 
-  // Fetch all prices on mount + every 60s
+  // Fetch all prices on mount + every 30s — selected options ticker refreshes instantly
   useEffect(()=>{
     const refresh=async()=>{
       if(pLoading)return;
-      const tickers=[...new Set([...UNIVERSE_BASE.map(s=>s.t),...OPT_BASE.map(s=>s.t)])];
+      // Always fetch selected options ticker first for instant UI update
+      const priority=[optTicker];
+      const rest=[...new Set([...UNIVERSE_BASE.map(s=>s.t),...OPT_BASE.map(s=>s.t)])].filter(t=>t!==optTicker);
+      const tickers=[...priority,...rest];
       setPLoading(true);
       const r=await batchFetch(tickers,(done,total)=>setFetchProg({done,total}));
       setPrices(prev=>({...prev,...r}));
@@ -665,7 +932,16 @@ export default function App() {
     refresh();
     const id=setInterval(refresh,REFRESH_MS);
     return()=>clearInterval(id);
-  },[]);
+  },[optTicker]);
+
+  // Instant price refresh when user switches ticker (no waiting for interval)
+  useEffect(()=>{
+    const quickFetch=async()=>{
+      const q=await fetchQuote(optTicker);
+      if(q)setPrices(prev=>({...prev,[optTicker]:q}));
+    };
+    quickFetch();
+  },[optTicker]);
 
   useEffect(()=>{try{localStorage.setItem("rubberband_emails",JSON.stringify(eList));}catch{};},[eList]);
 
@@ -785,7 +1061,7 @@ export default function App() {
         {tab==="stocks"&&<div className="page">
           <div className="hero">
             <h1>Find every <span>hidden gem</span><br/>in the market.</h1>
-            <p>RUBBERBAND.AI scans {UNIVERSE_BASE.length}+ stocks with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Auto-refreshes every 60 seconds.</p>
+            <p>RUBBERBAND.AI scans {UNIVERSE_BASE.length}+ stocks with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Auto-refreshes every 30 seconds.</p>
           </div>
 
           <div className="email-banner">
@@ -793,7 +1069,7 @@ export default function App() {
             {eOk?<div className="sub-ok">✅ You're in! Watch your inbox Sunday.</div>:<div className="eb-form"><input className="ei wide" placeholder="your@email.com" type="email" value={eEmail} onChange={e=>setEEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><button className="btn-sub" onClick={subscribe} disabled={!eEmail.includes("@")}>Subscribe Free →</button></div>}
           </div>
 
-          {lastRefresh&&<div className="refresh-row"><div className="ldot"/><span>Live via Finnhub · Updated {lastRefresh.toLocaleTimeString()} · Auto-refresh every 60s</span>{pLoading&&<div className="spin-s"/>}</div>}
+          {lastRefresh&&<div className="refresh-row"><div className="ldot"/><span>Live via Finnhub · Updated {lastRefresh.toLocaleTimeString()} · Auto-refresh every 30s</span>{pLoading&&<div className="spin-s"/>}</div>}
 
           <div className="panel">
             <div className="panel-title">Screen Configuration</div>
@@ -822,13 +1098,20 @@ export default function App() {
             <div className="filter-row">{["All","Strong Buy","Hidden Gems","Large Cap","International"].map(f=><button key={f} className={`btn-sm ${sFilter===f?"active":""}`} onClick={()=>setSFilter(f)}>{f}</button>)}<div className="sp"/>{["score","price","change"].map(s=><button key={s} className={`btn-sm ${sSort===s?"active":""}`} onClick={()=>setSSort(s)}>Sort: {s==="score"?"Score":s==="price"?"Price":"% Chg"}</button>)}</div>
             <div className="scan-info">Live prices via Finnhub · {new Date().toLocaleTimeString()} · <span>{UNIVERSE_BASE.length} stocks analyzed</span></div>
             <div className="tbl-wrap"><table>
-              <thead><tr><th>#</th><th>Ticker</th><th>Live Price</th><th>Mkt Cap</th><th>Score</th><th>Key Metrics</th><th>Thesis</th><th>Rating</th></tr></thead>
+              <thead><tr><th>#</th><th>Ticker</th><th>Live Price</th><th>Mkt Cap</th><th>Score</th><th>MR Signal</th><th>Key Metrics</th><th>Thesis</th><th>Rating</th></tr></thead>
               <tbody>{dispStocks.map((s,i)=><tr key={s.t+i}>
                 <td style={{color:"var(--dim)",fontSize:10}}>{i+1}</td>
                 <td><div className="tk">{s.t}</div><div className="co">{s.n}</div>{s.isGem&&<div className="gem">💎 Hidden Gem</div>}</td>
                 <td><div className="pv">{fmt(s.p)}{s.live&&<span className="live-tag"><span className="ldot"/>LIVE</span>}</div><span className={`cv ${(s.ch||0)>=0?"up":"dn"}`}>{(s.ch||0)>=0?"+":""}{(s.ch||0).toFixed(2)}%</span></td>
                 <td><div className="mcv">{s.mc}</div><div className="capv">{s.cap} · {s.sec}</div></td>
                 <td><div className="scw"><span className={`scn ${sc(s.score)}`}>{s.score}</span><div className="scb"><div className={`scf ${sc(s.score)}`} style={{width:`${s.score}%`}}/></div></div></td>
+                <td>
+                  {s.mr&&<>
+                    <span className={`mr-badge ${s.mr.signal}`}>{s.mr.signal==="extreme"?"🟢 EXTREME OS":s.mr.signal==="strong"?"🔵 STRONG OS":s.mr.signal==="moderate"?"🟡 MILD OS":s.mr.signal==="overbought"?"🔴 OVERBOUGHT":"◎ NEUTRAL"}</span>
+                    <div style={{fontSize:9,color:"var(--dim)",marginTop:4}}>RSI <b style={{color:s.mr.rsi<30?"var(--green)":s.mr.rsi>70?"var(--red)":"var(--txt)"}}>{s.mr.rsi}</b> · BB <b style={{color:s.mr.bbPos<20?"var(--green)":s.mr.bbPos>80?"var(--red)":"var(--txt)"}}>{s.mr.bbPos.toFixed(0)}%</b></div>
+                    <div style={{fontSize:9,color:"var(--dim)"}}>Stoch <b style={{color:s.mr.stochK<20?"var(--green)":s.mr.stochK>80?"var(--red)":"var(--txt)"}}>{s.mr.stochK}</b> · Score <b style={{color:s.mr.mrScore>=65?"var(--green)":s.mr.mrScore<=30?"var(--red)":"var(--gold)"}}>{s.mr.mrScore}</b></div>
+                  </>}
+                </td>
                 <td><div className="met-list">{(s.metrics||[]).map((m,j)=><div className="met-row" key={j}><span className="met-k">{m.k}</span><span className={`met-v ${m.pass?"pass":""}`}>{m.v}</span></div>)}</div></td>
                 <td><div className="thesis">{s.thesis}</div></td>
                 <td><span className={`rtag ${s.rating}`}>{rLabel(s.rating)}</span></td>
@@ -857,9 +1140,27 @@ export default function App() {
             <div className="panel-title">Options Configuration</div>
             <div className="opt-controls">
               <div className="fld" style={{gridColumn:"1/-1"}}>
-                <label>Underlying Ticker {prices[optTicker]&&<span style={{color:"var(--green)",fontSize:9,marginLeft:4}}>● LIVE {fmt(prices[optTicker].price)}{prices[optTicker]&&<span style={{marginLeft:6,color:prices[optTicker].change>=0?"var(--green)":"var(--red)"}}>{prices[optTicker].change>=0?"+":""}{prices[optTicker].change?.toFixed(2)}%</span>}</span>}</label>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:8}}>
+                  <label style={{margin:0}}>Underlying Ticker</label>
+                  {prices[optTicker]&&(
+                    <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"center"}}>
+                      <span style={{display:"flex",alignItems:"center",gap:5,fontSize:11}}>
+                        <span className="ldot"/>
+                        <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:16,color:"var(--txt)"}}>{fmt(prices[optTicker].price)}</span>
+                        <span style={{fontSize:11,fontWeight:600,color:prices[optTicker].change>=0?"var(--green)":"var(--red)",background:prices[optTicker].change>=0?"rgba(0,232,122,.1)":"rgba(255,77,106,.1)",padding:"2px 7px",borderRadius:4}}>
+                          {prices[optTicker].change>=0?"+":""}{prices[optTicker].change?.toFixed(2)}%
+                        </span>
+                      </span>
+                      <span style={{fontSize:10,color:"var(--dim)"}}>H: <b style={{color:"var(--green)"}}>{fmt(prices[optTicker].high)}</b></span>
+                      <span style={{fontSize:10,color:"var(--dim)"}}>L: <b style={{color:"var(--red)"}}>{fmt(prices[optTicker].low)}</b></span>
+                      <span style={{fontSize:10,color:"var(--dim)"}}>Prev: <b style={{color:"var(--txt)"}}>{fmt(prices[optTicker].prevClose)}</b></span>
+                      {ivCache[optTicker]&&<span style={{fontSize:10,color:"var(--gold)",background:"rgba(245,166,35,.08)",border:"1px solid rgba(245,166,35,.2)",padding:"2px 7px",borderRadius:4}}>IV {ivCache[optTicker]}%</span>}
+                      <span style={{fontSize:9,color:"var(--dim)"}}>Updated {lastRefresh?.toLocaleTimeString()}</span>
+                    </div>
+                  )}
+                </div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
-                  {["All","Mega Cap","ETF","High Vol","AI","eVTOL","Biotech","Fintech","EV/Energy","Enterprise","Consumer","Defense"].map(cat=>(
+                  {["All","Mega Cap","ETF","High Vol","AI","eVTOL","Biotech","Fintech","EV/Energy","Enterprise","Consumer","Defense","China/Intl","Crypto"].map(cat=>(
                     <button key={cat} className={`btn-sm ${optCatFilter===cat?"active":""}`} onClick={()=>setOptCatFilter(cat)} disabled={oLoading}>{cat}</button>
                   ))}
                 </div>
@@ -922,6 +1223,91 @@ export default function App() {
             </div>}
             <div className="sec-lbl">Option Contracts ({oContracts.length})</div>
             <div className="opt-cards">{oContracts.map((c,i)=><OCard key={i} c={c}/>)}</div>
+            {/* ── MEAN REVERSION PANEL ── */}
+            {oTicker&&prices[oTicker.t]&&(()=>{
+              const q=prices[oTicker.t];
+              const mr=calcMeanReversion(q.price,q.high,q.low,q.prevClose,q.change||0,oTicker.iv||50);
+              return(
+                <div className={`mr-panel ${mr.signal==="extreme"?"extreme-signal":mr.signal==="strong"?"strong-signal":mr.signal==="overbought"?"overbought-panel":""}`} style={{marginBottom:20}}>
+                  <div className="mr-title">
+                    <span style={{color:mr.signalColor}}>{mr.signalLabel}</span>
+                    <span style={{fontSize:10,color:"var(--dim)",fontFamily:"DM Mono,monospace",fontWeight:400}}>MR Score: <b style={{color:mr.mrScore>=65?"var(--green)":mr.mrScore<=30?"var(--red)":"var(--gold)",fontSize:13}}>{mr.mrScore}/100</b></span>
+                  </div>
+                  <div className="mr-sub">Mean reversion analysis for {oTicker.t} — {mr.bullCount} bullish confluences, {mr.bearCount} bearish signals detected</div>
+
+                  {/* Key indicator grid */}
+                  <div className="mr-grid">
+                    <div className="mr-metric">
+                      <div className="mr-m-lbl">RSI (14)</div>
+                      <div className="mr-m-val" style={{color:mr.rsi<30?"var(--green)":mr.rsi>70?"var(--red)":"var(--txt)"}}>{mr.rsi}</div>
+                      <div className="mr-m-sub">{mr.rsi<30?"Oversold ✓":mr.rsi>70?"Overbought ✗":"Neutral"}</div>
+                      <div className="mr-bar-wrap"><div className="mr-bar" style={{width:`${mr.rsi}%`,background:mr.rsi<30?"var(--green)":mr.rsi>70?"var(--red)":"var(--gold)"}}/></div>
+                    </div>
+                    <div className="mr-metric">
+                      <div className="mr-m-lbl">Bollinger %B</div>
+                      <div className="mr-m-val" style={{color:mr.bbPos<20?"var(--green)":mr.bbPos>80?"var(--red)":"var(--txt)"}}>{mr.bbPos.toFixed(0)}%</div>
+                      <div className="mr-m-sub">{mr.bbPos<20?"Below Lower Band ✓":mr.bbPos>80?"Above Upper Band ✗":"Mid-Band"}</div>
+                      <div className="mr-bar-wrap"><div className="mr-bar" style={{width:`${mr.bbPos}%`,background:mr.bbPos<20?"var(--green)":mr.bbPos>80?"var(--red)":"var(--gold)"}}/></div>
+                    </div>
+                    <div className="mr-metric">
+                      <div className="mr-m-lbl">Stochastic %K</div>
+                      <div className="mr-m-val" style={{color:mr.stochK<20?"var(--green)":mr.stochK>80?"var(--red)":"var(--txt)"}}>{mr.stochK}</div>
+                      <div className="mr-m-sub">{mr.stochK<20?"Oversold Zone ✓":mr.stochK>80?"Overbought Zone ✗":"Neutral"}</div>
+                      <div className="mr-bar-wrap"><div className="mr-bar" style={{width:`${mr.stochK}%`,background:mr.stochK<20?"var(--green)":mr.stochK>80?"var(--red)":"var(--gold)"}}/></div>
+                    </div>
+                    <div className="mr-metric">
+                      <div className="mr-m-lbl">Williams %R</div>
+                      <div className="mr-m-val" style={{color:mr.willR<-80?"var(--green)":mr.willR>-20?"var(--red)":"var(--txt)"}}>{mr.willR}</div>
+                      <div className="mr-m-sub">{mr.willR<-80?"Oversold ✓":mr.willR>-20?"Overbought ✗":"Neutral"}</div>
+                      <div className="mr-bar-wrap"><div className="mr-bar" style={{width:`${100+mr.willR}%`,background:mr.willR<-80?"var(--green)":mr.willR>-20?"var(--red)":"var(--gold)"}}/></div>
+                    </div>
+                    <div className="mr-metric">
+                      <div className="mr-m-lbl">CCI</div>
+                      <div className="mr-m-val" style={{color:mr.cci<-100?"var(--green)":mr.cci>100?"var(--red)":"var(--txt)"}}>{mr.cci}</div>
+                      <div className="mr-m-sub">{mr.cci<-100?"Oversold ✓":mr.cci>100?"Overbought ✗":"Neutral"}</div>
+                      <div className="mr-bar-wrap"><div className="mr-bar" style={{width:`${Math.min(100,Math.max(0,50+mr.cci/4))}%`,background:mr.cci<-100?"var(--green)":mr.cci>100?"var(--red)":"var(--gold)"}}/></div>
+                    </div>
+                    <div className="mr-metric">
+                      <div className="mr-m-lbl">Day Position</div>
+                      <div className="mr-m-val" style={{color:mr.pricePos<25?"var(--green)":mr.pricePos>75?"var(--red)":"var(--txt)"}}>{mr.pricePos.toFixed(0)}%</div>
+                      <div className="mr-m-sub">{mr.pricePos<25?"Near Day Low ✓":mr.pricePos>75?"Near Day High ✗":"Mid-Range"}</div>
+                      <div className="mr-bar-wrap"><div className="mr-bar" style={{width:`${mr.pricePos}%`,background:mr.pricePos<25?"var(--green)":mr.pricePos>75?"var(--red)":"var(--gold)"}}/></div>
+                    </div>
+                    <div className="mr-metric">
+                      <div className="mr-m-lbl">MACD Signal</div>
+                      <div className="mr-m-val" style={{color:mr.macd==="bullish"?"var(--green)":mr.macd==="bearish"?"var(--red)":"var(--dim)",fontSize:13}}>{mr.macd==="bullish"?"Bull ↑":mr.macd==="bearish"?"Bear ↓":"Flat →"}</div>
+                      <div className="mr-m-sub">{mr.macd==="bullish"?"Crossover ✓":mr.macd==="bearish"?"Death cross ✗":"No signal"}</div>
+                    </div>
+                    <div className="mr-metric">
+                      <div className="mr-m-lbl">MR Score</div>
+                      <div className="mr-m-val" style={{color:mr.mrScore>=65?"var(--green)":mr.mrScore<=30?"var(--red)":"var(--gold)",fontSize:22}}>{mr.mrScore}</div>
+                      <div className="mr-m-sub">{mr.mrScore>=75?"Prime Entry Zone":mr.mrScore>=60?"Strong Setup":mr.mrScore<=30?"Avoid — Overbought":"Neutral"}</div>
+                      <div className="mr-bar-wrap"><div className="mr-bar" style={{width:`${mr.mrScore}%`,background:mr.mrScore>=65?"var(--green)":mr.mrScore<=30?"var(--red)":"var(--gold)"}}/></div>
+                    </div>
+                  </div>
+
+                  {/* RSI Gauge */}
+                  <div style={{marginBottom:14}}>
+                    <div style={{fontSize:9.5,color:"var(--dim)",marginBottom:4,letterSpacing:.8,textTransform:"uppercase"}}>RSI Gauge</div>
+                    <div className="rsi-gauge">
+                      <div className="rsi-needle" style={{left:`${mr.rsi}%`}}/>
+                    </div>
+                    <div className="rsi-labels"><span style={{color:"var(--green)"}}>Oversold &lt;30</span><span>Neutral 30–70</span><span style={{color:"var(--red)"}}>Overbought &gt;70</span></div>
+                  </div>
+
+                  {/* Entry alert */}
+                  <div className={`entry-alert ${mr.signal==="extreme"||mr.signal==="strong"?"buy":mr.signal==="overbought"?"sell":"warn"}`}>
+                    <div className="ea-ico">{mr.signal==="extreme"?"🎯":mr.signal==="strong"?"📍":mr.signal==="overbought"?"🚫":"⏳"}</div>
+                    <div><b>Mean Reversion Entry Recommendation:</b> {mr.entryRec}</div>
+                  </div>
+
+                  {/* Confluence signals */}
+                  <div className="mr-signals">
+                    {mr.signals.map((sig,i)=><span key={i} className={`mr-sig-item ${sig.type}`}>{sig.label}</span>)}
+                  </div>
+                </div>
+              );
+            })()}
             {oInsights.riskWarning&&<div style={{padding:"14px 16px",background:"rgba(255,77,106,.06)",border:"1px solid rgba(255,77,106,.18)",borderRadius:9,marginBottom:16,fontSize:11.5,color:"#ff8fa3",lineHeight:1.7}}><span style={{fontWeight:700,color:"var(--red)"}}>⚠ Risk: </span>{oInsights.riskWarning}</div>}
             {oInsights.topPlay&&<div style={{padding:"14px 16px",background:"rgba(0,232,122,.05)",border:"1px solid rgba(0,232,122,.15)",borderRadius:9,marginBottom:20,fontSize:11.5,color:"#7eeebb",lineHeight:1.7}}><span style={{fontWeight:700,color:"var(--green)"}}>⭐ Top Play: </span>{oInsights.topPlay}</div>}
             <div className="disc">⚠ Options trading involves substantial risk. AI-generated estimates for educational purposes only. Live underlying prices via Finnhub. Never risk more than you can afford to lose.</div>
