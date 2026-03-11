@@ -170,7 +170,7 @@ tbody td{padding:11px 13px;vertical-align:middle;}
 .rtag.by{background:rgba(61,158,255,.1);color:var(--blue);border:1px solid rgba(61,158,255,.2);}
 .rtag.wt{background:rgba(245,166,35,.08);color:var(--gold);border:1px solid rgba(245,166,35,.18);}
 .thesis{font-size:10.5px;color:#5a7090;line-height:1.55;max-width:180px;}
-.opt-controls{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px;align-items:end;}
+.opt-controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;align-items:end;}
 @media(max-width:800px){.opt-controls{grid-template-columns:1fr 1fr;}}
 .opt-cards{display:flex;flex-direction:column;gap:14px;margin-bottom:20px;}
 .ocard{background:var(--s1);border:1px solid var(--b1);border-radius:13px;overflow:hidden;transition:border-color .15s;}
@@ -263,6 +263,11 @@ tbody td{padding:11px 13px;vertical-align:middle;}
 .filter-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
 .filter-row .sp{flex:1;}
 .refresh-row{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--dim);margin-bottom:10px;}
+.ei{background:var(--s2);border:1px solid var(--b2);color:var(--txt);font-family:'DM Mono',monospace;font-size:12px;padding:9px 14px;border-radius:8px;outline:none;transition:border-color .15s;}
+.ei:focus{border-color:var(--green);}
+.ei::placeholder{color:var(--dim);}
+.ei.wide{width:210px;}
+.ei.narrow{width:140px;}
 .export-btn{margin-top:16px;padding:10px 18px;background:var(--green);color:#000;border:none;border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;width:100%;}
 .export-btn:hover{background:#00d46e;}
 `;
@@ -330,11 +335,99 @@ const UNIVERSE_BASE = [
 ];
 
 const OPT_BASE = [
-  {t:"NVDA",n:"NVIDIA Corp",iv:68},{t:"AAPL",n:"Apple Inc",iv:24},{t:"TSLA",n:"Tesla Inc",iv:72},
-  {t:"META",n:"Meta Platforms",iv:38},{t:"MSFT",n:"Microsoft Corp",iv:22},{t:"AMZN",n:"Amazon.com",iv:32},
-  {t:"GOOGL",n:"Alphabet",iv:26},{t:"SPY",n:"S&P 500 ETF",iv:14},{t:"QQQ",n:"Nasdaq 100 ETF",iv:18},
-  {t:"PLTR",n:"Palantir Tech",iv:88},{t:"COIN",n:"Coinbase",iv:95},{t:"AMD",n:"AMD",iv:54},
-  {t:"RDDT",n:"Reddit Inc",iv:84},
+  // ── Mega Cap Tech ──
+  {t:"NVDA",n:"NVIDIA Corp",iv:68,cat:"Mega Cap"},
+  {t:"AAPL",n:"Apple Inc",iv:24,cat:"Mega Cap"},
+  {t:"TSLA",n:"Tesla Inc",iv:72,cat:"Mega Cap"},
+  {t:"META",n:"Meta Platforms",iv:38,cat:"Mega Cap"},
+  {t:"MSFT",n:"Microsoft Corp",iv:22,cat:"Mega Cap"},
+  {t:"AMZN",n:"Amazon.com",iv:32,cat:"Mega Cap"},
+  {t:"GOOGL",n:"Alphabet",iv:26,cat:"Mega Cap"},
+  {t:"AMD",n:"AMD",iv:54,cat:"Mega Cap"},
+  {t:"AVGO",n:"Broadcom",iv:42,cat:"Mega Cap"},
+  {t:"ORCL",n:"Oracle Corp",iv:30,cat:"Mega Cap"},
+  // ── ETFs ──
+  {t:"SPY",n:"S&P 500 ETF",iv:14,cat:"ETF"},
+  {t:"QQQ",n:"Nasdaq 100 ETF",iv:18,cat:"ETF"},
+  {t:"IWM",n:"Russell 2000 ETF",iv:22,cat:"ETF"},
+  {t:"SQQQ",n:"ProShares UltraPro Short QQQ",iv:85,cat:"ETF"},
+  {t:"TQQQ",n:"ProShares UltraPro QQQ",iv:82,cat:"ETF"},
+  {t:"ARKK",n:"ARK Innovation ETF",iv:62,cat:"ETF"},
+  {t:"GLD",n:"Gold ETF",iv:16,cat:"ETF"},
+  {t:"TLT",n:"20yr Treasury ETF",iv:18,cat:"ETF"},
+  // ── High Vol / Meme / Momentum ──
+  {t:"PLTR",n:"Palantir Tech",iv:88,cat:"High Vol"},
+  {t:"COIN",n:"Coinbase",iv:95,cat:"High Vol"},
+  {t:"RDDT",n:"Reddit Inc",iv:84,cat:"High Vol"},
+  {t:"MSTR",n:"MicroStrategy",iv:115,cat:"High Vol"},
+  {t:"HOOD",n:"Robinhood Markets",iv:78,cat:"High Vol"},
+  {t:"GME",n:"GameStop",iv:92,cat:"High Vol"},
+  {t:"AMC",n:"AMC Entertainment",iv:110,cat:"High Vol"},
+  {t:"BBAI",n:"BigBear.ai",iv:102,cat:"High Vol"},
+  {t:"CIFR",n:"Cipher Mining",iv:118,cat:"High Vol"},
+  {t:"MARA",n:"MARA Holdings",iv:105,cat:"High Vol"},
+  {t:"RIOT",n:"Riot Platforms",iv:108,cat:"High Vol"},
+  {t:"CLSK",n:"CleanSpark",iv:112,cat:"High Vol"},
+  // ── AI / Tech Growth ──
+  {t:"SOUN",n:"SoundHound AI",iv:96,cat:"AI"},
+  {t:"SERV",n:"Serve Robotics",iv:104,cat:"AI"},
+  {t:"IONQ",n:"IonQ Inc",iv:98,cat:"AI"},
+  {t:"RGTI",n:"Rigetti Computing",iv:122,cat:"AI"},
+  {t:"QBTS",n:"D-Wave Quantum",iv:116,cat:"AI"},
+  {t:"AI",n:"C3.ai",iv:88,cat:"AI"},
+  {t:"BBAI",n:"BigBear.ai",iv:102,cat:"AI"},
+  {t:"SMCI",n:"Super Micro Computer",iv:86,cat:"AI"},
+  {t:"CRWD",n:"CrowdStrike",iv:52,cat:"AI"},
+  {t:"DDOG",n:"Datadog",iv:58,cat:"AI"},
+  {t:"SNOW",n:"Snowflake",iv:62,cat:"AI"},
+  {t:"PATH",n:"UiPath",iv:64,cat:"AI"},
+  {t:"GTLB",n:"GitLab",iv:66,cat:"AI"},
+  // ── eVTOL / Aerospace ──
+  {t:"ACHR",n:"Archer Aviation",iv:108,cat:"eVTOL"},
+  {t:"JOBY",n:"Joby Aviation",iv:96,cat:"eVTOL"},
+  {t:"LILM",n:"Lilium",iv:118,cat:"eVTOL"},
+  {t:"EVTL",n:"Vertical Aerospace",iv:114,cat:"eVTOL"},
+  {t:"RKLB",n:"Rocket Lab USA",iv:94,cat:"eVTOL"},
+  // ── Biotech / Health ──
+  {t:"NBIS",n:"Nebius Group",iv:92,cat:"Biotech"},
+  {t:"NUVL",n:"Nuvalent Inc",iv:78,cat:"Biotech"},
+  {t:"AXSM",n:"Axsome Therapeutics",iv:82,cat:"Biotech"},
+  {t:"BEAM",n:"Beam Therapeutics",iv:86,cat:"Biotech"},
+  {t:"RXST",n:"RxSight Inc",iv:72,cat:"Biotech"},
+  {t:"PRCT",n:"PROCEPT BioRobotics",iv:76,cat:"Biotech"},
+  {t:"NTRA",n:"Natera Inc",iv:68,cat:"Biotech"},
+  {t:"LLY",n:"Eli Lilly",iv:28,cat:"Biotech"},
+  // ── Fintech / Finance ──
+  {t:"SQ",n:"Block Inc",iv:62,cat:"Fintech"},
+  {t:"AFRM",n:"Affirm Holdings",iv:86,cat:"Fintech"},
+  {t:"UPST",n:"Upstart Holdings",iv:92,cat:"Fintech"},
+  {t:"SOFI",n:"SoFi Technologies",iv:74,cat:"Fintech"},
+  {t:"NU",n:"Nu Holdings",iv:58,cat:"Fintech"},
+  {t:"V",n:"Visa Inc",iv:18,cat:"Fintech"},
+  {t:"PYPL",n:"PayPal",iv:44,cat:"Fintech"},
+  // ── Energy / EV ──
+  {t:"RIVN",n:"Rivian Automotive",iv:88,cat:"EV/Energy"},
+  {t:"LCID",n:"Lucid Group",iv:96,cat:"EV/Energy"},
+  {t:"NIO",n:"NIO Inc",iv:82,cat:"EV/Energy"},
+  {t:"XPEV",n:"XPeng Inc",iv:78,cat:"EV/Energy"},
+  {t:"ENPH",n:"Enphase Energy",iv:66,cat:"EV/Energy"},
+  {t:"FSLR",n:"First Solar",iv:52,cat:"EV/Energy"},
+  // ── Real Estate / SPAC / Other High Vol ──
+  {t:"OWN",n:"Ownership Corp",iv:88,cat:"High Vol"},
+  {t:"NOW",n:"ServiceNow",iv:34,cat:"Enterprise"},
+  {t:"CRM",n:"Salesforce",iv:30,cat:"Enterprise"},
+  {t:"HUBS",n:"HubSpot",iv:44,cat:"Enterprise"},
+  // ── Consumer / Retail ──
+  {t:"SHOP",n:"Shopify",iv:56,cat:"Consumer"},
+  {t:"MELI",n:"MercadoLibre",iv:44,cat:"Consumer"},
+  {t:"ONON",n:"On Holding",iv:48,cat:"Consumer"},
+  {t:"CELH",n:"Celsius Holdings",iv:72,cat:"Consumer"},
+  {t:"BIRK",n:"Birkenstock",iv:38,cat:"Consumer"},
+  // ── Defense / Industrial ──
+  {t:"KTOS",n:"Kratos Defense",iv:62,cat:"Defense"},
+  {t:"GE",n:"GE Aerospace",iv:28,cat:"Defense"},
+  {t:"FCX",n:"Freeport-McMoRan",iv:44,cat:"Defense"},
+  {t:"MP",n:"MP Materials",iv:68,cat:"Defense"},
 ];
 
 /* ── FINNHUB ── */
@@ -535,6 +628,8 @@ export default function App() {
   const [optType,setOptType]=useState("Both Calls & Puts");
   const [optExp,setOptExp]=useState("Monthly (30 DTE)");
   const [optStrat,setOptStrat]=useState("Directional (Calls)");
+  const [optCatFilter,setOptCatFilter]=useState("All");
+  const [optSearch,setOptSearch]=useState("");
   const [oLoading,setOLoading]=useState(false);
   const [oStep,setOStep]=useState(0);
   const [oProg,setOProg]=useState(0);
@@ -608,6 +703,27 @@ export default function App() {
     setSProg(100);await new Promise(r=>setTimeout(r,180));
     setSResult(crit);setStocks(scored);setSLoading(false);
   },[strategy,sector,market,prices]);
+
+  // Auto-fetch live IV when ticker changes
+  useEffect(()=>{
+    let cancelled=false;
+    const fetchIV=async()=>{
+      if(ivCache[optTicker])return;
+      const iv=await fetchLiveIV(optTicker);
+      if(!cancelled&&iv&&iv>5&&iv<300)setIvCache(prev=>({...prev,[optTicker]:iv}));
+    };
+    fetchIV();
+    return()=>{cancelled=true;};
+  },[optTicker]);
+
+  // Auto-refresh IV every 5 minutes for current ticker
+  useEffect(()=>{
+    const id=setInterval(async()=>{
+      const iv=await fetchLiveIV(optTicker);
+      if(iv&&iv>5&&iv<300)setIvCache(prev=>({...prev,[optTicker]:iv}));
+    },300000);
+    return()=>clearInterval(id);
+  },[optTicker]);
 
   /* OPTIONS SCREENER */
   const runOptions=useCallback(async()=>{
@@ -730,7 +846,8 @@ export default function App() {
         {tab==="options"&&<div className="page">
           <div className="hero">
             <h1>Options <span className="orange">chain screener</span><br/>with exact entry points.</h1>
-            <p>Full Greeks · Live underlying prices · Day/Week/Month H&amp;L ranges · Precise entry, targets &amp; stops.</p>
+            <p>Full Greeks · Live underlying prices · {OPT_BASE.length}+ tickers · Day/Week/Month H&amp;L ranges · Precise entry, targets &amp; stops.</p>
+            {lastRefresh&&<div className="refresh-row" style={{marginTop:10}}><div className="ldot"/><span>All prices live via Finnhub · Updated {lastRefresh.toLocaleTimeString()} · Auto-refresh 60s</span>{pLoading&&<div className="spin-s"/>}</div>}
           </div>
 
           <div className="email-banner" style={{marginBottom:20}}>
@@ -741,13 +858,35 @@ export default function App() {
           <div className="panel">
             <div className="panel-title">Options Configuration</div>
             <div className="opt-controls">
-              <div className="fld">
-                <label>Underlying Ticker {prices[optTicker]&&<span style={{color:"var(--green)",fontSize:9,marginLeft:4}}>● LIVE {fmt(prices[optTicker].price)}</span>}</label>
-                <div className="sel-wrap"><select value={optTicker} onChange={e=>setOptTicker(e.target.value)} disabled={oLoading}>{OPT_BASE.map(x=>{const q=prices[x.t];return<option key={x.t} value={x.t}>{x.t} — {x.n}{q?` ($${q.price})`:""}</option>;})}</select></div>
+              <div className="fld" style={{gridColumn:"1/-1"}}>
+                <label>Underlying Ticker {prices[optTicker]&&<span style={{color:"var(--green)",fontSize:9,marginLeft:4}}>● LIVE {fmt(prices[optTicker].price)}{prices[optTicker]&&<span style={{marginLeft:6,color:prices[optTicker].change>=0?"var(--green)":"var(--red)"}}>{prices[optTicker].change>=0?"+":""}{prices[optTicker].change?.toFixed(2)}%</span>}</span>}</label>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+                  {["All","Mega Cap","ETF","High Vol","AI","eVTOL","Biotech","Fintech","EV/Energy","Enterprise","Consumer","Defense"].map(cat=>(
+                    <button key={cat} className={`btn-sm ${optCatFilter===cat?"active":""}`} onClick={()=>setOptCatFilter(cat)} disabled={oLoading}>{cat}</button>
+                  ))}
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <input
+                    className="ei"
+                    placeholder="Search ticker or name... (e.g. NVDA, Tesla)"
+                    value={optSearch}
+                    onChange={e=>setOptSearch(e.target.value.toUpperCase())}
+                    disabled={oLoading}
+                    style={{flex:1,padding:"9px 14px"}}
+                  />
+                  <div className="sel-wrap" style={{flex:2}}>
+                    <select value={optTicker} onChange={e=>setOptTicker(e.target.value)} disabled={oLoading}>
+                      {OPT_BASE
+                        .filter(x=>(optCatFilter==="All"||x.cat===optCatFilter)&&(!optSearch||(x.t.includes(optSearch)||x.n.toUpperCase().includes(optSearch))))
+                        .map(x=>{const q=prices[x.t];return<option key={x.t} value={x.t}>{x.t} — {x.n}{q?` · $${q.price} (${q.change>=0?"+":""}${q.change?.toFixed(2)}%)`:""}</option>;})}
+                    </select>
+                  </div>
+                </div>
               </div>
               <div className="fld"><label>Contract Type</label><div className="sel-wrap"><select value={optType} onChange={e=>setOptType(e.target.value)} disabled={oLoading}>{OTYPES.map(x=><option key={x}>{x}</option>)}</select></div></div>
               <div className="fld"><label>Expiration</label><div className="sel-wrap"><select value={optExp} onChange={e=>setOptExp(e.target.value)} disabled={oLoading}>{EXPS.map(x=><option key={x}>{x}</option>)}</select></div></div>
               <div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={optStrat} onChange={e=>setOptStrat(e.target.value)} disabled={oLoading}>{OSTRATEGIES.map(x=><option key={x}>{x}</option>)}</select></div></div>
+              
             </div>
             <button className="btn-blue" onClick={runOptions} disabled={oLoading}>{oLoading?<><div className="spin-w"/>Scanning…</>:"⚡ Scan Option Chain — Generate Entry Points"}</button>
           </div>
