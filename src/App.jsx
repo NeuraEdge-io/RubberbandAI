@@ -671,7 +671,7 @@ export default function App() {
 
   const subscribe=()=>{
     if(!eEmail.includes("@"))return;
-    const entry={name:eName.trim()||"Anonymous",email:eEmail.trim().toLowerCase(),date:new Date().toLocaleDateString()};
+    const entry={name:"Subscriber",email:eEmail.trim().toLowerCase(),date:new Date().toLocaleDateString()};
     setEList(prev=>prev.find(e=>e.email===entry.email)?prev:[...prev,entry]);
     setEName("");setEEmail("");setEOk(true);setTimeout(()=>setEOk(false),4000);
   };
@@ -790,7 +790,7 @@ export default function App() {
 
           <div className="email-banner">
             <div><div className="eb-title">📬 Get Weekly RUBBERBAND.AI Stock Picks — Free</div><div className="eb-sub">Top RUBBERBAND.AI picks delivered every Sunday. No spam, ever.</div>{eList.length>0&&<div className="eb-count">🔥 {eList.length} subscriber{eList.length!==1?"s":""} already in</div>}</div>
-            {eOk?<div className="sub-ok">✅ You're in! Watch your inbox Sunday.</div>:<div className="eb-form"><input className="ei narrow" placeholder="First name" value={eName} onChange={e=>setEName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><input className="ei wide" placeholder="your@email.com" type="email" value={eEmail} onChange={e=>setEEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><button className="btn-sub" onClick={subscribe} disabled={!eEmail.includes("@")}>Subscribe Free →</button></div>}
+            {eOk?<div className="sub-ok">✅ You're in! Watch your inbox Sunday.</div>:<div className="eb-form"><input className="ei wide" placeholder="your@email.com" type="email" value={eEmail} onChange={e=>setEEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><button className="btn-sub" onClick={subscribe} disabled={!eEmail.includes("@")}>Subscribe Free →</button></div>}
           </div>
 
           {lastRefresh&&<div className="refresh-row"><div className="ldot"/><span>Live via Finnhub · Updated {lastRefresh.toLocaleTimeString()} · Auto-refresh every 60s</span>{pLoading&&<div className="spin-s"/>}</div>}
