@@ -365,6 +365,14 @@ const UNIVERSE_BASE = [
   {t:"BIRK",n:"Birkenstock",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
   {t:"VITL",n:"Vital Farms",sec:"Consumer Staples",cap:"Small",geo:"US"},
   {t:"AMD",n:"AMD",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"APP",n:"Applovin Corp",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"INTU",n:"Intuit Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"MU",n:"Micron Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"SYK",n:"Stryker Corp",sec:"Healthcare",cap:"Large",geo:"US"},
+  {t:"CRWV",n:"CoreWeave Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"MRVL",n:"Marvell Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"TSM",n:"Taiwan Semiconductor",sec:"Semiconductors",cap:"Large",geo:"Asia Pacific"},
+  {t:"CEG",n:"Constellation Energy",sec:"Utilities",cap:"Large",geo:"US"},
 ];
 
 const OPT_BASE = [
@@ -559,6 +567,13 @@ const OPT_BASE = [
   {t:"FXI",n:"China Large-Cap ETF",iv:38,cat:"China/Intl"},
   {t:"ASML",n:"ASML Holding",iv:34,cat:"China/Intl"},
   {t:"TSM",n:"Taiwan Semiconductor",iv:36,cat:"China/Intl"},
+  // ── New Additions ──
+  {t:"APP",n:"Applovin Corp",iv:72,cat:"AI"},
+  {t:"INTU",n:"Intuit Inc",iv:28,cat:"Enterprise"},
+  {t:"SYK",n:"Stryker Corp",iv:22,cat:"Biotech"},
+  {t:"CRWV",n:"CoreWeave Inc",iv:88,cat:"AI"},
+  {t:"MRVL",n:"Marvell Technology",iv:52,cat:"Mega Cap"},
+  {t:"CEG",n:"Constellation Energy",iv:42,cat:"EV/Energy"},
 ];
 
 /* ── FINNHUB ── */
@@ -568,7 +583,54 @@ async function fetchQuote(ticker) {
     if (!r.ok) return null;
     const d = await r.json();
     if (!d || !d.c || d.c === 0) return null;
-    return { price: +d.c.toFixed(2), change: +d.dp.toFixed(2), high: +d.h.toFixed(2), low: +d.l.toFixed(2), prevClose: +d.pc.toFixed(2) };
+    return {
+      price: +d.c.toFixed(2),
+      change: +d.dp.toFixed(2),
+      high: +d.h.toFixed(2),
+      low: +d.l.toFixed(2),
+      prevClose: +d.pc.toFixed(2),
+      open: +d.o.toFixed(2),
+      volume: d.v || 0, // real daily volume from Finnhub
+    };
+  } catch { return null; }
+}
+
+// Fetch real option chain data for a specific contract
+async function fetchOptionChainData(ticker) {
+  try {
+    const r = await fetch(`${FINNHUB_URL}/stock/option-chain?symbol=${ticker}&token=${FINNHUB_KEY}`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (!d || !d.data || !d.data.length) return null;
+    // Build a map of strike -> {call, put} real data
+    const chainMap = {};
+    d.data.forEach(exp => {
+      const calls = (exp.options && exp.options.CALL) || [];
+      const puts  = (exp.options && exp.options.PUT)  || [];
+      calls.forEach(c => {
+        if (!chainMap[c.strike]) chainMap[c.strike] = {};
+        chainMap[c.strike].call = {
+          iv: c.impliedVolatility ? +(c.impliedVolatility * 100).toFixed(1) : null,
+          volume: c.volume || 0,
+          oi: c.openInterest || 0,
+          bid: c.bid || null,
+          ask: c.ask || null,
+          last: c.lastPrice || null,
+        };
+      });
+      puts.forEach(p => {
+        if (!chainMap[p.strike]) chainMap[p.strike] = {};
+        chainMap[p.strike].put = {
+          iv: p.impliedVolatility ? +(p.impliedVolatility * 100).toFixed(1) : null,
+          volume: p.volume || 0,
+          oi: p.openInterest || 0,
+          bid: p.bid || null,
+          ask: p.ask || null,
+          last: p.lastPrice || null,
+        };
+      });
+    });
+    return chainMap;
   } catch { return null; }
 }
 
@@ -677,33 +739,37 @@ function calcMeanReversion(price, high, low, prevClose, change, iv) {
   // Negative change = oversold territory, positive = overbought
   const changeAbs = Math.abs(change || 0);
   let rsi;
-  if (change <= -8)       rsi = Math.max(8,  18 - changeAbs * 0.8 + Math.random() * 5);
-  else if (change <= -5)  rsi = Math.max(15, 25 - changeAbs * 0.6 + Math.random() * 6);
-  else if (change <= -3)  rsi = Math.max(22, 32 - changeAbs * 0.5 + Math.random() * 7);
-  else if (change <= -1)  rsi = 38 + Math.random() * 10;
-  else if (change <= 1)   rsi = 45 + Math.random() * 10;
-  else if (change <= 3)   rsi = 55 + Math.random() * 8;
-  else if (change <= 5)   rsi = 65 + Math.random() * 8;
-  else if (change <= 8)   rsi = 74 + Math.random() * 6;
-  else                    rsi = Math.min(95, 80 + changeAbs * 0.5 + Math.random() * 5);
-  rsi = +rsi.toFixed(1);
+  // Deterministic RSI proxy based on price change — consistent on each page load
+  // Real RSI needs 14 candles of OHLC data; Finnhub free tier doesn't provide candles.
+  // This is a momentum-consistent proxy: large negative changes → oversold RSI territory
+  if (change <= -8)       rsi = Math.max(8,  18 - changeAbs * 0.9);
+  else if (change <= -5)  rsi = Math.max(15, 26 - changeAbs * 0.7);
+  else if (change <= -3)  rsi = Math.max(22, 33 - changeAbs * 0.6);
+  else if (change <= -1)  rsi = 38 + (change + 1) * 2.5 + 5;
+  else if (change <= 1)   rsi = 50 + change * 2.5;
+  else if (change <= 3)   rsi = 55 + (change - 1) * 3;
+  else if (change <= 5)   rsi = 62 + (change - 3) * 3;
+  else if (change <= 8)   rsi = 70 + (change - 5) * 2;
+  else                    rsi = Math.min(95, 78 + changeAbs * 0.6);
+  rsi = +Math.max(5, Math.min(95, rsi)).toFixed(1);
 
   // Stochastic %K (price position vs range)
   const stochK = +pricePos.toFixed(1);
-  const stochD = +(pricePos * 0.85 + Math.random() * 10).toFixed(1);
+  const stochD = +(pricePos * 0.88 + 3).toFixed(1); // deterministic smoothed
 
   // Distance from 52-week high (simulated — negative = below 52wk hi)
-  const dist52w = +(-Math.abs(change) * 2.5 - Math.random() * 15).toFixed(1);
+  const dist52w = +(-Math.abs(change) * 2.8).toFixed(1);
 
   // Bollinger Band position (0=lower band, 50=mid, 100=upper band)
+  // Bollinger %B: deterministic from price position & change magnitude
   let bbPos;
-  if (change <= -5)      bbPos = Math.max(0, 8 + Math.random() * 12);
-  else if (change <= -2) bbPos = 15 + Math.random() * 18;
-  else if (change <= 0)  bbPos = 35 + Math.random() * 20;
-  else if (change <= 2)  bbPos = 50 + Math.random() * 20;
-  else if (change <= 5)  bbPos = 68 + Math.random() * 18;
-  else                   bbPos = Math.min(100, 82 + Math.random() * 14);
-  bbPos = +bbPos.toFixed(1);
+  if (change <= -5)      bbPos = Math.max(0,  6  + changeAbs * 0.4);
+  else if (change <= -2) bbPos = Math.max(5,  18 + change * 3);
+  else if (change <= 0)  bbPos = 38 + change * 5;
+  else if (change <= 2)  bbPos = 52 + change * 6;
+  else if (change <= 5)  bbPos = 66 + (change - 2) * 4;
+  else                   bbPos = Math.min(98, 80 + (change - 5) * 3);
+  bbPos = +Math.max(0, Math.min(100, bbPos)).toFixed(1);
 
   // MACD signal (simplified)
   const macdBull = change > 0 && rsi > 40 && rsi < 70;
@@ -714,17 +780,19 @@ function calcMeanReversion(price, high, low, prevClose, change, iv) {
   const volSpike = iv > 80 || changeAbs > 5;
 
   // CCI proxy (commodity channel index)
+  // CCI: deterministic from change
   let cci;
-  if (change <= -5) cci = -(80 + Math.random() * 120);
-  else if (change <= -2) cci = -(30 + Math.random() * 60);
-  else if (change <= 1) cci = -20 + Math.random() * 40;
-  else if (change <= 4) cci = 30 + Math.random() * 60;
-  else cci = 80 + Math.random() * 120;
-  cci = +cci.toFixed(0);
+  if (change <= -5)      cci = -(90  + changeAbs * 14);
+  else if (change <= -2) cci = -(30  + changeAbs * 10);
+  else if (change <= 1)  cci = change * 15;
+  else if (change <= 4)  cci = 20 + change * 18;
+  else                   cci = 80  + (change - 4) * 22;
+  cci = +Math.max(-250, Math.min(250, cci)).toFixed(0);
 
   // Williams %R
+  // Williams %R: directly from price position (deterministic)
   let willR = -(100 - pricePos);
-  willR = +Math.max(-100, Math.min(0, willR + (Math.random() * 10 - 5))).toFixed(1);
+  willR = +Math.max(-100, Math.min(0, willR)).toFixed(1);
 
   // Mean Reversion Score (0-100, higher = stronger buy signal)
   let mrScore = 50;
@@ -748,7 +816,6 @@ function calcMeanReversion(price, high, low, prevClose, change, iv) {
   if (cci < -100) mrScore += 8;
   if (cci > 100) mrScore -= 8;
 
-  mrScore += Math.random() * 6 - 3;
   mrScore = Math.max(0, Math.min(100, +mrScore.toFixed(0)));
 
   // Determine signal level
@@ -809,7 +876,12 @@ function genContract(ticker,price,iv,optType,expLabel,idx){
   const isCall=optType==="call";
   const dte=parseInt(expLabel.match(/\d+/)?.[0]||"30");
   const t=Math.max(dte/365,.001);
-  const strikes=[Math.round(price*(isCall?1.0:1.0)),Math.round(price*(isCall?1.02:.98)),Math.round(price*(isCall?1.05:.95))];
+  // Use proper option strike increments (stocks ≥$200 use $5 increments, ≥$50 use $2.50, else $1)
+  const incr = price >= 200 ? 5 : price >= 50 ? 2.5 : 1;
+  const atm = Math.round(price / incr) * incr;
+  const strikesCall=[atm, atm+incr, atm+incr*2];
+  const strikesPut=[atm, atm-incr, atm-incr*2];
+  const strikes=isCall?strikesCall:strikesPut;
   const strike=strikes[idx%3];
   const isATM=Math.abs(price/strike-1)<.025;
   const isOTM=isCall?strike>price:strike<price;
@@ -826,7 +898,9 @@ function genContract(ticker,price,iv,optType,expLabel,idx){
   const rho=isCall?strike*t*Math.exp(-r*t)*N(d2)/100:-strike*t*Math.exp(-r*t)*N(-d2)/100;
   const ep=+(prem*rnd(.95,1.02)).toFixed(2);
   const t1=+(prem*1.3).toFixed(2),t2=+(prem*1.65).toFixed(2),t3=+(prem*2.2).toFixed(2),sl=+(prem*.55).toFixed(2);
-  const oi=rint(500,85000),vol=rint(100,Math.floor(oi*.4));
+  // Fallback estimated vol/OI — will be overwritten by real chain data if available
+  const oi=rint(1000,50000),vol=rint(200,Math.floor(oi*.35));
+  const realData=false;
   let signal="neutral";
   const absDelta=Math.abs(delta);
   if(isCall&&absDelta>.45)signal="bullish";
@@ -847,6 +921,7 @@ function genContract(ticker,price,iv,optType,expLabel,idx){
     bid:+(prem*.975).toFixed(2),ask:+(prem*1.025).toFixed(2),spread:+(prem*.05).toFixed(2),
     contractLabel:`${ticker} $${strike} ${isCall?"CALL":"PUT"} ${expLabel.split(" ")[0]}`,
     entryTotalCost:+(ep*100).toFixed(0),
+    realData,
   };
 }
 
@@ -899,6 +974,7 @@ export default function App() {
   const [oTicker,setOTicker]=useState(null);
   const [oInsights,setOInsights]=useState(null);
   const [ivCache,setIvCache]=useState({});
+  const [optChain,setOptChain]=useState({});
   const [adminUnlocked,setAdminUnlocked]=useState(false);
   const [adminPin,setAdminPin]=useState("");
   const [adminError,setAdminError]=useState(false);
@@ -1007,19 +1083,43 @@ export default function App() {
     const lq=prices[base.t];
     // Try live IV first, fall back to cached, then static baseline
     let liveIV = ivCache[base.t] || null;
-    if (!liveIV) {
-      const fetched = await fetchLiveIV(base.t);
-      if (fetched && fetched > 5 && fetched < 300) {
-        liveIV = fetched;
-        setIvCache(prev=>({...prev,[base.t]:fetched}));
-      }
-    }
+    // Fetch real option chain for live vol/OI/bid/ask
+    const [chainData] = await Promise.all([
+      fetchOptionChainData(base.t),
+      !liveIV ? fetchLiveIV(base.t).then(iv => {
+        if (iv && iv > 5 && iv < 300) {
+          liveIV = iv;
+          setIvCache(prev=>({...prev,[base.t]:iv}));
+        }
+      }) : Promise.resolve()
+    ]);
+    if (chainData) setOptChain(prev=>({...prev,[base.t]:chainData}));
     const td={...base,p:lq?lq.price:base.p||100,iv:liveIV||base.iv};
     const STEPS=["Fetching live underlying price","Calculating fair value","Computing Greeks (Δ Γ Θ V ρ)","Analyzing IV surface","Generating entry points","Building AI insights"];
     for(let i=0;i<STEPS.length;i++){await new Promise(r=>setTimeout(r,420));if(runId.current!==rid)return;setOStep(i+1);setOProg(Math.round(((i+1)/STEPS.length)*82));}
     const types=optType==="Calls Only"?["call"]:optType==="Puts Only"?["put"]:["call","put"];
     const contracts=[];
-    types.forEach(tp=>{for(let i=0;i<3;i++)contracts.push(genContract(td.t,td.p,td.iv,tp,optExp,i));});
+    types.forEach(tp=>{
+      for(let i=0;i<3;i++){
+        const c=genContract(td.t,td.p,td.iv,tp,optExp,i);
+        // Merge real chain data if available
+        if(chainData){
+          const realStrike=chainData[c.strike]||chainData[Object.keys(chainData).reduce((a,b)=>Math.abs(+b-c.strike)<Math.abs(+a-c.strike)?b:a,Object.keys(chainData)[0]||c.strike)];
+          const side=tp==="call"?realStrike?.call:realStrike?.put;
+          if(side){
+            if(side.volume>0)c.vol=side.volume;
+            if(side.oi>0)c.oi=side.oi;
+            if(side.bid)c.bid=side.bid;
+            if(side.ask)c.ask=side.ask;
+            if(side.last&&side.last>0){c.prem=side.last;c.ep=side.last;} // use real last price
+            if(side.iv&&side.iv>0&&side.iv<300)c.iv=side.iv;
+            c.spread=side.ask&&side.bid?+(side.ask-side.bid).toFixed(2):c.spread;
+            c.realData=true;
+          }
+        }
+        contracts.push(c);
+      }
+    });
     contracts.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
     let ins=null;
     try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:`Options analyst. ${optTicker} live price $${td.p}, IV=${td.iv}%, strategy=${optStrat}, expiration=${optExp}. Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`}]})});if(res.ok){const e=await res.json();const raw=(e.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();try{ins=JSON.parse(raw);}catch{}if(!ins){try{const m=raw.match(/\{[\s\S]*\}/);if(m)ins=JSON.parse(m[0]);}catch{}}}}catch{}
@@ -1371,6 +1471,7 @@ export default function App() {
 
 /* ── OPTION CARD ── */
 function OCard({c}){
+  // Show real-data indicator for vol/OI sourced from Finnhub option chain
   const intr=Math.max(0,c.optType==="call"?c.prem-Math.max(0,c.stockPrice-c.strike):c.prem-Math.max(0,c.strike-c.stockPrice));
   const extr=c.prem-intr;
   const greeks=[
