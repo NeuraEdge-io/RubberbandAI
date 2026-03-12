@@ -17,7 +17,7 @@ const CSS = `
 body{background:var(--bg);color:var(--txt);font-family:'DM Mono','Courier New',monospace;-webkit-font-smoothing:antialiased;}
 .app{min-height:100vh;background:radial-gradient(ellipse 80% 50% at 80% -5%,rgba(0,232,122,.05) 0%,transparent 55%),radial-gradient(ellipse 60% 40% at 5% 95%,rgba(61,158,255,.04) 0%,transparent 55%),var(--bg);}
 .hdr{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:56px;background:rgba(7,9,13,.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--b1);flex-wrap:wrap;gap:6px;}
-.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;letter-spacing:-.5px;}
+.logo{display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-weight:800;font-size:18px;letter-spacing:-.5px;}.logo-img{width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;filter:drop-shadow(0 0 6px rgba(0,232,122,.5));}
 .logo b{color:var(--green);}
 .logo-sub{font-size:9px;letter-spacing:2px;color:var(--dim);margin-top:2px;}
 .hdr-right{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
@@ -1333,7 +1333,10 @@ export default function App() {
       <style>{CSS}</style>
       <div className="app">
         <header className="hdr">
-          <div className="logo"><div>RUBBERBAND<b>.</b>AI</div><div className="logo-sub">STOCK + OPTIONS INTELLIGENCE</div></div>
+          <div className="logo">
+            <img src="/logo.jpeg" alt="RUBBERBAND.AI" className="logo-img" />
+            <div><div>RUBBERBAND<b>.</b>AI</div><div className="logo-sub">STOCK + OPTIONS INTELLIGENCE</div></div>
+          </div>
           <div className="hdr-right">
             <span className="chip live">● {clock}</span>
             <span className={`chip ${msClass}`}>{msLabel}</span>
