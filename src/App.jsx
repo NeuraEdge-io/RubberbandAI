@@ -1244,19 +1244,28 @@ export default function App() {
   },[optTicker]);
 
   /* OPTIONS SCREENER */
+  const pricesRef=useRef(prices);
+  useEffect(()=>{pricesRef.current=prices;},[prices]);
+
   const runOptions=useCallback(async()=>{
     const rid=++runId.current;
-    setOLoading(true);setOStep(0);setOProg(0);setOContracts([]);setOInsights(null);
-    const base=OPT_BASE.find(x=>x.t===optTicker)||OPT_BASE[0];
+    // ── Snapshot all config at call time — immune to state changes mid-scan ──
+    const tickerNow  = optTicker;
+    const expNow     = optExp;
+    const typeNow    = optType;
+    const stratNow   = optStrat;
+    const base       = OPT_BASE.find(x=>x.t===tickerNow)||OPT_BASE[0];
+    const ticker     = base.t;
 
-    // ── STEP 1: Always fetch a FRESH live quote right now — never use stale cache ──
+    setOLoading(true);setOStep(0);setOProg(0);setOContracts([]);setOInsights(null);
+    setOTicker(null); // clear previous ticker display immediately
+
+    // ── STEP 1: Always fetch a FRESH live quote right now ──
     setOStep(1);setOProg(12);
-    const freshQuote = await fetchQuote(base.t);
+    const freshQuote = await fetchQuote(ticker);
     if(runId.current!==rid)return;
-    const livePrice = freshQuote?.price || prices[base.t]?.price || base.p || 100;
-    const livePriceData = freshQuote || prices[base.t] || {};
-    // Update prices state with the fresh quote
-    if(freshQuote) setPrices(prev=>({...prev,[base.t]:freshQuote}));
+    const livePrice  = freshQuote?.price || pricesRef.current[ticker]?.price || base.p || 100;
+    if(freshQuote) setPrices(prev=>({...prev,[ticker]:freshQuote}));
 
     // ── STEP 2: Fetch option chain + IV in parallel ──
     setOStep(2);setOProg(28);
@@ -1277,7 +1286,7 @@ export default function App() {
     if(chainData)setOptChain(prev=>({...prev,[base.t]:chainData}));
 
     // td uses the FRESH price, not stale cache
-    const td={...base, p:livePrice, iv:liveIV};
+    const td={...base, p:livePrice, iv:liveIV, expLabel:expNow, scanTime:new Date().toLocaleTimeString()};
 
     // ── STEP 3: Build strike grid from fresh live price ──
     setOStep(3);setOProg(48);
@@ -1291,17 +1300,21 @@ export default function App() {
 
     // ── STEP 5: Generate contracts — strikes anchored to fresh live price ──
     setOStep(5);setOProg(78);
-    const types=optType==="Calls Only"?["call"]:optType==="Puts Only"?["put"]:["call","put"];
+    const types=typeNow==="Calls Only"?["call"]:typeNow==="Puts Only"?["put"]:["call","put"];
     const contracts=[];
     types.forEach(tp=>{
       for(let i=0;i<3;i++){
         // Always pass td.p (fresh price) — genContract snaps to proper grid
-        const c=genContract(td.t,td.p,td.iv,tp,optExp,i);
+        const c=genContract(td.t,td.p,td.iv,tp,expNow,i);
 
         // ── Merge real chain data if available ──
         if(chainData&&Object.keys(chainData).length>0){
-          // Convert all chain keys to numbers for comparison
-          const chainStrikes=Object.keys(chainData).map(Number).sort((a,b)=>a-b);
+          // Filter out non-numeric keys (like _expDate), convert to numbers
+          const chainStrikes=Object.keys(chainData)
+            .filter(k=>k!=='_expDate'&&!isNaN(Number(k)))
+            .map(Number)
+            .sort((a,b)=>a-b);
+          if(!chainStrikes.length){contracts.push(c);return;}
           // Find the nearest REAL chain strike to our computed strike
           const nearest=chainStrikes.reduce((best,s)=>
             Math.abs(s-c.strike)<Math.abs(best-c.strike)?s:best,
@@ -1346,12 +1359,12 @@ export default function App() {
     });
     contracts.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
     let ins=null;
-    try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:`Options analyst. ${optTicker} live price $${td.p}, IV=${td.iv}%, strategy=${optStrat}, expiration=${optExp}. Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`}]})});if(res.ok){const e=await res.json();const raw=(e.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();try{ins=JSON.parse(raw);}catch{}if(!ins){try{const m=raw.match(/\{[\s\S]*\}/);if(m)ins=JSON.parse(m[0]);}catch{}}}}catch{}
-    if(!ins)ins={summary:`${td.n} live at $${td.p}. IV=${td.iv}% — ${td.iv>60?"elevated, ideal for premium selling":"moderate, directional plays favored"}.`,topPlay:`${contracts[0]?.contractLabel} at $${contracts[0]?.ep} → $${contracts[0]?.t1}/$${contracts[0]?.t2}/$${contracts[0]?.t3}, stop $${contracts[0]?.sl}.`,entryTiming:`Enter on ${contracts[0]?.optType==="call"?"pullback to support or breakout confirmation":"bounce off resistance or break below support"} with volume.`,riskWarning:`Max risk: $${contracts[0]?.entryTotalCost}/contract. IV crush risk ${td.iv>60?"HIGH":"MODERATE"}.`,ivAnalysis:`IV ${td.iv}% is ${td.iv>60?"elevated — sell premium or use spreads":"moderate — directional debit plays are reasonable"}.`,keyLevels:{support:`$${(td.p*.96).toFixed(2)}`,resistance:`$${(td.p*1.04).toFixed(2)}`,breakeven:`$${(td.p*1.02).toFixed(2)}`},tags:[optTicker,optStrat,optExp,td.iv>60?"High IV":"Normal IV","Live Price"]};
+    try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:`Options analyst. ${ticker} live price $${td.p}, IV=${td.iv}%, strategy=${stratNow}, expiration=${expNow}. Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`}]})});if(res.ok){const e=await res.json();const raw=(e.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();try{ins=JSON.parse(raw);}catch{}if(!ins){try{const m=raw.match(/\{[\s\S]*\}/);if(m)ins=JSON.parse(m[0]);}catch{}}}}catch{}
+    if(!ins)ins={summary:`${td.n} live at $${td.p}. IV=${td.iv}% — ${td.iv>60?"elevated, ideal for premium selling":"moderate, directional plays favored"}.`,topPlay:`${contracts[0]?.contractLabel} at $${contracts[0]?.ep} → $${contracts[0]?.t1}/$${contracts[0]?.t2}/$${contracts[0]?.t3}, stop $${contracts[0]?.sl}.`,entryTiming:`Enter on ${contracts[0]?.optType==="call"?"pullback to support or breakout confirmation":"bounce off resistance or break below support"} with volume.`,riskWarning:`Max risk: $${contracts[0]?.entryTotalCost}/contract. IV crush risk ${td.iv>60?"HIGH":"MODERATE"}.`,ivAnalysis:`IV ${td.iv}% is ${td.iv>60?"elevated — sell premium or use spreads":"moderate — directional debit plays are reasonable"}.`,keyLevels:{support:`$${(td.p*.96).toFixed(2)}`,resistance:`$${(td.p*1.04).toFixed(2)}`,breakeven:`$${(td.p*1.02).toFixed(2)}`},tags:[ticker,stratNow,expNow,td.iv>60?"High IV":"Normal IV","Live Price"]};
     if(runId.current!==rid)return;
     setOProg(100);await new Promise(r=>setTimeout(r,180));
     setOTicker(td);setOContracts(contracts);setOInsights(ins);setOLoading(false);
-  },[optTicker,optType,optExp,optStrat,prices]);
+  },[optTicker,optType,optExp,optStrat]);
 
   const dispStocks=(()=>{let s=[...stocks];if(sFilter==="Strong Buy")s=s.filter(x=>x.rating==="sb");if(sFilter==="Hidden Gems")s=s.filter(x=>x.isGem);if(sFilter==="Large Cap")s=s.filter(x=>x.cap==="Large");if(sFilter==="International")s=s.filter(x=>x.geo!=="US");if(sSort==="price")s.sort((a,b)=>b.p-a.p);if(sSort==="change")s.sort((a,b)=>b.ch-a.ch);return s;})();
   const sBuys=stocks.filter(s=>s.rating==="sb").length;
@@ -1543,7 +1556,7 @@ export default function App() {
             <div style={{flexShrink:0,fontSize:22,lineHeight:1}}>⭐</div>
             <div style={{flex:1,minWidth:220}}>
               <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:11,letterSpacing:1.5,textTransform:"uppercase",color:"var(--green)",marginBottom:5}}>
-                Top Play — {oTicker?.t} · {oInsights.topPlay?.toLowerCase().includes("call")?"⬆ Bullish Signal":"⬇ Bearish Signal"}
+                ⭐ Top Play — {oTicker?.t||optTicker} · {oInsights.topPlay?.toLowerCase().includes("call")?"⬆ Bullish Signal":"⬇ Bearish Signal"}
               </div>
               <div style={{fontSize:13,color:"var(--txt)",lineHeight:1.7,fontWeight:600}}>{oInsights.topPlay}</div>
               {oInsights.entryTiming&&<div style={{fontSize:11,color:"var(--dim)",marginTop:6,lineHeight:1.6}}>
@@ -1623,10 +1636,10 @@ export default function App() {
 
           {!oContracts.length&&!oLoading&&<div className="empty"><div className="ico">⚡</div><h3>Ready to scan options</h3><p>Select a ticker above, then hit Scan.<br/>Prices are live from Finnhub.</p></div>}
 
-                    {oContracts.length>0&&!oLoading&&oInsights&&<div className="results">
+                    {oContracts.length>0&&!oLoading&&oInsights&&oTicker&&<div className="results">
             <div className="sumbox">
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
-                <div className="sum-title" style={{margin:0}}>{oTicker?.t} Options — {optExp}</div>
+                <div className="sum-title" style={{margin:0}}>{oTicker.t} Options — {oTicker.expLabel||optExp}</div>
                 {oTicker&&prices[oTicker.t]&&(
                   <span className="live-tag">
                     <span className="ldot"/>
@@ -1636,6 +1649,12 @@ export default function App() {
                     </span>
                   </span>
                 )}
+              </div>
+              <div style={{fontSize:9,color:"var(--dim)",marginBottom:6,display:"flex",gap:12,flexWrap:"wrap"}}>
+                <span>📍 Scanned: <b style={{color:"var(--txt)"}}>{oTicker.t}</b></span>
+                <span>⏱ At: <b style={{color:"var(--txt)"}}>{oTicker.scanTime}</b></span>
+                <span>💰 Price: <b style={{color:"var(--green)"}}>${oTicker.p}</b></span>
+                <span>📅 Exp: <b style={{color:"var(--gold)"}}>{oTicker.expLabel}</b></span>
               </div>
               <div className="sum-body">{oInsights.summary}</div>
               {oInsights.tags?.length>0&&<div className="tags">{oInsights.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}
