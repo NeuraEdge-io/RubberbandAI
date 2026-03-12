@@ -1154,41 +1154,91 @@ export default function App() {
     const rid=++runId.current;
     setOLoading(true);setOStep(0);setOProg(0);setOContracts([]);setOInsights(null);
     const base=OPT_BASE.find(x=>x.t===optTicker)||OPT_BASE[0];
-    const lq=prices[base.t];
-    // Try live IV first, fall back to cached, then static baseline
-    let liveIV = ivCache[base.t] || null;
-    // Fetch real option chain for live vol/OI/bid/ask
+
+    // ── STEP 1: Always fetch a FRESH live quote right now — never use stale cache ──
+    setOStep(1);setOProg(12);
+    const freshQuote = await fetchQuote(base.t);
+    if(runId.current!==rid)return;
+    const livePrice = freshQuote?.price || prices[base.t]?.price || base.p || 100;
+    const livePriceData = freshQuote || prices[base.t] || {};
+    // Update prices state with the fresh quote
+    if(freshQuote) setPrices(prev=>({...prev,[base.t]:freshQuote}));
+
+    // ── STEP 2: Fetch option chain + IV in parallel ──
+    setOStep(2);setOProg(28);
+    let liveIV = null;
     const [chainData] = await Promise.all([
       fetchOptionChainData(base.t),
-      !liveIV ? fetchLiveIV(base.t).then(iv => {
-        if (iv && iv > 5 && iv < 300) {
-          liveIV = iv;
-          setIvCache(prev=>({...prev,[base.t]:iv}));
-        }
-      }) : Promise.resolve()
+      fetchLiveIV(base.t).then(iv=>{
+        if(iv&&iv>5&&iv<300){liveIV=iv;setIvCache(prev=>({...prev,[base.t]:iv}));}
+      })
     ]);
-    if (chainData) setOptChain(prev=>({...prev,[base.t]:chainData}));
-    const td={...base,p:lq?lq.price:base.p||100,iv:liveIV||base.iv};
-    const STEPS=["Fetching live underlying price","Calculating fair value","Computing Greeks (Δ Γ Θ V ρ)","Analyzing IV surface","Generating entry points","Building AI insights"];
-    for(let i=0;i<STEPS.length;i++){await new Promise(r=>setTimeout(r,420));if(runId.current!==rid)return;setOStep(i+1);setOProg(Math.round(((i+1)/STEPS.length)*82));}
+    if(runId.current!==rid)return;
+    liveIV = liveIV || ivCache[base.t] || base.iv || 45;
+    if(chainData)setOptChain(prev=>({...prev,[base.t]:chainData}));
+
+    // td uses the FRESH price, not stale cache
+    const td={...base, p:livePrice, iv:liveIV};
+
+    // ── STEP 3: Build strike grid from fresh live price ──
+    setOStep(3);setOProg(48);
+    await new Promise(r=>setTimeout(r,200));
+    if(runId.current!==rid)return;
+
+    // ── STEP 4: Compute Greeks ──
+    setOStep(4);setOProg(62);
+    await new Promise(r=>setTimeout(r,200));
+    if(runId.current!==rid)return;
+
+    // ── STEP 5: Generate contracts — strikes anchored to fresh live price ──
+    setOStep(5);setOProg(78);
     const types=optType==="Calls Only"?["call"]:optType==="Puts Only"?["put"]:["call","put"];
     const contracts=[];
     types.forEach(tp=>{
       for(let i=0;i<3;i++){
+        // Always pass td.p (fresh price) — genContract snaps to proper grid
         const c=genContract(td.t,td.p,td.iv,tp,optExp,i);
-        // Merge real chain data if available
-        if(chainData){
-          const realStrike=chainData[c.strike]||chainData[Object.keys(chainData).reduce((a,b)=>Math.abs(+b-c.strike)<Math.abs(+a-c.strike)?b:a,Object.keys(chainData)[0]||c.strike)];
-          const side=tp==="call"?realStrike?.call:realStrike?.put;
-          if(side){
-            if(side.volume>0)c.vol=side.volume;
-            if(side.oi>0)c.oi=side.oi;
-            if(side.bid)c.bid=side.bid;
-            if(side.ask)c.ask=side.ask;
-            if(side.last&&side.last>0){c.prem=side.last;c.ep=side.last;} // use real last price
-            if(side.iv&&side.iv>0&&side.iv<300)c.iv=side.iv;
-            c.spread=side.ask&&side.bid?+(side.ask-side.bid).toFixed(2):c.spread;
-            c.realData=true;
+
+        // ── Merge real chain data if available ──
+        if(chainData&&Object.keys(chainData).length>0){
+          // Convert all chain keys to numbers for comparison
+          const chainStrikes=Object.keys(chainData).map(Number).sort((a,b)=>a-b);
+          // Find the nearest REAL chain strike to our computed strike
+          const nearest=chainStrikes.reduce((best,s)=>
+            Math.abs(s-c.strike)<Math.abs(best-c.strike)?s:best,
+            chainStrikes[0]
+          );
+          // Only use real data if it's within 2 strike increments (close match)
+          const incr=strikeIncrement(td.p);
+          if(Math.abs(nearest-c.strike)<=incr*2){
+            const realStrike=chainData[nearest]||chainData[String(nearest)];
+            const side=tp==="call"?realStrike?.call:realStrike?.put;
+            if(side){
+              if(side.volume>0)c.vol=side.volume;
+              if(side.oi>0)c.oi=side.oi;
+              if(side.bid!=null&&side.bid>0)c.bid=+side.bid.toFixed(2);
+              if(side.ask!=null&&side.ask>0)c.ask=+side.ask.toFixed(2);
+              // Entry price = mid of bid/ask (most accurate executable price)
+              if(side.bid>0&&side.ask>0){
+                const mid=+((side.bid+side.ask)/2).toFixed(2);
+                c.prem=mid;c.ep=mid;
+              } else if(side.last&&side.last>0){
+                c.prem=+side.last.toFixed(2);c.ep=+side.last.toFixed(2);
+              }
+              if(side.iv&&side.iv>0&&side.iv<300)c.iv=+side.iv.toFixed(1);
+              c.spread=side.ask&&side.bid?+(side.ask-side.bid).toFixed(2):c.spread;
+              // Recalculate targets/stop based on real entry price
+              c.t1=+(c.ep*1.3).toFixed(2);
+              c.t2=+(c.ep*1.65).toFixed(2);
+              c.t3=+(c.ep*2.2).toFixed(2);
+              c.sl=+(c.ep*0.55).toFixed(2);
+              c.entryTotalCost=+(c.ep*100).toFixed(0);
+              c.maxPnl=+((c.t3-c.ep)*100).toFixed(0);
+              c.maxLoss=+((c.ep-c.sl)*100).toFixed(0);
+              c.contractLabel=`${td.t} $${nearest} ${tp==="call"?"CALL":"PUT"} ${optExp.split(" ")[0]}`;
+              c.strike=nearest; // use the REAL chain strike
+              c.realData=true;
+            }
           }
         }
         contracts.push(c);
@@ -1208,7 +1258,7 @@ export default function App() {
   const sGems=stocks.filter(s=>s.isGem).length;
   const sAvg=stocks.length?Math.round(stocks.reduce((a,b)=>a+b.score,0)/stocks.length):0;
   const SSTEPS=["Loading live Finnhub prices","Applying strategy filters",`Scoring ${UNIVERSE_BASE.length}+ stocks`,"Surfacing hidden gems","Generating AI criteria"];
-  const OSTEPS=["Fetching live underlying price","Calculating fair value","Computing Greeks (Δ Γ Θ V ρ)","Analyzing IV surface","Generating entry points","Building AI insights"];
+  const OSTEPS=["Fetching fresh live quote","Fetching option chain + IV","Building strike grid","Computing Greeks (Δ Γ Θ V ρ)","Matching real chain contracts","Generating AI insights"];
   const msLabel=ms==="open"?"● MARKET OPEN":ms==="pre"?"◑ PRE-MARKET":ms==="after"?"◑ AFTER-HOURS":"○ MARKET CLOSED";
   const msClass=ms==="open"?"mopen":"mclosed";
 
