@@ -643,41 +643,68 @@ async function fetchQuote(ticker) {
   } catch { return null; }
 }
 
-// Fetch real option chain data for a specific contract
-async function fetchOptionChainData(ticker) {
+// Fetch real option chain data — matches target expiration, returns per-strike map
+// targetExpDate: "Mar 21, 2026" format — we match the closest expiration in the chain
+async function fetchOptionChainData(ticker, targetExpDate) {
   try {
     const r = await fetch(`${FINNHUB_URL}/stock/option-chain?symbol=${ticker}&token=${FINNHUB_KEY}`);
     if (!r.ok) return null;
     const d = await r.json();
     if (!d || !d.data || !d.data.length) return null;
-    // Build a map of strike -> {call, put} real data
-    const chainMap = {};
+
+    // Parse all available expiration dates from chain
+    // Finnhub returns expirationDate as "YYYY-MM-DD"
+    let bestExp = null;
+    let bestDiff = Infinity;
+    const targetMs = targetExpDate ? new Date(targetExpDate).getTime() : null;
+
     d.data.forEach(exp => {
-      const calls = (exp.options && exp.options.CALL) || [];
-      const puts  = (exp.options && exp.options.PUT)  || [];
-      calls.forEach(c => {
-        if (!chainMap[c.strike]) chainMap[c.strike] = {};
-        chainMap[c.strike].call = {
-          iv: c.impliedVolatility ? +(c.impliedVolatility * 100).toFixed(1) : null,
-          volume: c.volume || 0,
-          oi: c.openInterest || 0,
-          bid: c.bid || null,
-          ask: c.ask || null,
-          last: c.lastPrice || null,
-        };
-      });
-      puts.forEach(p => {
-        if (!chainMap[p.strike]) chainMap[p.strike] = {};
-        chainMap[p.strike].put = {
-          iv: p.impliedVolatility ? +(p.impliedVolatility * 100).toFixed(1) : null,
-          volume: p.volume || 0,
-          oi: p.openInterest || 0,
-          bid: p.bid || null,
-          ask: p.ask || null,
-          last: p.lastPrice || null,
-        };
-      });
+      if (!exp.expirationDate) return;
+      const expMs = new Date(exp.expirationDate).getTime();
+      const diff = targetMs ? Math.abs(expMs - targetMs) : 0;
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestExp = exp;
+      }
     });
+
+    // If no targetExpDate or no match within 7 days, fall back to first expiration
+    if (!bestExp || (targetMs && bestDiff > 7 * 86400000)) {
+      bestExp = d.data[0];
+    }
+
+    // Build strike map from the MATCHING expiration only
+    const chainMap = {};
+    const calls = (bestExp.options && bestExp.options.CALL) || [];
+    const puts  = (bestExp.options && bestExp.options.PUT)  || [];
+
+    calls.forEach(c => {
+      const k = +c.strike;
+      if (!chainMap[k]) chainMap[k] = {};
+      chainMap[k].call = {
+        iv:     c.impliedVolatility ? +(c.impliedVolatility * 100).toFixed(1) : null,
+        volume: typeof c.volume === 'number' ? c.volume : 0,
+        oi:     typeof c.openInterest === 'number' ? c.openInterest : 0,
+        bid:    typeof c.bid === 'number' && c.bid > 0 ? c.bid : null,
+        ask:    typeof c.ask === 'number' && c.ask > 0 ? c.ask : null,
+        last:   typeof c.lastPrice === 'number' && c.lastPrice > 0 ? c.lastPrice : null,
+      };
+    });
+    puts.forEach(p => {
+      const k = +p.strike;
+      if (!chainMap[k]) chainMap[k] = {};
+      chainMap[k].put = {
+        iv:     p.impliedVolatility ? +(p.impliedVolatility * 100).toFixed(1) : null,
+        volume: typeof p.volume === 'number' ? p.volume : 0,
+        oi:     typeof p.openInterest === 'number' ? p.openInterest : 0,
+        bid:    typeof p.bid === 'number' && p.bid > 0 ? p.bid : null,
+        ask:    typeof p.ask === 'number' && p.ask > 0 ? p.ask : null,
+        last:   typeof p.lastPrice === 'number' && p.lastPrice > 0 ? p.lastPrice : null,
+      };
+    });
+
+    // Also store the actual matched expiration date for display
+    chainMap._expDate = bestExp.expirationDate || null;
     return chainMap;
   } catch { return null; }
 }
@@ -1034,8 +1061,9 @@ function genContract(ticker,price,iv,optType,expLabel,idx){
   const rho=isCall?strike*t*Math.exp(-r*t)*N(d2)/100:-strike*t*Math.exp(-r*t)*N(-d2)/100;
   const ep=+(prem*rnd(.95,1.02)).toFixed(2);
   const t1=+(prem*1.3).toFixed(2),t2=+(prem*1.65).toFixed(2),t3=+(prem*2.2).toFixed(2),sl=+(prem*.55).toFixed(2);
-  // Fallback estimated vol/OI — will be overwritten by real chain data if available
-  const oi=rint(1000,50000),vol=rint(200,Math.floor(oi*.35));
+  // OI and Volume are always null until populated from real chain data
+  // Never use random estimates — show "—" if not available
+  const oi=null, vol=null;
   const realData=false;
   let signal="neutral";
   const absDelta=Math.abs(delta);
@@ -1053,7 +1081,7 @@ function genContract(ticker,price,iv,optType,expLabel,idx){
     maxPnl:+((t3-ep)*100).toFixed(0),maxLoss:+((ep-sl)*100).toFixed(0),
     delta:+delta.toFixed(4),gamma:+gamma.toFixed(6),theta:+theta.toFixed(4),vega:+vega.toFixed(4),rho:+rho.toFixed(4),
     iv:+(ivP*100).toFixed(1),ivRank:rint(15,92),ivPct:rint(10,95),
-    oi,vol,pcr:+rnd(.4,1.8).toFixed(2),
+    oi,vol,pcr:null,
     dayR:{lo:rnd(prem*.65,prem*.88),hi:rnd(prem*1.12,prem*1.45)},
     weekR:{lo:rnd(prem*.45,prem*.75),hi:rnd(prem*1.3,prem*1.85)},
     monthR:dte>=30?{lo:rnd(prem*.25,prem*.6),hi:rnd(prem*1.5,prem*2.8)}:null,
@@ -1233,8 +1261,13 @@ export default function App() {
     // ── STEP 2: Fetch option chain + IV in parallel ──
     setOStep(2);setOProg(28);
     let liveIV = null;
+    // Compute the target expiration date for the selected DTE so we fetch
+    // OI/volume for the CORRECT expiration from Finnhub
+    const targetDte = parseInt(optExp.match(/\d+/)?.[0] || "30");
+    const targetExpInfo = calcExpirationDate(targetDte);
+
     const [chainData] = await Promise.all([
-      fetchOptionChainData(base.t),
+      fetchOptionChainData(base.t, targetExpInfo.label),
       fetchLiveIV(base.t).then(iv=>{
         if(iv&&iv>5&&iv<300){liveIV=iv;setIvCache(prev=>({...prev,[base.t]:iv}));}
       })
@@ -1280,8 +1313,9 @@ export default function App() {
             const realStrike=chainData[nearest]||chainData[String(nearest)];
             const side=tp==="call"?realStrike?.call:realStrike?.put;
             if(side){
-              if(side.volume>0)c.vol=side.volume;
-              if(side.oi>0)c.oi=side.oi;
+              // Always take real OI and volume — even 0 is valid real data
+              c.vol = (typeof side.volume === 'number') ? side.volume : null;
+              c.oi  = (typeof side.oi === 'number') ? side.oi : null;
               if(side.bid!=null&&side.bid>0)c.bid=+side.bid.toFixed(2);
               if(side.ask!=null&&side.ask>0)c.ask=+side.ask.toFixed(2);
               // Entry price = mid of bid/ask (most accurate executable price)
@@ -1752,9 +1786,27 @@ function OCard({c}){
         </div>)}
       </div>
       <div className="oi-row">
-        <div className="oi-box"><div className="oil">Open Interest</div><div className="oiv">{c.oi.toLocaleString()}</div><div className="ois">{c.oi>10000?"High liquidity":c.oi>2000?"Moderate":"Low liquidity"}</div></div>
-        <div className="oi-box"><div className="oil">Volume Today</div><div className="oiv">{c.vol.toLocaleString()}</div><div className="ois">{((c.vol/c.oi)*100).toFixed(1)}% of OI</div></div>
-        <div className="oi-box"><div className="oil">Put/Call Ratio</div><div className="oiv">{c.pcr}</div><div className="ois">{c.pcr<.7?"Bullish":c.pcr>1.3?"Bearish":"Neutral"} sentiment</div></div>
+        <div className="oi-box">
+          <div className="oil">Open Interest</div>
+          {c.oi!=null
+            ?<><div className="oiv" style={{color:"var(--cyan)"}}>{c.oi.toLocaleString()} <span style={{fontSize:9,color:"var(--green)",marginLeft:3}}>●LIVE</span></div><div className="ois">{c.oi>10000?"High liquidity":c.oi>2000?"Moderate liquidity":"Low liquidity"}</div></>
+            :<><div className="oiv" style={{color:"var(--dim)"}}>—</div><div className="ois" style={{color:"var(--dim)"}}>Awaiting chain data</div></>
+          }
+        </div>
+        <div className="oi-box">
+          <div className="oil">Volume Today</div>
+          {c.vol!=null
+            ?<><div className="oiv" style={{color:"var(--cyan)"}}>{c.vol.toLocaleString()} <span style={{fontSize:9,color:"var(--green)",marginLeft:3}}>●LIVE</span></div><div className="ois">{c.oi&&c.oi>0?`${((c.vol/c.oi)*100).toFixed(1)}% of OI`:"Live from chain"}</div></>
+            :<><div className="oiv" style={{color:"var(--dim)"}}>—</div><div className="ois" style={{color:"var(--dim)"}}>Awaiting chain data</div></>
+          }
+        </div>
+        <div className="oi-box">
+          <div className="oil">Put/Call Ratio</div>
+          {c.pcr!=null
+            ?<><div className="oiv">{c.pcr}</div><div className="ois">{c.pcr<.7?"Bullish":c.pcr>1.3?"Bearish":"Neutral"} sentiment</div></>
+            :<><div className="oiv" style={{color:"var(--dim)"}}>—</div><div className="ois" style={{color:"var(--dim)"}}>N/A</div></>
+          }
+        </div>
       </div>
     </div>
   );
