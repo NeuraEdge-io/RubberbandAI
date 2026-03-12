@@ -920,6 +920,66 @@ function Npdf(x){return Math.exp(-.5*x*x)/Math.sqrt(2*Math.PI);}
 function rnd(a,b,d=2){return parseFloat((Math.random()*(b-a)+a).toFixed(d));}
 function rint(a,b){return Math.floor(Math.random()*(b-a+1)+a);}
 
+
+/* ── EXPIRATION DATE CALCULATOR ──
+   Real US equity options expire:
+   - Weeklies: every Friday
+   - Standard monthlies: 3rd Friday of the month
+   Given DTE, compute the exact calendar expiration date.
+*/
+function calcExpirationDate(dte) {
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  // Target date = today + dte days
+  const target = new Date(today.getTime() + dte * 86400000);
+
+  // For short DTE (≤14), snap to the next Friday on or after target
+  function nextFriday(d) {
+    const day = d.getDay(); // 0=Sun,1=Mon,...,5=Fri,6=Sat
+    const diff = day <= 5 ? (5 - day) : 6; // days until next Friday (same day if already Friday)
+    const f = new Date(d.getTime() + diff * 86400000);
+    return f;
+  }
+
+  // For longer DTE (>14), use 3rd Friday of the target month
+  function thirdFriday(year, month) {
+    // Find first day of month
+    let d = new Date(year, month, 1);
+    // Move to first Friday
+    while (d.getDay() !== 5) d.setDate(d.getDate() + 1);
+    // 3rd Friday = first Friday + 14 days
+    d.setDate(d.getDate() + 14);
+    return d;
+  }
+
+  let expDate;
+  if (dte <= 14) {
+    expDate = nextFriday(target);
+  } else {
+    // Use 3rd Friday of the target month
+    const tf = thirdFriday(target.getFullYear(), target.getMonth());
+    // If 3rd Friday is before target, use next month's 3rd Friday
+    expDate = tf >= target ? tf : thirdFriday(
+      target.getMonth() === 11 ? target.getFullYear()+1 : target.getFullYear(),
+      target.getMonth() === 11 ? 0 : target.getMonth()+1
+    );
+  }
+
+  const mon  = MONTHS[expDate.getMonth()];
+  const day  = expDate.getDate();
+  const year = expDate.getFullYear();
+  const dow  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][expDate.getDay()];
+  // Real DTE from today to expiration
+  const realDte = Math.round((expDate.getTime() - today.getTime()) / 86400000);
+  return {
+    date: expDate,
+    label: `${mon} ${day}, ${year}`,        // "Mar 21, 2025"
+    short: `${mon} ${day}`,                   // "Mar 21"
+    full: `${dow} ${mon} ${day}, ${year}`,   // "Fri Mar 21, 2025"
+    realDte,
+  };
+}
 /* ── STRIKE GRID: matches CBOE/OCC standard option strike intervals ──
    Price < $5      → $0.50 increments
    Price $5–$25    → $1.00 increments
@@ -949,7 +1009,9 @@ function snapToGrid(price, incr) {
 function genContract(ticker,price,iv,optType,expLabel,idx){
   const isCall=optType==="call";
   const dte=parseInt(expLabel.match(/\d+/)?.[0]||"30");
-  const t=Math.max(dte/365,.001);
+  // Compute real calendar expiration date (always based on today's date)
+  const expInfo = calcExpirationDate(dte);
+  const t=Math.max(expInfo.realDte/365,.001);
   // Compute proper strike grid based on live price
   const incr = strikeIncrement(price);
   const atm = snapToGrid(price, incr);
@@ -983,7 +1045,11 @@ function genContract(ticker,price,iv,optType,expLabel,idx){
   else if(!isCall&&absDelta>.3)signal="bearish";
   return {
     ticker,name:OPT_BASE.find(x=>x.t===ticker)?.n||ticker,
-    stockPrice:price,strike,optType,expLabel,dte,prem,ep,t1,t2,t3,sl,
+    stockPrice:price,strike,optType,expLabel,dte:expInfo.realDte,
+    expirationDate:expInfo.label,
+    expirationFull:expInfo.full,
+    expirationShort:expInfo.short,
+    prem,ep,t1,t2,t3,sl,
     maxPnl:+((t3-ep)*100).toFixed(0),maxLoss:+((ep-sl)*100).toFixed(0),
     delta:+delta.toFixed(4),gamma:+gamma.toFixed(6),theta:+theta.toFixed(4),vega:+vega.toFixed(4),rho:+rho.toFixed(4),
     iv:+(ivP*100).toFixed(1),ivRank:rint(15,92),ivPct:rint(10,95),
@@ -993,7 +1059,7 @@ function genContract(ticker,price,iv,optType,expLabel,idx){
     monthR:dte>=30?{lo:rnd(prem*.25,prem*.6),hi:rnd(prem*1.5,prem*2.8)}:null,
     signal,moneyLabel:isATM?"ATM":isOTM?"OTM":"ITM",
     bid:+(prem*.975).toFixed(2),ask:+(prem*1.025).toFixed(2),spread:+(prem*.05).toFixed(2),
-    contractLabel:`${ticker} $${strike} ${isCall?"CALL":"PUT"} ${expLabel.split(" ")[0]}`,
+    contractLabel:`${ticker} $${strike} ${isCall?"CALL":"PUT"} ${expInfo.short}`,
     entryTotalCost:+(ep*100).toFixed(0),
     realData,
   };
@@ -1235,7 +1301,7 @@ export default function App() {
               c.entryTotalCost=+(c.ep*100).toFixed(0);
               c.maxPnl=+((c.t3-c.ep)*100).toFixed(0);
               c.maxLoss=+((c.ep-c.sl)*100).toFixed(0);
-              c.contractLabel=`${td.t} $${nearest} ${tp==="call"?"CALL":"PUT"} ${optExp.split(" ")[0]}`;
+              c.contractLabel=`${td.t} $${nearest} ${tp==="call"?"CALL":"PUT"} ${c.expirationShort}`;
               c.strike=nearest; // use the REAL chain strike
               c.realData=true;
             }
@@ -1633,10 +1699,15 @@ function OCard({c}){
       <div className="ocard-hdr">
         <div className="ohdr-l">
           <span className={`otype ${c.optType}`}>{c.optType.toUpperCase()}</span>
-          <div><div className="otick">{c.ticker} ${c.strike}</div><div className="oname">{c.name} · {c.moneyLabel} · {c.dte} DTE</div></div>
+          <div>
+              <div className="otick">{c.ticker} ${c.strike} {c.optType.toUpperCase()}</div>
+              <div className="oname">{c.name} · {c.moneyLabel} · {c.dte} DTE</div>
+            </div>
         </div>
         <div className="ohdr-r">
-          <span className="oexp">{c.expLabel}</span>
+          <span className="oexp" title={c.expirationFull}>
+            📅 {c.expirationDate}
+          </span>
           <span className={`sig ${c.signal}`}>{c.signal==="bullish"?"⬆ Bullish":c.signal==="bearish"?"⬇ Bearish":"◎ Neutral"}</span>
         </div>
       </div>
@@ -1658,6 +1729,7 @@ function OCard({c}){
         <div className="ometric"><div className="oml">Intrinsic</div><div className="omv">${intr.toFixed(2)}</div><div className="oms">Extrinsic: ${extr.toFixed(2)}</div></div>
         <div className="ometric"><div className="oml">Break-even</div><div className="omv cyan">${c.optType==="call"?(c.strike+c.prem).toFixed(2):(c.strike-c.prem).toFixed(2)}</div><div className="oms">At expiry</div></div>
         <div className="ometric"><div className="oml">Multiplier</div><div className="omv">100x</div><div className="oms">Per contract</div></div>
+        <div className="ometric"><div className="oml">Expires</div><div className="omv" style={{fontSize:12,color:"var(--gold)"}}>{c.expirationDate}</div><div className="oms">{c.expirationFull}</div></div>
         <div className="ometric"><div className="oml">P/C Ratio</div><div className="omv">{c.pcr}</div><div className="oms">{c.pcr<.7?"Bullish":c.pcr>1.3?"Bearish":"Neutral"}</div></div>
       </div>
       <div className="hl-sec">
