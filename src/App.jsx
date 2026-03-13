@@ -2,10 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 
 const FINNHUB_KEY = "d6ogvahr01qnu98i1cp0d6ogvahr01qnu98i1cpg";
 const FINNHUB_URL = "https://finnhub.io/api/v1";
-// Options chain cache — keyed by ticker, stores Finnhub chain data at scan time
-const OPT_CACHE     = {};
-const OPT_CACHE_TTL = 8 * 60 * 1000;
-const OPT_INFLIGHT  = {};
+const REFRESH_MS = 30000;
 
 /* ── STYLES ── */
 const CSS = `
@@ -386,206 +383,71 @@ tbody td{padding:11px 13px;vertical-align:middle;}
 
 /* ── UNIVERSE ── */
 const UNIVERSE_BASE = [
-  // ── Mega Cap Tech ──
   {t:"NVDA",n:"NVIDIA Corp",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"AAPL",n:"Apple Inc",sec:"Technology",cap:"Large",geo:"US"},
   {t:"MSFT",n:"Microsoft Corp",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"AMZN",n:"Amazon.com",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"AAPL",n:"Apple Inc",sec:"Technology",cap:"Large",geo:"US"},
   {t:"GOOGL",n:"Alphabet Inc",sec:"Technology",cap:"Large",geo:"US"},
   {t:"META",n:"Meta Platforms",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"TSLA",n:"Tesla Inc",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
-  {t:"AMD",n:"AMD",sec:"Semiconductors",cap:"Large",geo:"US"},
   {t:"AVGO",n:"Broadcom Inc",sec:"Semiconductors",cap:"Large",geo:"US"},
   {t:"ORCL",n:"Oracle Corp",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"INTC",n:"Intel Corp",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"QCOM",n:"Qualcomm",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"MU",n:"Micron Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"NFLX",n:"Netflix",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"UBER",n:"Uber Technologies",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"MRVL",n:"Marvell Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"TSM",n:"Taiwan Semiconductor",sec:"Semiconductors",cap:"Large",geo:"Asia Pacific"},
-  {t:"ASML",n:"ASML Holding",sec:"Semiconductors",cap:"Large",geo:"Europe"},
-  // ── Enterprise SaaS ──
   {t:"CRM",n:"Salesforce",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"NOW",n:"ServiceNow",sec:"Technology",cap:"Large",geo:"US"},
   {t:"ADBE",n:"Adobe Inc",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"INTU",n:"Intuit Inc",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"HUBS",n:"HubSpot Inc",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"WDAY",n:"Workday",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"VEEV",n:"Veeva Systems",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"TEAM",n:"Atlassian",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"MDB",n:"MongoDB",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"ESTC",n:"Elastic NV",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"CFLT",n:"Confluent",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"NOW",n:"ServiceNow",sec:"Technology",cap:"Large",geo:"US"},
   {t:"DDOG",n:"Datadog Inc",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"SNOW",n:"Snowflake",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"HUBS",n:"HubSpot Inc",sec:"Technology",cap:"Mid",geo:"US"},
   {t:"MNDY",n:"Monday.com",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"ZBRA",n:"Zebra Technologies",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"TEL",n:"TE Connectivity",sec:"Technology",cap:"Large",geo:"US"},
-  // ── AI / Cybersecurity / Cloud ──
-  {t:"PLTR",n:"Palantir Tech",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"APP",n:"Applovin Corp",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"CRWD",n:"CrowdStrike",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"NET",n:"Cloudflare",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"ZS",n:"Zscaler",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"OKTA",n:"Okta Inc",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"S",n:"SentinelOne",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"PATH",n:"UiPath",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"GTLB",n:"GitLab",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"SMCI",n:"Super Micro Computer",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"CRWV",n:"CoreWeave Inc",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"IONQ",n:"IonQ Inc",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"SOUN",n:"SoundHound AI",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"SERV",n:"Serve Robotics",sec:"Technology",cap:"Micro",geo:"US"},
-  {t:"NBIS",n:"Nebius Group",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"AI",n:"C3.ai",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"BBAI",n:"BigBear.ai",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"RGTI",n:"Rigetti Computing",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"QBTS",n:"D-Wave Quantum",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"ARQQ",n:"Arqit Quantum",sec:"Technology",cap:"Micro",geo:"US"},
-  {t:"QUBT",n:"Quantum Computing Inc",sec:"Technology",cap:"Micro",geo:"US"},
-  {t:"TEM",n:"Tempus AI Inc",sec:"Healthcare",cap:"Mid",geo:"US"},
-  // ── Fintech / Finance ──
-  {t:"V",n:"Visa Inc",sec:"Fintech",cap:"Large",geo:"US"},
-  {t:"MA",n:"Mastercard",sec:"Fintech",cap:"Large",geo:"US"},
-  {t:"PYPL",n:"PayPal",sec:"Fintech",cap:"Large",geo:"US"},
-  {t:"COIN",n:"Coinbase Global",sec:"Fintech",cap:"Large",geo:"US"},
-  {t:"SQ",n:"Block Inc",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"AFRM",n:"Affirm Holdings",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"UPST",n:"Upstart Holdings",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"SOFI",n:"SoFi Technologies",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"NU",n:"Nu Holdings",sec:"Fintech",cap:"Large",geo:"Latin America"},
   {t:"TOST",n:"Toast Inc",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"BILL",n:"Bill.com",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"RELY",n:"Remitly Global",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"AFRM",n:"Affirm Holdings",sec:"Fintech",cap:"Mid",geo:"US"},
   {t:"ALKT",n:"Alkami Technology",sec:"Fintech",cap:"Small",geo:"US"},
-  {t:"DAVE",n:"Dave Inc",sec:"Fintech",cap:"Small",geo:"US"},
-  {t:"ADYEY",n:"Adyen",sec:"Fintech",cap:"Large",geo:"Europe"},
-  {t:"JPM",n:"JPMorgan Chase",sec:"Financials",cap:"Large",geo:"US"},
-  {t:"BAC",n:"Bank of America",sec:"Financials",cap:"Large",geo:"US"},
-  {t:"GS",n:"Goldman Sachs",sec:"Financials",cap:"Large",geo:"US"},
-  // ── Healthcare / Biotech ──
+  {t:"PRCT",n:"PROCEPT BioRobotics",sec:"Healthcare",cap:"Small",geo:"US"},
+  {t:"AXSM",n:"Axsome Therapeutics",sec:"Biotech",cap:"Small",geo:"US"},
+  {t:"NUVL",n:"Nuvalent Inc",sec:"Biotech",cap:"Mid",geo:"US"},
   {t:"LLY",n:"Eli Lilly",sec:"Healthcare",cap:"Large",geo:"US"},
   {t:"UNH",n:"UnitedHealth",sec:"Healthcare",cap:"Large",geo:"US"},
   {t:"ISRG",n:"Intuitive Surgical",sec:"Healthcare",cap:"Large",geo:"US"},
   {t:"DXCM",n:"Dexcom",sec:"Healthcare",cap:"Large",geo:"US"},
-  {t:"SYK",n:"Stryker Corp",sec:"Healthcare",cap:"Large",geo:"US"},
-  {t:"NVO",n:"Novo Nordisk",sec:"Healthcare",cap:"Large",geo:"Europe"},
-  {t:"VRTX",n:"Vertex Pharma",sec:"Biotech",cap:"Large",geo:"US"},
-  {t:"REGN",n:"Regeneron",sec:"Biotech",cap:"Large",geo:"US"},
-  {t:"BIIB",n:"Biogen",sec:"Biotech",cap:"Large",geo:"US"},
-  {t:"GILD",n:"Gilead Sciences",sec:"Biotech",cap:"Large",geo:"US"},
-  {t:"MRNA",n:"Moderna",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"BNTX",n:"BioNTech",sec:"Biotech",cap:"Mid",geo:"Europe"},
-  {t:"ALNY",n:"Alnylam Pharma",sec:"Biotech",cap:"Large",geo:"US"},
-  {t:"NUVL",n:"Nuvalent Inc",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"AXSM",n:"Axsome Therapeutics",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"NTRA",n:"Natera Inc",sec:"Healthcare",cap:"Mid",geo:"US"},
-  {t:"BEAM",n:"Beam Therapeutics",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"CRSP",n:"CRISPR Therapeutics",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"PRCT",n:"PROCEPT BioRobotics",sec:"Healthcare",cap:"Small",geo:"US"},
-  {t:"RXST",n:"RxSight Inc",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"INSM",n:"Insmed",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"KRYS",n:"Krystal Biotech",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"ACAD",n:"ACADIA Pharma",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"NVAX",n:"Novavax",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"SAVA",n:"Cassava Sciences",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"MGNX",n:"MacroGenics",sec:"Biotech",cap:"Small",geo:"US"},
-  // ── Consumer / Retail ──
-  {t:"SHOP",n:"Shopify Inc",sec:"Technology",cap:"Large",geo:"Canada"},
-  {t:"MELI",n:"MercadoLibre",sec:"Technology",cap:"Large",geo:"Latin America"},
-  {t:"ONON",n:"On Holding AG",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"CELH",n:"Celsius Holdings",sec:"Consumer Staples",cap:"Mid",geo:"US"},
-  {t:"BIRK",n:"Birkenstock",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"VITL",n:"Vital Farms",sec:"Consumer Staples",cap:"Small",geo:"US"},
-  {t:"SPOT",n:"Spotify Technology",sec:"Technology",cap:"Large",geo:"Europe"},
-  {t:"NTR",n:"Nutrien Ltd",sec:"Materials",cap:"Large",geo:"Canada"},
-  {t:"SNAP",n:"Snap Inc",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"PINS",n:"Pinterest",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"RBLX",n:"Roblox Corp",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"U",n:"Unity Software",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"TTWO",n:"Take-Two Interactive",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"EA",n:"Electronic Arts",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"ABNB",n:"Airbnb",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
-  {t:"LYFT",n:"Lyft Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"DASH",n:"DoorDash",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
-  {t:"ETSY",n:"Etsy Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"W",n:"Wayfair",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"HIMS",n:"Hims & Hers Health",sec:"Healthcare",cap:"Mid",geo:"US"},
-  // ── EV / Clean Energy ──
-  {t:"ENPH",n:"Enphase Energy",sec:"Clean Energy",cap:"Mid",geo:"US"},
-  {t:"FSLR",n:"First Solar",sec:"Clean Energy",cap:"Mid",geo:"US"},
-  {t:"NEE",n:"NextEra Energy",sec:"Utilities",cap:"Large",geo:"US"},
-  {t:"CEG",n:"Constellation Energy",sec:"Utilities",cap:"Large",geo:"US"},
-  {t:"NEP",n:"NextEra Energy Partners",sec:"Utilities",cap:"Mid",geo:"US"},
-  {t:"RIVN",n:"Rivian Automotive",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"LCID",n:"Lucid Group",sec:"Consumer Discretionary",cap:"Small",geo:"US"},
-  {t:"NIO",n:"NIO Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"Asia Pacific"},
-  {t:"XPEV",n:"XPeng Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"Asia Pacific"},
-  {t:"LI",n:"Li Auto",sec:"Consumer Discretionary",cap:"Mid",geo:"Asia Pacific"},
-  {t:"ARRY",n:"Array Technologies",sec:"Clean Energy",cap:"Small",geo:"US"},
-  {t:"STEM",n:"Stem Inc",sec:"Clean Energy",cap:"Small",geo:"US"},
-  // ── Defense / Industrial ──
-  {t:"GE",n:"GE Aerospace",sec:"Industrials",cap:"Large",geo:"US"},
-  {t:"KTOS",n:"Kratos Defense",sec:"Defense",cap:"Small",geo:"US"},
-  {t:"RTX",n:"RTX Corp",sec:"Defense",cap:"Large",geo:"US"},
-  {t:"LMT",n:"Lockheed Martin",sec:"Defense",cap:"Large",geo:"US"},
-  {t:"NOC",n:"Northrop Grumman",sec:"Defense",cap:"Large",geo:"US"},
-  {t:"BA",n:"Boeing",sec:"Industrials",cap:"Large",geo:"US"},
-  {t:"HII",n:"Huntington Ingalls",sec:"Defense",cap:"Large",geo:"US"},
-  {t:"TDG",n:"TransDigm Group",sec:"Industrials",cap:"Large",geo:"US"},
-  {t:"RKLB",n:"Rocket Lab USA",sec:"eVTOL",cap:"Small",geo:"US"},
-  {t:"ASTS",n:"AST SpaceMobile",sec:"eVTOL",cap:"Small",geo:"US"},
-  {t:"LUNR",n:"Intuitive Machines",sec:"eVTOL",cap:"Small",geo:"US"},
-  {t:"RDW",n:"Redwire Corp",sec:"Industrials",cap:"Small",geo:"US"},
-  // ── Mining / Materials ──
-  {t:"FCX",n:"Freeport-McMoRan",sec:"Mining",cap:"Large",geo:"US"},
-  {t:"MP",n:"MP Materials",sec:"Mining",cap:"Small",geo:"US"},
+  {t:"JPM",n:"JPMorgan Chase",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"BAC",n:"Bank of America",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"GS",n:"Goldman Sachs",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"V",n:"Visa Inc",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"COIN",n:"Coinbase Global",sec:"Fintech",cap:"Mid",geo:"US"},
   {t:"XOM",n:"Exxon Mobil",sec:"Energy",cap:"Large",geo:"US"},
   {t:"CVX",n:"Chevron Corp",sec:"Energy",cap:"Large",geo:"US"},
-  // ── China / International ──
-  {t:"BABA",n:"Alibaba Group",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
-  {t:"JD",n:"JD.com",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
-  {t:"PDD",n:"PDD Holdings",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
-  {t:"BIDU",n:"Baidu Inc",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
-  // ── High Vol / Momentum ──
-  {t:"MSTR",n:"MicroStrategy",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"HOOD",n:"Robinhood Markets",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"GME",n:"GameStop",sec:"Consumer Discretionary",cap:"Small",geo:"US"},
+  {t:"FSLR",n:"First Solar",sec:"Clean Energy",cap:"Mid",geo:"US"},
+  {t:"ENPH",n:"Enphase Energy",sec:"Clean Energy",cap:"Mid",geo:"US"},
+  {t:"GE",n:"GE Aerospace",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"KTOS",n:"Kratos Defense",sec:"Defense",cap:"Small",geo:"US"},
+  {t:"RKLB",n:"Rocket Lab USA",sec:"Industrials",cap:"Small",geo:"US"},
+  {t:"AMZN",n:"Amazon.com",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"TSLA",n:"Tesla Inc",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"ONON",n:"On Holding AG",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"CELH",n:"Celsius Holdings",sec:"Consumer Staples",cap:"Mid",geo:"US"},
+  {t:"NEE",n:"NextEra Energy",sec:"Utilities",cap:"Large",geo:"US"},
+  {t:"PLTR",n:"Palantir Tech",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"IONQ",n:"IonQ Inc",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"NVO",n:"Novo Nordisk",sec:"Healthcare",cap:"Large",geo:"Europe"},
+  {t:"ASML",n:"ASML Holding",sec:"Semiconductors",cap:"Large",geo:"Europe"},
+  {t:"SHOP",n:"Shopify Inc",sec:"Technology",cap:"Large",geo:"Canada"},
+  {t:"MELI",n:"MercadoLibre",sec:"Technology",cap:"Large",geo:"Latin America"},
+  {t:"NU",n:"Nu Holdings",sec:"Fintech",cap:"Large",geo:"Latin America"},
+  {t:"NTRA",n:"Natera Inc",sec:"Healthcare",cap:"Mid",geo:"US"},
+  {t:"BEAM",n:"Beam Therapeutics",sec:"Biotech",cap:"Small",geo:"US"},
   {t:"RDDT",n:"Reddit Inc",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"RXRX",n:"Recursion Pharma",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"IREN",n:"Iris Energy Ltd",sec:"Technology",cap:"Small",geo:"International"},
-  {t:"MARA",n:"MARA Holdings",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"RIOT",n:"Riot Platforms",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"CLSK",n:"CleanSpark",sec:"Clean Energy",cap:"Small",geo:"US"},
-  {t:"HUT",n:"Hut 8 Corp",sec:"Technology",cap:"Small",geo:"Canada"},
-  {t:"CIFR",n:"Cipher Mining",sec:"Technology",cap:"Micro",geo:"US"},
-  {t:"OPEN",n:"Opendoor Technologies",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"WOLF",n:"Wolfspeed",sec:"Semiconductors",cap:"Small",geo:"US"},
-  {t:"PLUG",n:"Plug Power",sec:"Clean Energy",cap:"Small",geo:"US"},
-  {t:"CHPT",n:"ChargePoint Holdings",sec:"Clean Energy",cap:"Small",geo:"US"},
-  {t:"BLNK",n:"Blink Charging",sec:"Clean Energy",cap:"Micro",geo:"US"},
-  // ── eVTOL / Space ──
-  {t:"ACHR",n:"Archer Aviation",sec:"eVTOL",cap:"Small",geo:"US"},
-  {t:"JOBY",n:"Joby Aviation",sec:"eVTOL",cap:"Small",geo:"US"},
-  {t:"BETA",n:"Beta Technologies",sec:"eVTOL",cap:"Small",geo:"US"},
-  // ── ETFs ──
-  {t:"SPY",n:"S&P 500 ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"QQQ",n:"Nasdaq 100 ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"IWM",n:"Russell 2000 ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"GLD",n:"Gold ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"TLT",n:"20yr Treasury ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"XLF",n:"Financial Select ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"XLE",n:"Energy Select ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"ARKK",n:"ARK Innovation ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"SQQQ",n:"ProShares UltraPro Short QQQ",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"TQQQ",n:"ProShares UltraPro QQQ",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"SPXL",n:"Direxion S&P 500 Bull 3X",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"SPXS",n:"Direxion S&P 500 Bear 3X",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"BITO",n:"ProShares Bitcoin ETF",sec:"ETF",cap:"Mid",geo:"US"},
-  {t:"IBIT",n:"iShares Bitcoin Trust",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"KWEB",n:"China Internet ETF",sec:"ETF",cap:"Mid",geo:"US"},
-  {t:"FXI",n:"China Large-Cap ETF",sec:"ETF",cap:"Mid",geo:"US"},
+  {t:"FCX",n:"Freeport-McMoRan",sec:"Mining",cap:"Large",geo:"US"},
+  {t:"MP",n:"MP Materials",sec:"Mining",cap:"Small",geo:"US"},
+  {t:"SOUN",n:"SoundHound AI",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"SERV",n:"Serve Robotics",sec:"Technology",cap:"Micro",geo:"US"},
+  {t:"BIRK",n:"Birkenstock",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"VITL",n:"Vital Farms",sec:"Consumer Staples",cap:"Small",geo:"US"},
+  {t:"AMD",n:"AMD",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"APP",n:"Applovin Corp",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"INTU",n:"Intuit Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"MU",n:"Micron Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"SYK",n:"Stryker Corp",sec:"Healthcare",cap:"Large",geo:"US"},
+  {t:"CRWV",n:"CoreWeave Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"MRVL",n:"Marvell Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"TSM",n:"Taiwan Semiconductor",sec:"Semiconductors",cap:"Large",geo:"Asia Pacific"},
+  {t:"CEG",n:"Constellation Energy",sec:"Utilities",cap:"Large",geo:"US"},
 ];
 
 const OPT_BASE = [
@@ -787,235 +649,142 @@ const OPT_BASE = [
   {t:"CRWV",n:"CoreWeave Inc",iv:88,cat:"AI"},
   {t:"MRVL",n:"Marvell Technology",iv:52,cat:"Mega Cap"},
   {t:"CEG",n:"Constellation Energy",iv:42,cat:"EV/Energy"},
-  {t:"TEM",n:"Tempus AI Inc",iv:78,cat:"AI"},
-  {t:"CRSP",n:"CRISPR Therapeutics",iv:82,cat:"Biotech"},
-  {t:"IREN",n:"Iris Energy Ltd",iv:95,cat:"High Vol"},
-  {t:"BETA",n:"Beta Technologies",iv:70,cat:"eVTOL"},
-  {t:"TEL",n:"TE Connectivity",iv:26,cat:"Enterprise"},
-  {t:"SPOT",n:"Spotify Technology",iv:42,cat:"Consumer"},
-  {t:"NTR",n:"Nutrien Ltd",iv:28,cat:"Consumer"},
-  {t:"ZBRA",n:"Zebra Technologies",iv:34,cat:"Enterprise"},
 ];
 
 /* ── FINNHUB ── */
 async function fetchQuote(ticker) {
+  // Primary: Finnhub
   try {
-    const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 10000);
-    const r = await fetch(
-      `${FINNHUB_URL}/quote?symbol=${ticker}&token=${FINNHUB_KEY}`,
-      { signal: ctrl.signal }
-    );
-    clearTimeout(timer);
-    if (!r.ok) return null;
-    const d = await r.json();
-    if (d && d.c && d.c > 0) {
-      return {
-        price:       +d.c.toFixed(2),
-        change:      +d.dp.toFixed(2),
-        high:        +d.h.toFixed(2),
-        low:         +d.l.toFixed(2),
-        prevClose:   +d.pc.toFixed(2),
-        open:        +d.o.toFixed(2),
-        volume:      d.v || 0,
-        source:      'finnhub',
-        dollarChange:+(d.c - d.pc).toFixed(2),
-      };
+    const r = await fetch(`${FINNHUB_URL}/quote?symbol=${ticker}&token=${FINNHUB_KEY}`);
+    if (r.ok) {
+      const d = await r.json();
+      if (d && d.c && d.c > 0) {
+        return {
+          price:     +d.c.toFixed(2),
+          change:    +d.dp.toFixed(2),
+          high:      +d.h.toFixed(2),
+          low:       +d.l.toFixed(2),
+          prevClose: +d.pc.toFixed(2),
+          open:      +d.o.toFixed(2),
+          volume:    d.v || 0,
+          source:    'finnhub', dollarChange: +(d.c - d.pc).toFixed(2),
+        };
+      }
     }
   } catch {}
-  return null;
+  return null; // Finnhub failed — never return a fake price
 }
 
-// ══════════════════════════════════════════════════════════
-// EXPIRATION DATE GENERATOR — pure JS, instant, no network call
-// Generates every real option expiration for next 730 days:
-//   • Every Friday = weekly expiration
-//   • 3rd Friday of each month = standard monthly (labeled separately)  
-//   • Jan expirations 1-2 years out = LEAPS
-// This is how OCC actually schedules expirations.
-// ══════════════════════════════════════════════════════════
-function generateExpirationDates() {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const seen   = new Set();
-  const result = [];
+// ── CBOE OPTION CHAIN ──
+// Source: CBOE's own public delayed-quotes API.
+// • No API key required
+// • No CORS proxy needed (CBOE sets Access-Control-Allow-Origin: *)
+// • 15-minute delayed — real exchange OI, volume, bid, ask, IV, Greeks
+// • Endpoint: https://cdn.cboe.com/api/global/delayed_quotes/options/_TICKER.json
+// • CBOE uses underscore-prefixed symbols: AAPL → _AAPL, NVDA → _NVDA
 
-  const makeEntry = (dateObj) => {
-    const dte = Math.round((dateObj.getTime() - today.getTime()) / 86400000);
-    if (dte < 0) return null;
-    const mon  = MONTHS[dateObj.getMonth()];
-    const day  = dateObj.getDate();
-    const year = dateObj.getFullYear();
-    const dow  = DAYS[dateObj.getDay()];
-    const mm   = String(dateObj.getMonth()+1).padStart(2,'0');
-    const dd   = String(day).padStart(2,'0');
-    const dateStr = `${year}-${mm}-${dd}`;
-    if (seen.has(dateStr)) return null;
-    seen.add(dateStr);
-    const weekNum       = Math.ceil(day / 7);
-    const isFriday      = dateObj.getDay() === 5;
-    const isThirdFriday = isFriday && weekNum === 3;
-    let kind;
-    if      (dte === 0)  kind = '0 DTE';
-    else if (dte === 1)  kind = '1 DTE';
-    else if (dte === 2)  kind = '2 DTE';
-    else if (dte === 3)  kind = '3 DTE';
-    else if (dte === 4)  kind = '4 DTE';
-    else if (dte === 5)  kind = '5 DTE';
-    else if (dte === 6)  kind = '6 DTE';
-    else if (dte <= 13)  kind = 'Weekly';
-    else if (dte <= 37)  kind = isThirdFriday ? 'Monthly'   : 'Weekly';
-    else if (dte <= 100) kind = isThirdFriday ? 'Monthly'   : 'Weekly';
-    else if (dte <= 200) kind = isThirdFriday ? 'Quarterly' : 'Weekly';
-    else                 kind = `LEAPS ${year}`;
-    const display = dte <= 6
-      ? `${dow} ${mon} ${day}  ·  ${dte} DTE`
-      : `${mon} ${day}, ${year}  ·  ${dte}d  ·  ${kind}`;
-    return { dateStr, label:`${mon} ${day}, ${year}`, short:`${mon} ${day}`,
-             full:`${dow} ${mon} ${day}, ${year}`, dte, kind, year, display };
-  };
-
-  // ── Tier 1: Walk forward day-by-day until we have 7 weekday entries (0–6 DTE) ──
-  // Scans up to 14 calendar days to handle long weekends / holidays.
-  // Guarantees 1 DTE and 2 DTE are ALWAYS present.
-  let weekdayCount = 0;
-  for (let offset = 0; offset <= 14 && weekdayCount < 7; offset++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + offset);
-    const dow = d.getDay();
-    if (dow === 0 || dow === 6) continue; // skip Sat/Sun
-    const entry = makeEntry(d);
-    if (entry) { result.push(entry); weekdayCount++; }
-  }
-
-  // ── Tier 2: Every Friday for the next 730 days (weeklies, monthlies, LEAPS) ──
-  const fri = new Date(today);
-  // Advance to first Friday
-  while (fri.getDay() !== 5) fri.setDate(fri.getDate() + 1);
-  const end = new Date(today); end.setDate(today.getDate() + 730);
-  while (fri <= end) {
-    const entry = makeEntry(new Date(fri));
-    if (entry) result.push(entry);
-    fri.setDate(fri.getDate() + 7);
-  }
-
-  // Sort by DTE so dropdown reads 0 DTE → LEAPS chronologically
-  result.sort((a, b) => a.dte - b.dte);
-  return result;
-}
-// Computed at module load — always fresh because generateExpirationDates()
-// is pure JS with no external deps, runs in <1ms.
-const ALL_EXPIRATIONS = generateExpirationDates();
-
-// ── FINNHUB OPTION CHAIN (scan time only) ──
-// Called once when user hits Scan — uses Finnhub for real OI/volume/bid/ask
-async function loadFinnhubChain(ticker) {
-  // Check cache first
-  const cached = OPT_CACHE[ticker];
-  if (cached && (Date.now() - cached.ts) < OPT_CACHE_TTL) return cached;
-  if (OPT_INFLIGHT[ticker]) return OPT_INFLIGHT[ticker];
-
-  OPT_INFLIGHT[ticker] = (async () => {
-    try {
-      // Finnhub option chain — real OI, volume, bid/ask per strike
-      const url = `${FINNHUB_URL}/stock/option-chain?symbol=${ticker}&token=${FINNHUB_KEY}`;
-      const ctrl=new AbortController();
-      const t=setTimeout(()=>ctrl.abort(),12000);
-      const r = await fetch(url,{signal:ctrl.signal});
-      clearTimeout(t);
-      if (!r.ok) return null;
-      const d = await r.json();
-      if (!d || !Array.isArray(d.data) || !d.data.length) return null;
-
-      // Build chain maps keyed by expiration date string
-      const chains = {};
-      const expDates = [];
-      d.data.forEach(exp => {
-        const expDate = exp.expirationDate;
-        if (!expDate) return;
-        expDates.push(expDate);
-        chains[expDate] = {};
-        const calls = exp.options?.CALL || [];
-        const puts  = exp.options?.PUT  || [];
-        calls.forEach(c => {
-          const k = +c.strike; if (!k || isNaN(k)) return;
-          if (!chains[expDate][k]) chains[expDate][k] = {};
-          chains[expDate][k].call = {
-            iv:     c.impliedVolatility > 0 ? +(c.impliedVolatility * 100).toFixed(1) : null,
-            volume: typeof c.volume       === 'number' ? c.volume       : null,
-            oi:     typeof c.openInterest === 'number' ? c.openInterest : null,
-            bid:    c.bid > 0       ? +c.bid.toFixed(2)       : null,
-            ask:    c.ask > 0       ? +c.ask.toFixed(2)       : null,
-            last:   c.lastPrice > 0 ? +c.lastPrice.toFixed(2) : null,
-          };
-        });
-        puts.forEach(p => {
-          const k = +p.strike; if (!k || isNaN(k)) return;
-          if (!chains[expDate][k]) chains[expDate][k] = {};
-          chains[expDate][k].put = {
-            iv:     p.impliedVolatility > 0 ? +(p.impliedVolatility * 100).toFixed(1) : null,
-            volume: typeof p.volume       === 'number' ? p.volume       : null,
-            oi:     typeof p.openInterest === 'number' ? p.openInterest : null,
-            bid:    p.bid > 0       ? +p.bid.toFixed(2)       : null,
-            ask:    p.ask > 0       ? +p.ask.toFixed(2)       : null,
-            last:   p.lastPrice > 0 ? +p.lastPrice.toFixed(2) : null,
-          };
-        });
-      });
-
-      // ATM IV from nearest expiration
-      const nearExpData = d.data[0];
-      const allContracts = [...(nearExpData?.options?.CALL||[]), ...(nearExpData?.options?.PUT||[])];
-      const ivs = allContracts.map(c => c.impliedVolatility).filter(v => v > 0.01 && v < 5);
-      const iv  = ivs.length ? Math.round(ivs.reduce((a,b)=>a+b,0)/ivs.length*100) : null;
-
-      const result = { ts: Date.now(), dates: expDates.sort(), chains, iv };
-      OPT_CACHE[ticker] = result;
-      return result;
-    } catch(e) { console.warn('Chain fetch error:', ticker, e?.message); return null; }
-    finally { delete OPT_INFLIGHT[ticker]; }
-  })();
-  return OPT_INFLIGHT[ticker];
+function cboeSymbol(ticker) {
+  return '_' + ticker.toUpperCase();
 }
 
-async function fetchOptionChainData(ticker, targetDateStr) {
-  // targetDateStr must be "YYYY-MM-DD" — the format Finnhub uses
-  const data = await loadFinnhubChain(ticker);
-  if (!data || !data.dates || !data.dates.length) return null;
+// Fetch CBOE option chain — returns strike map keyed by numeric strike
+// Only includes contracts matching the closest expiration to targetExpDate
+async function fetchOptionChainData(ticker, targetExpDate) {
+  try {
+    const url = `https://cdn.cboe.com/api/global/delayed_quotes/options/${cboeSymbol(ticker)}.json`;
+    const r   = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!r.ok) return null;
+    const d   = await r.json();
 
-  // 1. Exact match on YYYY-MM-DD string
-  let bestExp = data.dates.find(d => d === targetDateStr);
+    // CBOE returns d.data[] — each row is one contract with fields:
+    // option (OCC symbol), expiration_date, strike_price, option_type (C/P),
+    // bid, ask, last_trade_price, volume, open_interest, iv, delta, gamma, theta, vega
+    const rows = Array.isArray(d?.data) ? d.data : [];
+    if (!rows.length) return null;
 
-  // 2. Closest by calendar distance (handles slight mismatches)
-  if (!bestExp && targetDateStr) {
-    const targetMs = new Date(targetDateStr + 'T00:00:00').getTime();
-    if (!isNaN(targetMs)) {
+    // Collect all unique expirations and find the one closest to our target
+    const allExps = [...new Set(rows.map(row => row.expiration_date).filter(Boolean))].sort();
+    if (!allExps.length) return null;
+
+    const targetMs = targetExpDate ? new Date(targetExpDate).getTime() : null;
+    let bestExp    = allExps[0];
+    if (targetMs) {
       let bestDiff = Infinity;
-      data.dates.forEach(exp => {
-        const ms = new Date(exp + 'T00:00:00').getTime();
-        const diff = Math.abs(ms - targetMs);
+      allExps.forEach(exp => {
+        const diff = Math.abs(new Date(exp + 'T00:00:00').getTime() - targetMs);
         if (diff < bestDiff) { bestDiff = diff; bestExp = exp; }
       });
     }
+
+    // Build strike map from matching expiration only
+    const chainMap = {};
+    rows
+      .filter(row => row.expiration_date === bestExp)
+      .forEach(row => {
+        const k    = +row.strike_price;
+        const side = row.option_type === 'C' ? 'call' : 'put';
+        if (!k || isNaN(k)) return;
+        if (!chainMap[k]) chainMap[k] = {};
+        chainMap[k][side] = {
+          iv:     (row.iv > 0 && row.iv < 10) ? +(row.iv * 100).toFixed(1) : null,
+          volume: (typeof row.volume        === 'number') ? row.volume        : null,
+          oi:     (typeof row.open_interest === 'number') ? row.open_interest : null,
+          bid:    (row.bid  > 0) ? +row.bid.toFixed(2)             : null,
+          ask:    (row.ask  > 0) ? +row.ask.toFixed(2)             : null,
+          last:   (row.last_trade_price > 0) ? +row.last_trade_price.toFixed(2) : null,
+          delta:  row.delta || null,
+          gamma:  row.gamma || null,
+          theta:  row.theta || null,
+          vega:   row.vega  || null,
+        };
+      });
+
+    chainMap._expDate    = bestExp;
+    chainMap._underlying = d?.current_price || null;
+    // Only return if we actually got contracts
+    return Object.keys(chainMap).filter(k => k !== '_expDate' && k !== '_underlying').length > 0
+      ? chainMap : null;
+  } catch(e) {
+    console.warn('CBOE chain error for', ticker, e?.message);
+    return null;
   }
-
-  // 3. Fall back to nearest expiration
-  if (!bestExp) bestExp = data.dates[0];
-  if (!bestExp) return null;
-
-  const chainMap = { ...(data.chains[bestExp] || {}), _expDate: bestExp };
-  return Object.keys(chainMap).filter(k => k !== '_expDate').length > 0 ? chainMap : null;
 }
 
+// Fetch live IV from CBOE — ATM average from nearest expiration
 async function fetchLiveIV(ticker) {
-  const data = await loadFinnhubChain(ticker);
-  return data?.iv || null;
+  try {
+    const url = `https://cdn.cboe.com/api/global/delayed_quotes/options/${cboeSymbol(ticker)}.json`;
+    const r   = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!r.ok) return null;
+    const d   = await r.json();
+    const rows = Array.isArray(d?.data) ? d.data : [];
+    if (!rows.length) return null;
+
+    const underlying = d?.current_price || 0;
+    // Nearest expiration only, contracts within 8% of ATM, sane IV range
+    const allExps = [...new Set(rows.map(r => r.expiration_date).filter(Boolean))].sort();
+    const nearExp = allExps[0];
+    const atm = rows.filter(row =>
+      row.expiration_date === nearExp &&
+      row.iv > 0.01 && row.iv < 5 &&
+      underlying > 0 &&
+      Math.abs(row.strike_price - underlying) / underlying < 0.08
+    );
+    if (!atm.length) return null;
+    const avg = atm.reduce((s, row) => s + row.iv, 0) / atm.length;
+    return Math.round(avg * 100);
+  } catch { return null; }
 }
 
-// Instant — reads from pre-computed ALL_EXPIRATIONS, no network
-function fetchExpirationDates() {
-  return ALL_EXPIRATIONS;
+async function batchFetch(tickers, onProgress) {
+  const out = {};
+  for (let i = 0; i < tickers.length; i++) {
+    const q = await fetchQuote(tickers[i]);
+    if (q) out[tickers[i]] = q;
+    if (onProgress) onProgress(i + 1, tickers.length);
+    if (i < tickers.length - 1) await new Promise(r => setTimeout(r, 230));
+  }
+  return out;
 }
 
 function fmtCap(price, t) {
@@ -1398,7 +1167,7 @@ function fallbackCrit(strategy,sector,market){
 const COL=["g","b","r"];
 const cl=i=>COL[i%3];
 const STRATEGIES=["Growth","Dividend","Value","Momentum","Quality","GARP","Deep Value","Small Cap Growth"];
-const SECTORS=["All Sectors","Technology","Semiconductors","Fintech","Financials","Healthcare","Biotech","Consumer Discretionary","Consumer Staples","Industrials","Defense","Clean Energy","Energy","Utilities","Materials","Mining","ETF","eVTOL"];
+const SECTORS=["All Sectors","Technology","Healthcare","Financials","Energy","Consumer Discretionary","Industrials","Utilities","Real Estate","Materials","Communication Services","Consumer Staples","Biotech","Semiconductors","Clean Energy","Fintech","Defense","Mining"];
 const MARKETS=["US Large Cap","US Mid Cap","US Small Cap","US Micro Cap","International Developed","Emerging Markets","Global","Canada","Europe","Asia Pacific","Latin America"];
 // ── Label a real calendar expiration date for display in the dropdown ──
 // Input: "YYYY-MM-DD" string from Finnhub
@@ -1449,38 +1218,20 @@ const OSTRATEGIES=["High IV Crush (Sell)","Low IV Buy","Momentum Calls","Protect
 const OTYPES=["Calls Only","Puts Only","Both Calls & Puts"];
 
 
-/* ── CHART LINK COMPONENT ──
-   Opens TradingView in new tab — zero iframe overhead, instant.
-   No loading spinner, no CORS, no blocked embeds.
+/* ── TRADINGVIEW WIDGET COMPONENT ──
+   Uses TradingView's free chart embed. No API key. Real-time data.
+   interval: "1" "5" "15" "60" "D" "W"
 */
-function TVChart({ ticker, interval = "D" }) {
-  const tvUrl = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(ticker)}&interval=${interval}`;
-  const intervals = [["1m","1"],["5m","5"],["15m","15"],["1h","60"],["1D","D"],["1W","W"]];
+function TVChart({ ticker, interval = "D", height = "100%", theme = "dark" }) {
+  const src = `https://s.tradingview.com/widgetembed/?frameElementId=tv_chart&symbol=${encodeURIComponent(ticker)}&interval=${interval}&hidesidetoolbar=1&symboledit=0&saveimage=0&toolbarbg=0d1117&studies=[]&hideideas=1&theme=${theme}&style=1&timezone=exchange&withdateranges=1&showpopupbutton=0&studies_overrides={}&overrides={}&enabled_features=[]&disabled_features=["header_symbol_search","header_compare","header_undo_redo","header_screenshot","header_saveload"]&locale=en&utm_source=rubberband.ai&utm_medium=widget`;
   return (
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-                 height:"100%",minHeight:180,gap:16,padding:24,background:"rgba(0,0,0,.4)"}}>
-      <div style={{fontSize:28}}>📈</div>
-      <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:18,color:"var(--txt)"}}>{ticker}</div>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
-        {intervals.map(([label,val])=>(
-          <a key={val}
-            href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(ticker)}&interval=${val}`}
-            target="_blank" rel="noopener noreferrer"
-            style={{padding:"6px 14px",background:"rgba(0,232,122,.1)",border:"1px solid rgba(0,232,122,.3)",
-                    borderRadius:7,color:"var(--green)",fontSize:11,fontFamily:"DM Mono,monospace",
-                    textDecoration:"none",letterSpacing:".5px"}}>
-            {label}
-          </a>
-        ))}
-      </div>
-      <a href={tvUrl} target="_blank" rel="noopener noreferrer"
-        style={{padding:"10px 28px",background:"linear-gradient(135deg,rgba(0,232,122,.18),rgba(0,212,255,.1))",
-                border:"1px solid rgba(0,232,122,.4)",borderRadius:10,color:"var(--green)",
-                fontWeight:700,fontSize:13,textDecoration:"none",marginTop:4}}>
-        Open Full Chart →
-      </a>
-      <div style={{fontSize:10,color:"var(--dim)"}}>Powered by TradingView · Opens in new tab</div>
-    </div>
+    <iframe
+      key={ticker + interval}
+      src={src}
+      style={{ width: "100%", height: height, border: "none", display: "block", background: "#000" }}
+      allow="autoplay"
+      title={`${ticker} chart`}
+    />
   );
 }
 
@@ -1490,6 +1241,8 @@ function TVChart({ ticker, interval = "D" }) {
 export default function App() {
   const [tab,setTab]=useState("stocks");
   const [prices,setPrices]=useState({});
+  const [pLoading,setPLoading]=useState(false);
+  const [fetchProg,setFetchProg]=useState({done:0,total:0});
   const [lastRefresh,setLastRefresh]=useState(null);
   const [ms,setMs]=useState(mktStatus());
   const [strategy,setStrategy]=useState("Growth");
@@ -1504,13 +1257,8 @@ export default function App() {
   const [sSort,setSSort]=useState("score");
   const [optTicker,setOptTicker]=useState("NVDA");
   const [optType,setOptType]=useState("Both Calls & Puts");
-  // Always generate fresh on component mount — pure JS, <1ms, guarantees 1 DTE & 2 DTE
-  const [availExps,setAvailExps]=useState(()=>generateExpirationDates());
-  const [optExp,setOptExp]=useState(()=>{
-    const exps=generateExpirationDates();
-    const preferred=exps.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||exps[0];
-    return preferred?.dateStr||null;
-  });
+  const [optExp,setOptExp]=useState(null); // real "YYYY-MM-DD" from Finnhub
+  const [availExps,setAvailExps]=useState([]); // [{dateStr,label,dte,kind,display}]
   const [expsLoading,setExpsLoading]=useState(false);
   const [optStrat,setOptStrat]=useState("Directional (Calls)");
   const [optCatFilter,setOptCatFilter]=useState("All");
@@ -1533,6 +1281,9 @@ export default function App() {
   const [eOk,setEOk]=useState(false);
   const runId=useRef(0);
   const optRunId=useRef(0);
+  const [chartTicker,setChartTicker]=useState(null);   // null = modal closed
+  const [chartInterval,setChartInterval]=useState("D");
+  const [optChartInterval,setOptChartInterval]=useState("D"); // separate from stock runId to prevent cross-cancellation
   const [clock,setClock]=useState(new Date().toLocaleTimeString());
 
   useEffect(()=>{
@@ -1540,7 +1291,33 @@ export default function App() {
     return()=>clearInterval(id);
   },[]);
 
-  // NO background fetching — Finnhub only called when user hits Scan or Run Screen
+  // Fetch all prices on mount + every 30s — selected options ticker refreshes instantly
+  useEffect(()=>{
+    const refresh=async()=>{
+      if(pLoading)return;
+      // Always fetch selected options ticker first for instant UI update
+      const priority=[optTicker];
+      const rest=[...new Set([...UNIVERSE_BASE.map(s=>s.t),...OPT_BASE.map(s=>s.t)])].filter(t=>t!==optTicker);
+      const tickers=[...priority,...rest];
+      setPLoading(true);
+      const r=await batchFetch(tickers,(done,total)=>setFetchProg({done,total}));
+      setPrices(prev=>({...prev,...r}));
+      setLastRefresh(new Date());
+      setPLoading(false);
+    };
+    refresh();
+    const id=setInterval(refresh,REFRESH_MS);
+    return()=>clearInterval(id);
+  },[optTicker]);
+
+  // Instant price refresh when user switches ticker (no waiting for interval)
+  useEffect(()=>{
+    const quickFetch=async()=>{
+      const q=await fetchQuote(optTicker);
+      if(q)setPrices(prev=>({...prev,[optTicker]:q}));
+    };
+    quickFetch();
+  },[optTicker]);
 
   useEffect(()=>{try{localStorage.setItem("rubberband_emails",JSON.stringify(eList));}catch{};},[eList]);
 
@@ -1564,101 +1341,158 @@ export default function App() {
   /* STOCK SCREENER */
   const runStocks=useCallback(async()=>{
     const rid=++runId.current;
-    setSLoading(true);setSStep(1);setSProg(10);setSResult(null);setStocks([]);setSFilter("All");
-    // Fetch fresh prices for stock screener tickers — sequential, on demand only
-    const stockTickers=UNIVERSE_BASE.map(s=>s.t);
-    const CHUNK=8;const GAP=150;
-    for(let i=0;i<stockTickers.length;i+=CHUNK){
-      if(runId.current!==rid)return;
-      const chunk=stockTickers.slice(i,i+CHUNK);
-      const results=await Promise.allSettled(chunk.map(t=>fetchQuote(t)));
-      const batch={};
-      results.forEach((r,j)=>{if(r.status==='fulfilled'&&r.value)batch[chunk[j]]=r.value;});
-      setPrices(prev=>({...prev,...batch}));
-      setSProg(10+Math.round(((i+CHUNK)/stockTickers.length)*50));
-      if(i+CHUNK<stockTickers.length)await new Promise(r=>setTimeout(r,GAP));
-    }
-    if(runId.current!==rid)return;
-    setLastRefresh(new Date());
-    setSProg(65);
+    setSLoading(true);setSStep(0);setSProg(0);setSResult(null);setStocks([]);setSFilter("All");
+    const STEPS=["Loading live Finnhub prices","Applying strategy filters",`Scoring ${UNIVERSE_BASE.length}+ stocks`,"Surfacing hidden gems","Generating AI criteria"];
+    for(let i=0;i<STEPS.length;i++){await new Promise(r=>setTimeout(r,400));if(runId.current!==rid)return;setSStep(i+1);setSProg(Math.round(((i+1)/STEPS.length)*85));}
     const universe=liveUniverse();
-    const scored=universe.map(s=>({...s,score:scoreStock(s,strategy,sector,market)})).sort((a,b)=>b.score-a.score).slice(0,25).map(s=>({...s,rating:getRating(s.score),metrics:getMetrics(s,strategy),thesis:buildThesis(s,strategy),isGem:s.cap==="Small"||s.cap==="Micro"}));
-    setSProg(70);
-    // Fire AI and render stocks simultaneously — don't block UI on AI
-    setStocks(scored);setSProg(85);
+    const scored=universe.map(s=>({...s,score:scoreStock(s,strategy,sector,market)})).sort((a,b)=>b.score-a.score).slice(0,18).map(s=>({...s,rating:getRating(s.score),metrics:getMetrics(s,strategy),thesis:buildThesis(s,strategy),isGem:s.cap==="Small"||s.cap==="Micro"}));
     let crit=null;
     try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1600,messages:[{role:"user",content:`Expert equity analyst. ${strategy} stocks in ${sector}, ${market}. Return ONLY raw JSON no markdown: {"title":"str","summary":"str","criteria":[{"metric":"str","threshold":"str","description":"str","importance":80}],"redFlags":["str"],"proTips":["str"],"tags":["str"]} 8 criteria, importance 50-99.`}]})});if(res.ok){const e=await res.json();const raw=(e.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();try{crit=JSON.parse(raw);}catch{}if(!crit){try{const m=raw.match(/\{[\s\S]*\}/);if(m)crit=JSON.parse(m[0]);}catch{}}}}catch{}
     if(!crit||!Array.isArray(crit.criteria)||!crit.criteria.length)crit=fallbackCrit(strategy,sector,market);
     if(runId.current!==rid)return;
-    setSProg(100);
-    setSResult(crit);setSLoading(false);
+    setSProg(100);await new Promise(r=>setTimeout(r,180));
+    setSResult(crit);setStocks(scored);setSLoading(false);
   },[strategy,sector,market,prices]);
 
-  // When ticker changes, refresh expirations (always fresh dates) and reset to ~30 DTE
+  // ── Fetch real expiration dates from Finnhub when ticker changes ──
   useEffect(()=>{
-    const exps=generateExpirationDates();
-    setAvailExps(exps);
-    const preferred=exps.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||exps[0];
-    if(preferred)setOptExp(preferred.dateStr);
+    let cancelled=false;
+    const loadExps=async()=>{
+      setExpsLoading(true);
+      try {
+        const r=await fetch(`${FINNHUB_URL}/stock/option-chain?symbol=${optTicker}&token=${FINNHUB_KEY}`);
+        if(!r.ok||cancelled)return;
+        const d=await r.json();
+        if(!d||!Array.isArray(d.data)||cancelled)return;
+        // Extract all unique expiration dates, sort ascending
+        const dates=[...new Set(d.data.map(e=>e.expirationDate).filter(Boolean))].sort();
+        if(!dates.length||cancelled)return;
+        const labeled=dates.map(labelExpDate).filter(e=>e&&e.dte>=0); // include 0 DTE (same-day)
+        setAvailExps(labeled);
+        // Auto-select closest to 30 DTE
+        const preferred=labeled.reduce((best,e)=>{
+          if(!best)return e;
+          return Math.abs(e.dte-30)<Math.abs(best.dte-30)?e:best;
+        },null)||labeled[0];
+        if(preferred&&!cancelled) setOptExp(preferred.dateStr);
+      } catch{}
+      if(!cancelled)setExpsLoading(false);
+    };
+    loadExps();
+    return()=>{cancelled=true;};
   },[optTicker]);
 
+  // Auto-fetch live IV when ticker changes
+  useEffect(()=>{
+    let cancelled=false;
+    const fetchIV=async()=>{
+      if(ivCache[optTicker])return;
+      const iv=await fetchLiveIV(optTicker);
+      if(!cancelled&&iv&&iv>5&&iv<300)setIvCache(prev=>({...prev,[optTicker]:iv}));
+    };
+    fetchIV();
+    return()=>{cancelled=true;};
+  },[optTicker]);
 
+  // Auto-refresh IV every 5 minutes for current ticker
+  useEffect(()=>{
+    const id=setInterval(async()=>{
+      const iv=await fetchLiveIV(optTicker);
+      if(iv&&iv>5&&iv<300)setIvCache(prev=>({...prev,[optTicker]:iv}));
+    },300000);
+    return()=>clearInterval(id);
+  },[optTicker]);
 
   /* OPTIONS SCREENER */
   const pricesRef=useRef(prices);
   useEffect(()=>{pricesRef.current=prices;},[prices]);
 
   const runOptions=useCallback(async()=>{
+    // ── Each scan gets a unique ID scoped to options only ──
     const rid=++optRunId.current;
-    const tickerNow=optTicker, expNow=optExp, typeNow=optType, stratNow=optStrat;
-    const base=OPT_BASE.find(x=>x.t===tickerNow);
 
-    // Helper — always clears loading state before any exit
-    const abort=(msg)=>{ setOLoading(false); if(msg) setOInsights({error:true,msg}); };
+    // ── Snapshot ALL config at call time — immune to any state change mid-scan ──
+    const tickerNow = optTicker;
+    const expNow    = optExp;
+    const typeNow   = optType;
+    const stratNow  = optStrat;
+    const base      = OPT_BASE.find(x=>x.t===tickerNow);
+    if(!base){ console.warn('Unknown ticker:',tickerNow); return; }
 
-    if(!base){ abort(); return; }
+    // Clear previous results immediately so stale data never shows
+    setOLoading(true);
+    setOStep(0);setOProg(0);
+    setOContracts([]);setOInsights(null);setOTicker(null);
 
-    setOLoading(true); setOProg(10);
-    setOContracts([]); setOInsights(null); setOTicker(null);
+    // ── STEP 1: Fetch fresh live price — retry once on failure ──
+    setOStep(1);setOProg(15);
+    let freshQuote = await fetchQuote(tickerNow);
+    if(optRunId.current!==rid)return;
 
-    // ── STEP 1: Live price ──
-    setOStep(1); setOProg(20);
-    const freshQuote = await fetchQuote(tickerNow);
-    if(optRunId.current!==rid){ abort(); return; }
-    if(!freshQuote||freshQuote.price<=0){
-      abort(`Could not load live price for ${tickerNow}. Check connection and try again.`);
+    if(!freshQuote || freshQuote.price<=0){
+      await new Promise(r=>setTimeout(r,800));
+      freshQuote = await fetchQuote(tickerNow);
+      if(optRunId.current!==rid)return;
+    }
+
+    // Hard stop — never proceed with zero/missing price
+    if(!freshQuote || freshQuote.price<=0){
+      setOLoading(false);
+      alert(`Could not load live price for ${tickerNow}. Check your connection and try again.`);
       return;
     }
-    const livePrice=freshQuote.price;
+
+    const livePrice = freshQuote.price;
     setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
-    setLastRefresh(new Date());
 
-    // ── STEP 2: Option chain + IV (10s timeout each) ──
-    setOStep(2); setOProg(40);
-    let chainData=null, liveIV=null;
-    try {
-      const withTimeout=(p,ms)=>Promise.race([p, new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),ms))]);
-      [chainData]=await Promise.all([
-        withTimeout(fetchOptionChainData(tickerNow,expNow),10000).catch(()=>null),
-        withTimeout(fetchLiveIV(tickerNow),10000).catch(()=>null).then(iv=>{if(iv)liveIV=iv;})
-      ]);
-    } catch{}
-    if(optRunId.current!==rid){ abort(); return; }
-    liveIV=liveIV||ivCache[tickerNow]||base.iv||35;
-    if(chainData) setOptChain(prev=>({...prev,[tickerNow]:chainData}));
-    setOProg(55);
-
-    // ── STEP 3: Build contracts ──
-    setOStep(3); setOProg(65);
-    const td = {
-      t:           tickerNow,
-      n:           base.n,
-      p:           livePrice,
-      iv:          liveIV,
-      expLabel:    expNow,
-      scanTime:    new Date().toLocaleTimeString(),
-      priceSource: 'finnhub',
+    // ── STEP 2: Use the real expiration date string directly ──
+    setOStep(2);setOProg(30);
+    // expNow is a real "YYYY-MM-DD" date string from Finnhub expirations
+    const expInfo = labelExpDate(expNow);
+    const targetExpInfo = {
+      label:   expInfo?.label    || expNow,
+      short:   expInfo?.short    || expNow,
+      realDte: expInfo?.dte      || 30,
+      dateStr: expNow,
     };
+
+    // ── STEP 3: Fetch Finnhub option chain + IV in parallel ──
+    setOStep(3);setOProg(48);
+    let liveIV   = null;
+    let chainData= null;
+
+    try {
+      [chainData] = await Promise.all([
+        fetchOptionChainData(tickerNow, targetExpInfo.label),
+        fetchLiveIV(tickerNow).then(iv=>{
+          if(iv&&iv>5&&iv<300){
+            liveIV=iv;
+            setIvCache(prev=>({...prev,[tickerNow]:iv}));
+          }
+        })
+      ]);
+    } catch(e){ console.warn('Chain fetch error:',e); }
+
+    if(optRunId.current!==rid)return;
+
+    // IV fallback — always scoped to tickerNow
+    liveIV = liveIV || ivCache[tickerNow] || base.iv || 35;
+    if(chainData) setOptChain(prev=>({...prev,[tickerNow]:chainData}));
+
+    // ── STEP 4: Build verified ticker data object ──
+    setOStep(4);setOProg(64);
+    const td = {
+      t:        tickerNow,
+      n:        base.n,
+      p:        livePrice,       // always the freshly fetched price
+      iv:       liveIV,
+      expLabel: expNow,
+      scanTime: new Date().toLocaleTimeString(),
+      priceSource: freshQuote.source || 'live',
+    };
+
+    // ── STEP 5: Build contracts anchored entirely to td.p ──
+    setOStep(5);setOProg(80);
     const types = typeNow==='Calls Only'?['call']:typeNow==='Puts Only'?['put']:['call','put'];
     const contracts=[];
 
@@ -1670,7 +1504,6 @@ export default function App() {
           .sort((a,b)=>a-b)
       : [];
 
-    setOStep(4); setOProg(75);
     for(const tp of types){
       for(let i=0;i<3;i++){
         // genContract always uses td.p — the live price we just fetched
@@ -1738,26 +1571,22 @@ export default function App() {
     }
     contracts.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
 
-    setOStep(5); setOProg(88);
-    // ── AI insights — 12s timeout so scan never hangs here ──
+    // ── STEP 6: AI insights scoped to tickerNow ──
     let ins=null;
     try{
-      const ctrl=new AbortController();
-      const aiTimer=setTimeout(()=>ctrl.abort(),12000);
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        signal:ctrl.signal,
         body:JSON.stringify({
           model:'claude-sonnet-4-20250514',
-          max_tokens:800,
+          max_tokens:1200,
           messages:[{role:'user',content:
-            `Options analyst. ${tickerNow} at $${td.p}. IV=${td.iv}%. Strategy=${stratNow}. Exp=${expNow}.
-Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`
+            `Options analyst. Ticker: ${tickerNow}. Company: ${base.n}. Live price: $${td.p}. IV=${td.iv}%. Strategy=${stratNow}. Expiration=${expNow}.
+Return ONLY raw JSON (no markdown, no backticks):
+{"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`
           }]
         })
       });
-      clearTimeout(aiTimer);
       if(res.ok){
         const e=await res.json();
         const raw=(e.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
@@ -1781,9 +1610,10 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
     };
 
     // Final guard — if ticker changed during scan, discard results
-    if(optRunId.current!==rid){ setOLoading(false); return; }
+    if(optRunId.current!==rid)return;
 
     setOProg(100);
+    await new Promise(r=>setTimeout(r,150));
     setOTicker(td);
     setOContracts(contracts);
     setOInsights(ins);
@@ -1794,7 +1624,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
   const sBuys=stocks.filter(s=>s.rating==="sb").length;
   const sGems=stocks.filter(s=>s.isGem).length;
   const sAvg=stocks.length?Math.round(stocks.reduce((a,b)=>a+b.score,0)/stocks.length):0;
-  const SSTEPS=["Loading live Finnhub prices","Applying strategy filters",`Scoring ${UNIVERSE_BASE.length} tickers`,"Surfacing hidden gems","Generating AI criteria"];
+  const SSTEPS=["Loading live Finnhub prices","Applying strategy filters",`Scoring ${UNIVERSE_BASE.length}+ stocks`,"Surfacing hidden gems","Generating AI criteria"];
   const OSTEPS=["Fetching fresh live quote","Fetching option chain + IV","Building strike grid","Computing Greeks (Δ Γ Θ V ρ)","Matching real chain contracts","Generating AI insights"];
   const msLabel=ms==="open"?"● MARKET OPEN":ms==="pre"?"◑ PRE-MARKET":ms==="after"?"◑ AFTER-HOURS":"○ MARKET CLOSED";
   const msClass=ms==="open"?"mopen":"mclosed";
@@ -1811,7 +1641,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           <div className="hdr-right">
             <span className="chip live">● {clock}</span>
             <span className={`chip ${msClass}`}>{msLabel}</span>
-            {false?<span className="chip mloading">⟳ {0}/{0} prices</span>:lastRefresh&&<span className="chip ai">LIVE ✓</span>}
+            {pLoading?<span className="chip mloading">⟳ {fetchProg.done}/{fetchProg.total} prices</span>:lastRefresh&&<span className="chip ai">LIVE ✓</span>}
           </div>
         </header>
 
@@ -1825,7 +1655,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
         {tab==="stocks"&&<div className="page">
           <div className="hero">
             <h1>Find every <span>hidden gem</span><br/>in the market.</h1>
-            <p>RUBBERBAND.AI scans all {UNIVERSE_BASE.length} tickers with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Prices fetched fresh on each scan.</p>
+            <p>RUBBERBAND.AI scans {UNIVERSE_BASE.length}+ stocks with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Auto-refreshes every 30 seconds.</p>
           </div>
 
           <div className="email-banner">
@@ -1833,7 +1663,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             {eOk?<div className="sub-ok">✅ You're in! Watch your inbox Sunday.</div>:<div className="eb-form"><input className="ei wide" placeholder="your@email.com" type="email" value={eEmail} onChange={e=>setEEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><button className="btn-sub" onClick={subscribe} disabled={!eEmail.includes("@")}>Subscribe Free →</button></div>}
           </div>
 
-          {lastRefresh&&<div className="refresh-row"><div className="ldot"/><span>Live via Finnhub · Prices as of {lastRefresh.toLocaleTimeString()}</span>{false}</div>}
+          {lastRefresh&&<div className="refresh-row"><div className="ldot"/><span>Live via Finnhub · Updated {lastRefresh.toLocaleTimeString()} · Auto-refresh every 30s</span>{pLoading&&<div className="spin-s"/>}</div>}
 
           <div className="panel">
             <div className="panel-title">Screen Configuration</div>
@@ -1842,7 +1672,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               <div className="fld"><label>Sector</label><div className="sel-wrap"><select value={sector} onChange={e=>setSector(e.target.value)} disabled={sLoading}>{SECTORS.map(s=><option key={s}>{s}</option>)}</select></div></div>
               <div className="fld"><label>Market / Geography</label><div className="sel-wrap"><select value={market} onChange={e=>setMarket(e.target.value)} disabled={sLoading}>{MARKETS.map(m=><option key={m}>{m}</option>)}</select></div></div>
             </div>
-            <button className="btn-green" onClick={runStocks} disabled={sLoading}>{sLoading?<><div className="spin"/>Scanning…</>:false?<><div className="spin"/>Loading Live Prices…</>:"Run Screen — Find All Matching Stocks"}</button>
+            <button className="btn-green" onClick={runStocks} disabled={sLoading||pLoading}>{sLoading?<><div className="spin"/>Scanning…</>:pLoading?<><div className="spin"/>Loading Live Prices…</>:"Run Screen — Find All Matching Stocks"}</button>
           </div>
 
           {sLoading&&<div className="lbox"><div className="lsteps">{SSTEPS.map((s,i)=><div key={i} className={`lstep ${sStep>i?"done":sStep===i?"active":""}`}><div className="lstep-ico">{sStep>i?"✓":sStep===i?"…":i+1}</div><span>{s}</span></div>)}</div><div className="pbar"><div className="pfill g" style={{width:`${sProg}%`}}/></div></div>}
@@ -1860,13 +1690,13 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             <div className="sec-lbl">Screening Criteria</div>
             <div className="crit-grid">{sResult.criteria.map((c,i)=><div className={`cc ${cl(i)}`} key={i}><div className="cc-top"><div className="cc-nm">{c.metric}</div><span className={`cc-pill ${cl(i)}`}>{c.threshold}</span></div><div className="cc-desc">{c.description}</div><div className="cc-bar"><div className="cc-track"><div className={`cc-fill ${cl(i)}`} style={{width:`${Math.min(100,Math.max(0,Number(c.importance)||70))}%`}}/></div><div className="cc-meta"><span>Importance</span><span>{c.importance}/100</span></div></div></div>)}</div>
             <div className="filter-row">{["All","Strong Buy","Hidden Gems","Large Cap","International"].map(f=><button key={f} className={`btn-sm ${sFilter===f?"active":""}`} onClick={()=>setSFilter(f)}>{f}</button>)}<div className="sp"/>{["score","price","change"].map(s=><button key={s} className={`btn-sm ${sSort===s?"active":""}`} onClick={()=>setSSort(s)}>Sort: {s==="score"?"Score":s==="price"?"Price":"% Chg"}</button>)}</div>
-            <div className="scan-info">Live prices via Finnhub · {new Date().toLocaleTimeString()} · <span>{UNIVERSE_BASE.length} tickers analyzed</span></div>
+            <div className="scan-info">Live prices via Finnhub · {new Date().toLocaleTimeString()} · <span>{UNIVERSE_BASE.length} stocks analyzed</span></div>
             <div className="tbl-wrap"><table>
               <thead><tr><th>#</th><th>Ticker</th><th>Live Price</th><th>Mkt Cap</th><th>Score</th><th>MR Signal</th><th>Key Metrics</th><th>Thesis</th><th>Rating</th></tr></thead>
               <tbody>{dispStocks.map((s,i)=><tr key={s.t+i}>
                 <td style={{color:"var(--dim)",fontSize:10}}>{i+1}</td>
                 <td>
-                  <a className="tkr-cell" href={`https://www.tradingview.com/chart/?symbol=${s.t}`} target="_blank" rel="noopener noreferrer" style={{cursor:"pointer",textDecoration:"none",color:"inherit"}}>
+                  <div className="tkr-cell" style={{cursor:"pointer"}} onClick={()=>{setChartTicker(s.t);setChartInterval("D");}}>
                     <div className="tkr-top"><div className="tk">{s.t}</div>{s.isGem&&<div className="gem">💎</div>}</div>
                     <div className="co">{s.n}</div>
                     <div className="tkr-chart-btn">📈 View Chart</div>
@@ -1915,7 +1745,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           <div className="hero">
             <h1>Options <span className="orange">chain screener</span><br/>with exact entry points.</h1>
             <p>Full Greeks · Live underlying prices · {OPT_BASE.length}+ tickers · Day/Week/Month H&amp;L ranges · Precise entry, targets &amp; stops.</p>
-            {lastRefresh&&<div className="refresh-row" style={{marginTop:10}}><div className="ldot"/><span>Prices fetched fresh on each scan · Last: {lastRefresh.toLocaleTimeString()}</span>{false}</div>}
+            {lastRefresh&&<div className="refresh-row" style={{marginTop:10}}><div className="ldot"/><span>All prices live via Finnhub · Updated {lastRefresh.toLocaleTimeString()} · Auto-refresh 60s</span>{pLoading&&<div className="spin-s"/>}</div>}
           </div>
 
           <div className="email-banner" style={{marginBottom:20}}>
@@ -1936,18 +1766,12 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               </div>
               <div className="opt-chart-intervals">
                 {[["1m","1"],["5m","5"],["15m","15"],["1h","60"],["1D","D"],["1W","W"]].map(([label,val])=>(
-                  <a key={val} href={`https://www.tradingview.com/chart/?symbol=${optTicker}&interval=${val}`}
-                    target="_blank" rel="noopener noreferrer"
-                    style={{padding:"4px 11px",background:"rgba(0,232,122,.08)",border:"1px solid rgba(0,232,122,.25)",
-                            borderRadius:6,color:"var(--green)",fontSize:10,fontFamily:"DM Mono,monospace",
-                            textDecoration:"none",letterSpacing:".5px"}}>
-                    {label}
-                  </a>
+                  <button key={val} className={`chart-int-btn${optChartInterval===val?" active":""}`} onClick={()=>setOptChartInterval(val)}>{label}</button>
                 ))}
               </div>
             </div>
             <div className="opt-chart-body">
-              <TVChart ticker={optTicker} interval="D"/>
+              <TVChart ticker={optTicker} interval={optChartInterval} height="380px"/>
             </div>
           </div>
 
@@ -2097,15 +1921,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
 
           {oLoading&&<div className="lbox"><div className="lsteps">{OSTEPS.map((s,i)=><div key={i} className={`lstep ${oStep>i?"done":oStep===i?"active":""}`}><div className="lstep-ico">{oStep>i?"✓":oStep===i?"…":i+1}</div><span>{s}</span></div>)}</div><div className="pbar"><div className="pfill b" style={{width:`${oProg}%`}}/></div></div>}
 
-          {!oContracts.length&&!oLoading&&oInsights?.error&&(
-            <div style={{background:"rgba(255,59,48,0.1)",border:"1px solid rgba(255,59,48,0.35)",borderRadius:12,padding:"20px 24px",margin:"16px 0",textAlign:"center"}}>
-              <div style={{fontSize:22,marginBottom:8}}>⚠️</div>
-              <div style={{color:"#ff6b6b",fontWeight:700,fontSize:14,marginBottom:6}}>Price Unavailable</div>
-              <div style={{color:"var(--dim)",fontSize:12,lineHeight:1.6}}>{oInsights.msg}</div>
-              <button onClick={runOptions} style={{marginTop:14,padding:"8px 20px",background:"rgba(255,59,48,0.2)",border:"1px solid rgba(255,59,48,0.4)",borderRadius:8,color:"#ff6b6b",cursor:"pointer",fontSize:12,fontWeight:700}}>↺ Retry</button>
-            </div>
-          )}
-          {!oContracts.length&&!oLoading&&!oInsights?.error&&<div className="empty"><div className="ico">⚡</div><h3>Ready to scan options</h3><p>Select a ticker above, then hit Scan.<br/>Prices are live from Finnhub.</p></div>}
+          {!oContracts.length&&!oLoading&&<div className="empty"><div className="ico">⚡</div><h3>Ready to scan options</h3><p>Select a ticker above, then hit Scan.<br/>Prices are live from Finnhub.</p></div>}
 
                     {oContracts.length>0&&!oLoading&&oInsights&&oTicker&&<div className="results">
             <div className="sumbox">
@@ -2206,7 +2022,37 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
         </div>}
       </div>
         {/* ── CHART MODAL (stock screener click-through) ── */}
-
+        {chartTicker&&(
+          <div className="chart-modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setChartTicker(null);}}>
+            <div className="chart-modal">
+              <div className="chart-modal-hdr">
+                <div className="chart-modal-hdr-left">
+                  <div>
+                    <div className="chart-modal-tk">{chartTicker}</div>
+                    <div className="chart-modal-name">{[...UNIVERSE_BASE,...OPT_BASE].find(x=>x.t===chartTicker)?.n||chartTicker}</div>
+                  </div>
+                  {prices[chartTicker]&&(
+                    <div style={{marginLeft:12}}>
+                      <span className="chart-modal-price" style={{color:prices[chartTicker].change>=0?"var(--green)":"var(--red)"}}>{fmt(prices[chartTicker].price)}</span>
+                      <span style={{fontSize:11,marginLeft:8,color:prices[chartTicker].change>=0?"var(--green)":"var(--red)"}}>
+                        {prices[chartTicker].change>=0?"+":""}{prices[chartTicker].change?.toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <button className="chart-modal-close" onClick={()=>setChartTicker(null)}>✕</button>
+              </div>
+              <div className="chart-interval-bar">
+                {[["1m","1"],["5m","5"],["15m","15"],["1h","60"],["1D","D"],["1W","W"],["1M","M"]].map(([label,val])=>(
+                  <button key={val} className={`chart-int-btn${chartInterval===val?" active":""}`} onClick={()=>setChartInterval(val)}>{label}</button>
+                ))}
+              </div>
+              <div className="chart-frame-wrap">
+                <TVChart ticker={chartTicker} interval={chartInterval} height="460px"/>
+              </div>
+            </div>
+          </div>
+        )}
 
     </>
   );
