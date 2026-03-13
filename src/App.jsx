@@ -1056,12 +1056,26 @@ function strikeIncrement(price) {
 function snapToGrid(price, incr) {
   return Math.round(price / incr) * incr;
 }
-function genContract(ticker,price,iv,optType,expLabel,idx){
+function genContract(ticker,price,iv,optType,expDateStr,idx){
   const isCall=optType==="call";
-  const dte=parseInt(expLabel.match(/\d+/)?.[0]||"30");
-  // Compute real calendar expiration date (always based on today's date)
-  const expInfo = calcExpirationDate(dte);
-  const t=Math.max(expInfo.realDte/365,.001);
+  // expDateStr is a real "YYYY-MM-DD" string — compute DTE directly
+  const today=new Date(); today.setHours(0,0,0,0);
+  const expDate=new Date((expDateStr||"")+"T00:00:00");
+  const isValidDate=!isNaN(expDate.getTime());
+  const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const realDte=isValidDate?Math.max(Math.round((expDate.getTime()-today.getTime())/86400000),1):30;
+  const mon=MONTHS[expDate.getMonth()];
+  const day=expDate.getDate();
+  const yr=expDate.getFullYear();
+  const dow=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][expDate.getDay()];
+  const expInfo={
+    realDte,
+    label:`${mon} ${day}, ${yr}`,
+    short:`${mon} ${day}`,
+    full:`${dow} ${mon} ${day}, ${yr}`,
+    date:expDate,
+  };
+  const t=Math.max(realDte/365,0.001);
   // Compute proper strike grid based on live price
   const incr = strikeIncrement(price);
   const atm = snapToGrid(price, incr);
@@ -1096,7 +1110,7 @@ function genContract(ticker,price,iv,optType,expLabel,idx){
   else if(!isCall&&absDelta>.3)signal="bearish";
   return {
     ticker,name:OPT_BASE.find(x=>x.t===ticker)?.n||ticker,
-    stockPrice:price,strike,optType,expLabel,dte:expInfo.realDte,
+    stockPrice:price,strike,optType,expLabel:expDateStr,dte:expInfo.realDte,
     expirationDate:expInfo.label,
     expirationFull:expInfo.full,
     expirationShort:expInfo.short,
@@ -1128,7 +1142,51 @@ const cl=i=>COL[i%3];
 const STRATEGIES=["Growth","Dividend","Value","Momentum","Quality","GARP","Deep Value","Small Cap Growth"];
 const SECTORS=["All Sectors","Technology","Healthcare","Financials","Energy","Consumer Discretionary","Industrials","Utilities","Real Estate","Materials","Communication Services","Consumer Staples","Biotech","Semiconductors","Clean Energy","Fintech","Defense","Mining"];
 const MARKETS=["US Large Cap","US Mid Cap","US Small Cap","US Micro Cap","International Developed","Emerging Markets","Global","Canada","Europe","Asia Pacific","Latin America"];
-const EXPS=["Weekly (3 DTE)","Weekly (7 DTE)","Bi-Weekly (14 DTE)","Monthly (30 DTE)","Monthly (45 DTE)","Quarterly (60 DTE)","Quarterly (90 DTE)","LEAPS (180 DTE)","LEAPS (365 DTE)"];
+// ── Label a real calendar expiration date for display in the dropdown ──
+// Input: "YYYY-MM-DD" string from Finnhub
+// Output: "Mar 21 · 1 DTE · Same-Day" style label — exact DTE always shown
+function labelExpDate(dateStr) {
+  if (!dateStr) return null;
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const today  = new Date(); today.setHours(0,0,0,0);
+  const exp    = new Date(dateStr + "T00:00:00");
+  if (isNaN(exp.getTime())) return null;
+  const dte  = Math.round((exp.getTime() - today.getTime()) / 86400000);
+  const mon  = MONTHS[exp.getMonth()];
+  const day  = exp.getDate();
+  const year = exp.getFullYear();
+  const dow  = exp.getDay();
+  const dowName = DAYS[dow];
+  // ── Exact kind label — every DTE gets a precise tag ──
+  let kind;
+  if (dte <= 0)        kind = "Same-Day";
+  else if (dte === 1)  kind = "1 DTE";
+  else if (dte === 2)  kind = "2 DTE";
+  else if (dte === 3)  kind = "3 DTE";
+  else if (dte === 4)  kind = "4 DTE";
+  else if (dte === 5)  kind = "5 DTE";
+  else if (dte <= 9)   kind = "Weekly";
+  else if (dte <= 16)  kind = "2-Week";
+  else if (dte <= 23)  kind = "3-Week";
+  else if (dte <= 37)  kind = "Monthly";   // ~30 DTE
+  else if (dte <= 55)  kind = "Monthly";   // ~45 DTE
+  else if (dte <= 75)  kind = "Quarterly";
+  else if (dte <= 105) kind = "Quarterly";
+  else if (dte <= 200) kind = "LEAPS";
+  else                 kind = `LEAPS ${year}`;
+  // Promote to "Monthly" label if it's a standard 3rd Friday (dow===5, right range)
+  if (dte >= 17 && dte <= 55 && dow === 5) kind = "Monthly";
+  // Display: "Mar 21 · 1 DTE · Fri" for short; full label for option element
+  const dteTag = dte <= 0 ? "0 DTE" : `${dte} DTE`;
+  return {
+    label:   `${mon} ${day}, ${year}`,
+    short:   `${mon} ${day}`,
+    full:    `${dowName} ${mon} ${day}, ${year}`,
+    dte, kind, year, dateStr,
+    display: dte<=5 ? `${dowName} ${mon} ${day}  ·  ${dteTag}` : `${mon} ${day}, ${year}  ·  ${dteTag}  ·  ${kind}`,
+  };
+}
 const OSTRATEGIES=["High IV Crush (Sell)","Low IV Buy","Momentum Calls","Protective Puts","Covered Calls","Cash-Secured Puts","Debit Spreads","Iron Condors","Directional (Calls)","Directional (Puts)"];
 const OTYPES=["Calls Only","Puts Only","Both Calls & Puts"];
 
@@ -1154,7 +1212,9 @@ export default function App() {
   const [sSort,setSSort]=useState("score");
   const [optTicker,setOptTicker]=useState("NVDA");
   const [optType,setOptType]=useState("Both Calls & Puts");
-  const [optExp,setOptExp]=useState("Monthly (30 DTE)");
+  const [optExp,setOptExp]=useState(null); // real "YYYY-MM-DD" from Finnhub
+  const [availExps,setAvailExps]=useState([]); // [{dateStr,label,dte,kind,display}]
+  const [expsLoading,setExpsLoading]=useState(false);
   const [optStrat,setOptStrat]=useState("Directional (Calls)");
   const [optCatFilter,setOptCatFilter]=useState("All");
   const [optSearch,setOptSearch]=useState("");
@@ -1246,6 +1306,34 @@ export default function App() {
     setSResult(crit);setStocks(scored);setSLoading(false);
   },[strategy,sector,market,prices]);
 
+  // ── Fetch real expiration dates from Finnhub when ticker changes ──
+  useEffect(()=>{
+    let cancelled=false;
+    const loadExps=async()=>{
+      setExpsLoading(true);
+      try {
+        const r=await fetch(`${FINNHUB_URL}/stock/option-chain?symbol=${optTicker}&token=${FINNHUB_KEY}`);
+        if(!r.ok||cancelled)return;
+        const d=await r.json();
+        if(!d||!Array.isArray(d.data)||cancelled)return;
+        // Extract all unique expiration dates, sort ascending
+        const dates=[...new Set(d.data.map(e=>e.expirationDate).filter(Boolean))].sort();
+        if(!dates.length||cancelled)return;
+        const labeled=dates.map(labelExpDate).filter(e=>e&&e.dte>=0); // include 0 DTE (same-day)
+        setAvailExps(labeled);
+        // Auto-select closest to 30 DTE
+        const preferred=labeled.reduce((best,e)=>{
+          if(!best)return e;
+          return Math.abs(e.dte-30)<Math.abs(best.dte-30)?e:best;
+        },null)||labeled[0];
+        if(preferred&&!cancelled) setOptExp(preferred.dateStr);
+      } catch{}
+      if(!cancelled)setExpsLoading(false);
+    };
+    loadExps();
+    return()=>{cancelled=true;};
+  },[optTicker]);
+
   // Auto-fetch live IV when ticker changes
   useEffect(()=>{
     let cancelled=false;
@@ -1309,10 +1397,16 @@ export default function App() {
     const livePrice = freshQuote.price;
     setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
 
-    // ── STEP 2: Compute target expiration ──
+    // ── STEP 2: Use the real expiration date string directly ──
     setOStep(2);setOProg(30);
-    const targetDte     = parseInt(expNow.match(/\d+/)?.[0]||'30');
-    const targetExpInfo = calcExpirationDate(targetDte);
+    // expNow is a real "YYYY-MM-DD" date string from Finnhub expirations
+    const expInfo = labelExpDate(expNow);
+    const targetExpInfo = {
+      label:   expInfo?.label    || expNow,
+      short:   expInfo?.short    || expNow,
+      realDte: expInfo?.dte      || 30,
+      dateStr: expNow,
+    };
 
     // ── STEP 3: Fetch Finnhub option chain + IV in parallel ──
     setOStep(3);setOProg(48);
@@ -1365,7 +1459,7 @@ export default function App() {
     for(const tp of types){
       for(let i=0;i<3;i++){
         // genContract always uses td.p — the live price we just fetched
-        const c = genContract(tickerNow, td.p, td.iv, tp, expNow, i);
+        const c = genContract(tickerNow, td.p, td.iv, tp, expNow, i); // expNow = real YYYY-MM-DD
 
         // Merge real Finnhub chain data if we have a matching strike
         if(chainStrikes.length>0){
@@ -1656,7 +1750,17 @@ Return ONLY raw JSON (no markdown, no backticks):
                 </div>
               </div>
               <div className="fld"><label>Contract Type</label><div className="sel-wrap"><select value={optType} onChange={e=>setOptType(e.target.value)} disabled={oLoading}>{OTYPES.map(x=><option key={x}>{x}</option>)}</select></div></div>
-              <div className="fld"><label>Expiration</label><div className="sel-wrap"><select value={optExp} onChange={e=>setOptExp(e.target.value)} disabled={oLoading}>{EXPS.map(x=><option key={x}>{x}</option>)}</select></div></div>
+              <div className="fld">
+                <label>Expiration {expsLoading&&<span style={{fontSize:9,color:"var(--gold)"}}>⟳ loading...</span>}</label>
+                <div className="sel-wrap">
+                  <select value={optExp||""} onChange={e=>setOptExp(e.target.value)} disabled={oLoading||expsLoading}>
+                    {availExps.length===0&&<option value="">Loading dates...</option>}
+                    {availExps.map(e=>(
+                      <option key={e.dateStr} value={e.dateStr}>{e.display}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={optStrat} onChange={e=>setOptStrat(e.target.value)} disabled={oLoading}>{OSTRATEGIES.map(x=><option key={x}>{x}</option>)}</select></div></div>
             </div>
             <button className="btn-blue" onClick={runOptions} disabled={oLoading}>{oLoading?<><div className="spin-w"/>Scanning…</>:"⚡ Scan Option Chain — Generate Entry Points"}</button>
@@ -1751,7 +1855,7 @@ Return ONLY raw JSON (no markdown, no backticks):
                     {oContracts.length>0&&!oLoading&&oInsights&&oTicker&&<div className="results">
             <div className="sumbox">
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
-                <div className="sum-title" style={{margin:0}}>{oTicker.t} Options — {oTicker.expLabel||optExp}</div>
+                <div className="sum-title" style={{margin:0}}>{oTicker.t} Options — {oTicker.expLabel?labelExpDate(oTicker.expLabel)?.label||oTicker.expLabel:""}</div>
                 {oTicker&&prices[oTicker.t]&&(
                   <span className="live-tag">
                     <span className="ldot"/>
@@ -1766,7 +1870,7 @@ Return ONLY raw JSON (no markdown, no backticks):
                 <span>📍 Scanned: <b style={{color:"var(--txt)"}}>{oTicker.t}</b></span>
                 <span>⏱ At: <b style={{color:"var(--txt)"}}>{oTicker.scanTime}</b></span>
                 <span>💰 Price: <b style={{color:"var(--green)"}}>${oTicker.p}</b></span>
-                <span>📅 Exp: <b style={{color:"var(--gold)"}}>{oTicker.expLabel}</b></span>
+                <span>📅 Exp: <b style={{color:"var(--gold)"}}>{oTicker.expLabel?labelExpDate(oTicker.expLabel)?.display||oTicker.expLabel:""}</b></span>
               </div>
               <div className="sum-body">{oInsights.summary}</div>
               {oInsights.tags?.length>0&&<div className="tags">{oInsights.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}
