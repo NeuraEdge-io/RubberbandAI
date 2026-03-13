@@ -386,79 +386,206 @@ tbody td{padding:11px 13px;vertical-align:middle;}
 
 /* ── UNIVERSE ── */
 const UNIVERSE_BASE = [
+  // ── Mega Cap Tech ──
   {t:"NVDA",n:"NVIDIA Corp",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"MSFT",n:"Microsoft Corp",sec:"Technology",cap:"Large",geo:"US"},
   {t:"AAPL",n:"Apple Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"MSFT",n:"Microsoft Corp",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"AMZN",n:"Amazon.com",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
   {t:"GOOGL",n:"Alphabet Inc",sec:"Technology",cap:"Large",geo:"US"},
   {t:"META",n:"Meta Platforms",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"TSLA",n:"Tesla Inc",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"AMD",n:"AMD",sec:"Semiconductors",cap:"Large",geo:"US"},
   {t:"AVGO",n:"Broadcom Inc",sec:"Semiconductors",cap:"Large",geo:"US"},
   {t:"ORCL",n:"Oracle Corp",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"INTC",n:"Intel Corp",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"QCOM",n:"Qualcomm",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"MU",n:"Micron Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"NFLX",n:"Netflix",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"UBER",n:"Uber Technologies",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"MRVL",n:"Marvell Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"TSM",n:"Taiwan Semiconductor",sec:"Semiconductors",cap:"Large",geo:"Asia Pacific"},
+  {t:"ASML",n:"ASML Holding",sec:"Semiconductors",cap:"Large",geo:"Europe"},
+  // ── Enterprise SaaS ──
   {t:"CRM",n:"Salesforce",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"ADBE",n:"Adobe Inc",sec:"Technology",cap:"Large",geo:"US"},
   {t:"NOW",n:"ServiceNow",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"DDOG",n:"Datadog Inc",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"ADBE",n:"Adobe Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"INTU",n:"Intuit Inc",sec:"Technology",cap:"Large",geo:"US"},
   {t:"HUBS",n:"HubSpot Inc",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"WDAY",n:"Workday",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"VEEV",n:"Veeva Systems",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"TEAM",n:"Atlassian",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"MDB",n:"MongoDB",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"ESTC",n:"Elastic NV",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"CFLT",n:"Confluent",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"DDOG",n:"Datadog Inc",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"SNOW",n:"Snowflake",sec:"Technology",cap:"Large",geo:"US"},
   {t:"MNDY",n:"Monday.com",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"TOST",n:"Toast Inc",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"ZBRA",n:"Zebra Technologies",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"TEL",n:"TE Connectivity",sec:"Technology",cap:"Large",geo:"US"},
+  // ── AI / Cybersecurity / Cloud ──
+  {t:"PLTR",n:"Palantir Tech",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"APP",n:"Applovin Corp",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"CRWD",n:"CrowdStrike",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"NET",n:"Cloudflare",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"ZS",n:"Zscaler",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"OKTA",n:"Okta Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"S",n:"SentinelOne",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"PATH",n:"UiPath",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"GTLB",n:"GitLab",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"SMCI",n:"Super Micro Computer",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"CRWV",n:"CoreWeave Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"IONQ",n:"IonQ Inc",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"SOUN",n:"SoundHound AI",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"SERV",n:"Serve Robotics",sec:"Technology",cap:"Micro",geo:"US"},
+  {t:"NBIS",n:"Nebius Group",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"AI",n:"C3.ai",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"BBAI",n:"BigBear.ai",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"RGTI",n:"Rigetti Computing",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"QBTS",n:"D-Wave Quantum",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"ARQQ",n:"Arqit Quantum",sec:"Technology",cap:"Micro",geo:"US"},
+  {t:"QUBT",n:"Quantum Computing Inc",sec:"Technology",cap:"Micro",geo:"US"},
+  {t:"TEM",n:"Tempus AI Inc",sec:"Healthcare",cap:"Mid",geo:"US"},
+  // ── Fintech / Finance ──
+  {t:"V",n:"Visa Inc",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"MA",n:"Mastercard",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"PYPL",n:"PayPal",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"COIN",n:"Coinbase Global",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"SQ",n:"Block Inc",sec:"Fintech",cap:"Mid",geo:"US"},
   {t:"AFRM",n:"Affirm Holdings",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"UPST",n:"Upstart Holdings",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"SOFI",n:"SoFi Technologies",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"NU",n:"Nu Holdings",sec:"Fintech",cap:"Large",geo:"Latin America"},
+  {t:"TOST",n:"Toast Inc",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"BILL",n:"Bill.com",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"RELY",n:"Remitly Global",sec:"Fintech",cap:"Mid",geo:"US"},
   {t:"ALKT",n:"Alkami Technology",sec:"Fintech",cap:"Small",geo:"US"},
-  {t:"PRCT",n:"PROCEPT BioRobotics",sec:"Healthcare",cap:"Small",geo:"US"},
-  {t:"AXSM",n:"Axsome Therapeutics",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"NUVL",n:"Nuvalent Inc",sec:"Biotech",cap:"Mid",geo:"US"},
+  {t:"DAVE",n:"Dave Inc",sec:"Fintech",cap:"Small",geo:"US"},
+  {t:"ADYEY",n:"Adyen",sec:"Fintech",cap:"Large",geo:"Europe"},
+  {t:"JPM",n:"JPMorgan Chase",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"BAC",n:"Bank of America",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"GS",n:"Goldman Sachs",sec:"Financials",cap:"Large",geo:"US"},
+  // ── Healthcare / Biotech ──
   {t:"LLY",n:"Eli Lilly",sec:"Healthcare",cap:"Large",geo:"US"},
   {t:"UNH",n:"UnitedHealth",sec:"Healthcare",cap:"Large",geo:"US"},
   {t:"ISRG",n:"Intuitive Surgical",sec:"Healthcare",cap:"Large",geo:"US"},
   {t:"DXCM",n:"Dexcom",sec:"Healthcare",cap:"Large",geo:"US"},
-  {t:"JPM",n:"JPMorgan Chase",sec:"Financials",cap:"Large",geo:"US"},
-  {t:"BAC",n:"Bank of America",sec:"Financials",cap:"Large",geo:"US"},
-  {t:"GS",n:"Goldman Sachs",sec:"Financials",cap:"Large",geo:"US"},
-  {t:"V",n:"Visa Inc",sec:"Fintech",cap:"Large",geo:"US"},
-  {t:"COIN",n:"Coinbase Global",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"XOM",n:"Exxon Mobil",sec:"Energy",cap:"Large",geo:"US"},
-  {t:"CVX",n:"Chevron Corp",sec:"Energy",cap:"Large",geo:"US"},
-  {t:"FSLR",n:"First Solar",sec:"Clean Energy",cap:"Mid",geo:"US"},
-  {t:"ENPH",n:"Enphase Energy",sec:"Clean Energy",cap:"Mid",geo:"US"},
-  {t:"GE",n:"GE Aerospace",sec:"Industrials",cap:"Large",geo:"US"},
-  {t:"KTOS",n:"Kratos Defense",sec:"Defense",cap:"Small",geo:"US"},
-  {t:"RKLB",n:"Rocket Lab USA",sec:"Industrials",cap:"Small",geo:"US"},
-  {t:"AMZN",n:"Amazon.com",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
-  {t:"TSLA",n:"Tesla Inc",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
-  {t:"ONON",n:"On Holding AG",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"CELH",n:"Celsius Holdings",sec:"Consumer Staples",cap:"Mid",geo:"US"},
-  {t:"NEE",n:"NextEra Energy",sec:"Utilities",cap:"Large",geo:"US"},
-  {t:"PLTR",n:"Palantir Tech",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"IONQ",n:"IonQ Inc",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"SYK",n:"Stryker Corp",sec:"Healthcare",cap:"Large",geo:"US"},
   {t:"NVO",n:"Novo Nordisk",sec:"Healthcare",cap:"Large",geo:"Europe"},
-  {t:"ASML",n:"ASML Holding",sec:"Semiconductors",cap:"Large",geo:"Europe"},
-  {t:"SHOP",n:"Shopify Inc",sec:"Technology",cap:"Large",geo:"Canada"},
-  {t:"MELI",n:"MercadoLibre",sec:"Technology",cap:"Large",geo:"Latin America"},
-  {t:"NU",n:"Nu Holdings",sec:"Fintech",cap:"Large",geo:"Latin America"},
+  {t:"VRTX",n:"Vertex Pharma",sec:"Biotech",cap:"Large",geo:"US"},
+  {t:"REGN",n:"Regeneron",sec:"Biotech",cap:"Large",geo:"US"},
+  {t:"BIIB",n:"Biogen",sec:"Biotech",cap:"Large",geo:"US"},
+  {t:"GILD",n:"Gilead Sciences",sec:"Biotech",cap:"Large",geo:"US"},
+  {t:"MRNA",n:"Moderna",sec:"Biotech",cap:"Mid",geo:"US"},
+  {t:"BNTX",n:"BioNTech",sec:"Biotech",cap:"Mid",geo:"Europe"},
+  {t:"ALNY",n:"Alnylam Pharma",sec:"Biotech",cap:"Large",geo:"US"},
+  {t:"NUVL",n:"Nuvalent Inc",sec:"Biotech",cap:"Mid",geo:"US"},
+  {t:"AXSM",n:"Axsome Therapeutics",sec:"Biotech",cap:"Small",geo:"US"},
   {t:"NTRA",n:"Natera Inc",sec:"Healthcare",cap:"Mid",geo:"US"},
   {t:"BEAM",n:"Beam Therapeutics",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"RDDT",n:"Reddit Inc",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"FCX",n:"Freeport-McMoRan",sec:"Mining",cap:"Large",geo:"US"},
-  {t:"MP",n:"MP Materials",sec:"Mining",cap:"Small",geo:"US"},
-  {t:"SOUN",n:"SoundHound AI",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"SERV",n:"Serve Robotics",sec:"Technology",cap:"Micro",geo:"US"},
+  {t:"CRSP",n:"CRISPR Therapeutics",sec:"Biotech",cap:"Mid",geo:"US"},
+  {t:"PRCT",n:"PROCEPT BioRobotics",sec:"Healthcare",cap:"Small",geo:"US"},
+  {t:"RXST",n:"RxSight Inc",sec:"Biotech",cap:"Small",geo:"US"},
+  {t:"INSM",n:"Insmed",sec:"Biotech",cap:"Mid",geo:"US"},
+  {t:"KRYS",n:"Krystal Biotech",sec:"Biotech",cap:"Mid",geo:"US"},
+  {t:"ACAD",n:"ACADIA Pharma",sec:"Biotech",cap:"Mid",geo:"US"},
+  {t:"NVAX",n:"Novavax",sec:"Biotech",cap:"Small",geo:"US"},
+  {t:"SAVA",n:"Cassava Sciences",sec:"Biotech",cap:"Small",geo:"US"},
+  {t:"MGNX",n:"MacroGenics",sec:"Biotech",cap:"Small",geo:"US"},
+  // ── Consumer / Retail ──
+  {t:"SHOP",n:"Shopify Inc",sec:"Technology",cap:"Large",geo:"Canada"},
+  {t:"MELI",n:"MercadoLibre",sec:"Technology",cap:"Large",geo:"Latin America"},
+  {t:"ONON",n:"On Holding AG",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"CELH",n:"Celsius Holdings",sec:"Consumer Staples",cap:"Mid",geo:"US"},
   {t:"BIRK",n:"Birkenstock",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
   {t:"VITL",n:"Vital Farms",sec:"Consumer Staples",cap:"Small",geo:"US"},
-  {t:"AMD",n:"AMD",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"APP",n:"Applovin Corp",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"INTU",n:"Intuit Inc",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"MU",n:"Micron Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"SYK",n:"Stryker Corp",sec:"Healthcare",cap:"Large",geo:"US"},
-  {t:"CRWV",n:"CoreWeave Inc",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"MRVL",n:"Marvell Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"TSM",n:"Taiwan Semiconductor",sec:"Semiconductors",cap:"Large",geo:"Asia Pacific"},
+  {t:"SPOT",n:"Spotify Technology",sec:"Technology",cap:"Large",geo:"Europe"},
+  {t:"NTR",n:"Nutrien Ltd",sec:"Materials",cap:"Large",geo:"Canada"},
+  {t:"SNAP",n:"Snap Inc",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"PINS",n:"Pinterest",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"RBLX",n:"Roblox Corp",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"U",n:"Unity Software",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"TTWO",n:"Take-Two Interactive",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"EA",n:"Electronic Arts",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"ABNB",n:"Airbnb",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"LYFT",n:"Lyft Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"DASH",n:"DoorDash",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"ETSY",n:"Etsy Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"W",n:"Wayfair",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"HIMS",n:"Hims & Hers Health",sec:"Healthcare",cap:"Mid",geo:"US"},
+  // ── EV / Clean Energy ──
+  {t:"ENPH",n:"Enphase Energy",sec:"Clean Energy",cap:"Mid",geo:"US"},
+  {t:"FSLR",n:"First Solar",sec:"Clean Energy",cap:"Mid",geo:"US"},
+  {t:"NEE",n:"NextEra Energy",sec:"Utilities",cap:"Large",geo:"US"},
   {t:"CEG",n:"Constellation Energy",sec:"Utilities",cap:"Large",geo:"US"},
-  {t:"TEM",n:"Tempus AI Inc",sec:"Healthcare",cap:"Mid",geo:"US"},
-  {t:"CRSP",n:"CRISPR Therapeutics",sec:"Biotech",cap:"Mid",geo:"US"},
+  {t:"NEP",n:"NextEra Energy Partners",sec:"Utilities",cap:"Mid",geo:"US"},
+  {t:"RIVN",n:"Rivian Automotive",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"LCID",n:"Lucid Group",sec:"Consumer Discretionary",cap:"Small",geo:"US"},
+  {t:"NIO",n:"NIO Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"Asia Pacific"},
+  {t:"XPEV",n:"XPeng Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"Asia Pacific"},
+  {t:"LI",n:"Li Auto",sec:"Consumer Discretionary",cap:"Mid",geo:"Asia Pacific"},
+  {t:"ARRY",n:"Array Technologies",sec:"Clean Energy",cap:"Small",geo:"US"},
+  {t:"STEM",n:"Stem Inc",sec:"Clean Energy",cap:"Small",geo:"US"},
+  // ── Defense / Industrial ──
+  {t:"GE",n:"GE Aerospace",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"KTOS",n:"Kratos Defense",sec:"Defense",cap:"Small",geo:"US"},
+  {t:"RTX",n:"RTX Corp",sec:"Defense",cap:"Large",geo:"US"},
+  {t:"LMT",n:"Lockheed Martin",sec:"Defense",cap:"Large",geo:"US"},
+  {t:"NOC",n:"Northrop Grumman",sec:"Defense",cap:"Large",geo:"US"},
+  {t:"BA",n:"Boeing",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"HII",n:"Huntington Ingalls",sec:"Defense",cap:"Large",geo:"US"},
+  {t:"TDG",n:"TransDigm Group",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"RKLB",n:"Rocket Lab USA",sec:"eVTOL",cap:"Small",geo:"US"},
+  {t:"ASTS",n:"AST SpaceMobile",sec:"eVTOL",cap:"Small",geo:"US"},
+  {t:"LUNR",n:"Intuitive Machines",sec:"eVTOL",cap:"Small",geo:"US"},
+  {t:"RDW",n:"Redwire Corp",sec:"Industrials",cap:"Small",geo:"US"},
+  // ── Mining / Materials ──
+  {t:"FCX",n:"Freeport-McMoRan",sec:"Mining",cap:"Large",geo:"US"},
+  {t:"MP",n:"MP Materials",sec:"Mining",cap:"Small",geo:"US"},
+  {t:"XOM",n:"Exxon Mobil",sec:"Energy",cap:"Large",geo:"US"},
+  {t:"CVX",n:"Chevron Corp",sec:"Energy",cap:"Large",geo:"US"},
+  // ── China / International ──
+  {t:"BABA",n:"Alibaba Group",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
+  {t:"JD",n:"JD.com",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
+  {t:"PDD",n:"PDD Holdings",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
+  {t:"BIDU",n:"Baidu Inc",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
+  // ── High Vol / Momentum ──
+  {t:"MSTR",n:"MicroStrategy",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"HOOD",n:"Robinhood Markets",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"GME",n:"GameStop",sec:"Consumer Discretionary",cap:"Small",geo:"US"},
+  {t:"RDDT",n:"Reddit Inc",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"RXRX",n:"Recursion Pharma",sec:"Biotech",cap:"Mid",geo:"US"},
   {t:"IREN",n:"Iris Energy Ltd",sec:"Technology",cap:"Small",geo:"International"},
-  {t:"BETA",n:"Beta Technologies",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"TEL",n:"TE Connectivity",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"SPOT",n:"Spotify Technology",sec:"Technology",cap:"Large",geo:"International"},
-  {t:"NTR",n:"Nutrien Ltd",sec:"Materials",cap:"Large",geo:"International"},
-  {t:"ZBRA",n:"Zebra Technologies",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"MARA",n:"MARA Holdings",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"RIOT",n:"Riot Platforms",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"CLSK",n:"CleanSpark",sec:"Clean Energy",cap:"Small",geo:"US"},
+  {t:"HUT",n:"Hut 8 Corp",sec:"Technology",cap:"Small",geo:"Canada"},
+  {t:"CIFR",n:"Cipher Mining",sec:"Technology",cap:"Micro",geo:"US"},
+  {t:"OPEN",n:"Opendoor Technologies",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"WOLF",n:"Wolfspeed",sec:"Semiconductors",cap:"Small",geo:"US"},
+  {t:"PLUG",n:"Plug Power",sec:"Clean Energy",cap:"Small",geo:"US"},
+  {t:"CHPT",n:"ChargePoint Holdings",sec:"Clean Energy",cap:"Small",geo:"US"},
+  {t:"BLNK",n:"Blink Charging",sec:"Clean Energy",cap:"Micro",geo:"US"},
+  // ── eVTOL / Space ──
+  {t:"ACHR",n:"Archer Aviation",sec:"eVTOL",cap:"Small",geo:"US"},
+  {t:"JOBY",n:"Joby Aviation",sec:"eVTOL",cap:"Small",geo:"US"},
+  {t:"BETA",n:"Beta Technologies",sec:"eVTOL",cap:"Small",geo:"US"},
+  // ── ETFs ──
+  {t:"SPY",n:"S&P 500 ETF",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"QQQ",n:"Nasdaq 100 ETF",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"IWM",n:"Russell 2000 ETF",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"GLD",n:"Gold ETF",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"TLT",n:"20yr Treasury ETF",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"XLF",n:"Financial Select ETF",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"XLE",n:"Energy Select ETF",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"ARKK",n:"ARK Innovation ETF",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"SQQQ",n:"ProShares UltraPro Short QQQ",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"TQQQ",n:"ProShares UltraPro QQQ",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"SPXL",n:"Direxion S&P 500 Bull 3X",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"SPXS",n:"Direxion S&P 500 Bear 3X",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"BITO",n:"ProShares Bitcoin ETF",sec:"ETF",cap:"Mid",geo:"US"},
+  {t:"IBIT",n:"iShares Bitcoin Trust",sec:"ETF",cap:"Large",geo:"US"},
+  {t:"KWEB",n:"China Internet ETF",sec:"ETF",cap:"Mid",geo:"US"},
+  {t:"FXI",n:"China Large-Cap ETF",sec:"ETF",cap:"Mid",geo:"US"},
 ];
 
 const OPT_BASE = [
@@ -671,41 +798,31 @@ const OPT_BASE = [
 ];
 
 /* ── FINNHUB ── */
-async function fetchQuote(ticker, retries = 2) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 8000); // 8s timeout
-      const r = await fetch(
-        `${FINNHUB_URL}/quote?symbol=${ticker}&token=${FINNHUB_KEY}`,
-        { signal: ctrl.signal }
-      );
-      clearTimeout(timer);
-      if (r.status === 429) {
-        // Rate limited — wait then retry
-        await new Promise(res => setTimeout(res, 1200 * (attempt + 1)));
-        continue;
-      }
-      if (!r.ok) continue;
-      const d = await r.json();
-      if (d && d.c && d.c > 0) {
-        return {
-          price:       +d.c.toFixed(2),
-          change:      +d.dp.toFixed(2),
-          high:        +d.h.toFixed(2),
-          low:         +d.l.toFixed(2),
-          prevClose:   +d.pc.toFixed(2),
-          open:        +d.o.toFixed(2),
-          volume:      d.v || 0,
-          source:      'finnhub',
-          dollarChange:+(d.c - d.pc).toFixed(2),
-        };
-      }
-    } catch(e) {
-      if (e?.name === 'AbortError') continue; // timeout — retry
-      if (attempt < retries) await new Promise(res => setTimeout(res, 600));
+async function fetchQuote(ticker) {
+  try {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    const r = await fetch(
+      `${FINNHUB_URL}/quote?symbol=${ticker}&token=${FINNHUB_KEY}`,
+      { signal: ctrl.signal }
+    );
+    clearTimeout(timer);
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (d && d.c && d.c > 0) {
+      return {
+        price:       +d.c.toFixed(2),
+        change:      +d.dp.toFixed(2),
+        high:        +d.h.toFixed(2),
+        low:         +d.l.toFixed(2),
+        prevClose:   +d.pc.toFixed(2),
+        open:        +d.o.toFixed(2),
+        volume:      d.v || 0,
+        source:      'finnhub',
+        dollarChange:+(d.c - d.pc).toFixed(2),
+      };
     }
-  }
+  } catch {}
   return null;
 }
 
@@ -857,22 +974,33 @@ async function loadFinnhubChain(ticker) {
   return OPT_INFLIGHT[ticker];
 }
 
-async function fetchOptionChainData(ticker, targetExpDate) {
+async function fetchOptionChainData(ticker, targetDateStr) {
+  // targetDateStr must be "YYYY-MM-DD" — the format Finnhub uses
   const data = await loadFinnhubChain(ticker);
-  if (!data) return null;
-  // Match exact date first, then closest
-  let bestExp = data.dates.find(d => d === targetExpDate) || data.dates[0];
-  if (!bestExp && targetExpDate) {
-    const targetMs = new Date(targetExpDate+'T00:00:00').getTime();
-    let bestDiff = Infinity;
-    data.dates.forEach(exp => {
-      const diff = Math.abs(new Date(exp+'T00:00:00').getTime()-targetMs);
-      if (diff < bestDiff) { bestDiff = diff; bestExp = exp; }
-    });
+  if (!data || !data.dates || !data.dates.length) return null;
+
+  // 1. Exact match on YYYY-MM-DD string
+  let bestExp = data.dates.find(d => d === targetDateStr);
+
+  // 2. Closest by calendar distance (handles slight mismatches)
+  if (!bestExp && targetDateStr) {
+    const targetMs = new Date(targetDateStr + 'T00:00:00').getTime();
+    if (!isNaN(targetMs)) {
+      let bestDiff = Infinity;
+      data.dates.forEach(exp => {
+        const ms = new Date(exp + 'T00:00:00').getTime();
+        const diff = Math.abs(ms - targetMs);
+        if (diff < bestDiff) { bestDiff = diff; bestExp = exp; }
+      });
+    }
   }
+
+  // 3. Fall back to nearest expiration
+  if (!bestExp) bestExp = data.dates[0];
   if (!bestExp) return null;
-  const chainMap = { ...(data.chains[bestExp]||{}), _expDate: bestExp };
-  return Object.keys(chainMap).filter(k=>k!=='_expDate').length > 0 ? chainMap : null;
+
+  const chainMap = { ...(data.chains[bestExp] || {}), _expDate: bestExp };
+  return Object.keys(chainMap).filter(k => k !== '_expDate').length > 0 ? chainMap : null;
 }
 
 async function fetchLiveIV(ticker) {
@@ -1265,7 +1393,7 @@ function fallbackCrit(strategy,sector,market){
 const COL=["g","b","r"];
 const cl=i=>COL[i%3];
 const STRATEGIES=["Growth","Dividend","Value","Momentum","Quality","GARP","Deep Value","Small Cap Growth"];
-const SECTORS=["All Sectors","Technology","Healthcare","Financials","Energy","Consumer Discretionary","Industrials","Utilities","Real Estate","Materials","Communication Services","Consumer Staples","Biotech","Semiconductors","Clean Energy","Fintech","Defense","Mining"];
+const SECTORS=["All Sectors","Technology","Semiconductors","Fintech","Financials","Healthcare","Biotech","Consumer Discretionary","Consumer Staples","Industrials","Defense","Clean Energy","Energy","Utilities","Materials","Mining","ETF","eVTOL"];
 const MARKETS=["US Large Cap","US Mid Cap","US Small Cap","US Micro Cap","International Developed","Emerging Markets","Global","Canada","Europe","Asia Pacific","Latin America"];
 // ── Label a real calendar expiration date for display in the dropdown ──
 // Input: "YYYY-MM-DD" string from Finnhub
@@ -1433,7 +1561,7 @@ export default function App() {
     setLastRefresh(new Date());
     setSProg(65);
     const universe=liveUniverse();
-    const scored=universe.map(s=>({...s,score:scoreStock(s,strategy,sector,market)})).sort((a,b)=>b.score-a.score).slice(0,18).map(s=>({...s,rating:getRating(s.score),metrics:getMetrics(s,strategy),thesis:buildThesis(s,strategy),isGem:s.cap==="Small"||s.cap==="Micro"}));
+    const scored=universe.map(s=>({...s,score:scoreStock(s,strategy,sector,market)})).sort((a,b)=>b.score-a.score).slice(0,25).map(s=>({...s,rating:getRating(s.score),metrics:getMetrics(s,strategy),thesis:buildThesis(s,strategy),isGem:s.cap==="Small"||s.cap==="Micro"}));
     setSProg(70);
     // Fire AI and render stocks simultaneously — don't block UI on AI
     setStocks(scored);setSProg(85);
@@ -1475,56 +1603,38 @@ export default function App() {
     setOProg(10);
     setOContracts([]);setOInsights(null);setOTicker(null);
 
-    // ── Fetch quote + chain + IV all in parallel — single round trip ──
-    const expInfo = labelExpDate(expNow);
-    const targetExpInfo = {
-      label:   expInfo?.label || expNow,
-      short:   expInfo?.short || expNow,
-      realDte: expInfo?.dte   || 30,
-      dateStr: expNow,
-    };
+    // ── STEP 1: Fetch live price from Finnhub ──
+    setOStep(1); setOProg(20);
+    const freshQuote = await fetchQuote(tickerNow);
+    if(optRunId.current!==rid) return;
 
-    setOProg(20);
-    let freshQuote = null;
-    let liveIV     = null;
-    let chainData  = null;
-
-    // Fetch quote + chain in parallel
-    try {
-      [freshQuote, chainData] = await Promise.all([
-        fetchQuote(tickerNow),
-        fetchOptionChainData(tickerNow, targetExpInfo.label),
-      ]);
-      liveIV = OPT_CACHE[tickerNow]?.iv || null;
-    } catch(e){ console.warn('Fetch error:',e); }
-
-    if(optRunId.current!==rid)return;
-
-    // ── Price resolution — never hard-block the scan ──
-    // Priority: 1) fresh quote  2) cached price from batchFetch  3) base IV estimate
-    let livePrice = freshQuote?.price > 0 ? freshQuote.price : null;
-
-    if (!livePrice) {
-      // Try cached price from background price refresh
-      const cachedQ = pricesRef.current[tickerNow];
-      if (cachedQ?.price > 0) {
-        livePrice = cachedQ.price;
-        freshQuote = cachedQ;
-      }
-    }
-
-    if (!livePrice) {
-      // Last resort: show user-friendly error inline, not a blocking alert
+    if(!freshQuote || freshQuote.price <= 0){
       setOLoading(false);
-      setOInsights({ error: true, msg: `Live price unavailable for ${tickerNow}. Markets may be closed or Finnhub rate limit reached. Try again in a moment.` });
+      setOInsights({ error:true, msg:`Finnhub could not load a live price for ${tickerNow}. Check your internet connection and try again.` });
       return;
     }
+    const livePrice = freshQuote.price;
+    setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
+    setLastRefresh(new Date());
 
-    if (freshQuote) setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
+    // ── STEP 2: Fetch option chain from Finnhub (expNow is YYYY-MM-DD) ──
+    setOStep(2); setOProg(40);
+    // Fetch chain + IV in parallel — both use the same loadFinnhubChain cache
+    let chainData = null;
+    let liveIV    = null;
+    try {
+      [chainData] = await Promise.all([
+        fetchOptionChainData(tickerNow, expNow),   // expNow = "YYYY-MM-DD"
+        fetchLiveIV(tickerNow).then(iv => { if(iv) liveIV = iv; })
+      ]);
+    } catch(e){ console.warn('Chain fetch error:',e); }
+
+    if(optRunId.current!==rid) return;
     liveIV = liveIV || ivCache[tickerNow] || base.iv || 35;
     if(chainData) setOptChain(prev=>({...prev,[tickerNow]:chainData}));
     setOProg(55);
 
+    setOStep(3); setOProg(65);
     const td = {
       t:           tickerNow,
       n:           base.n,
@@ -1532,7 +1642,7 @@ export default function App() {
       iv:          liveIV,
       expLabel:    expNow,
       scanTime:    new Date().toLocaleTimeString(),
-      priceSource: freshQuote.source || 'live',
+      priceSource: 'finnhub',
     };
     const types = typeNow==='Calls Only'?['call']:typeNow==='Puts Only'?['put']:['call','put'];
     const contracts=[];
@@ -1545,6 +1655,7 @@ export default function App() {
           .sort((a,b)=>a-b)
       : [];
 
+    setOStep(4); setOProg(75);
     for(const tp of types){
       for(let i=0;i<3;i++){
         // genContract always uses td.p — the live price we just fetched
@@ -1612,7 +1723,8 @@ export default function App() {
     }
     contracts.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
 
-    // ── STEP 6: AI insights scoped to tickerNow ──
+    setOStep(5); setOProg(88);
+    // ── AI insights scoped to tickerNow ──
     let ins=null;
     try{
       const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -1664,7 +1776,7 @@ Return ONLY raw JSON (no markdown, no backticks):
   const sBuys=stocks.filter(s=>s.rating==="sb").length;
   const sGems=stocks.filter(s=>s.isGem).length;
   const sAvg=stocks.length?Math.round(stocks.reduce((a,b)=>a+b.score,0)/stocks.length):0;
-  const SSTEPS=["Loading live Finnhub prices","Applying strategy filters",`Scoring ${UNIVERSE_BASE.length}+ stocks`,"Surfacing hidden gems","Generating AI criteria"];
+  const SSTEPS=["Loading live Finnhub prices","Applying strategy filters",`Scoring ${UNIVERSE_BASE.length} tickers`,"Surfacing hidden gems","Generating AI criteria"];
   const OSTEPS=["Fetching fresh live quote","Fetching option chain + IV","Building strike grid","Computing Greeks (Δ Γ Θ V ρ)","Matching real chain contracts","Generating AI insights"];
   const msLabel=ms==="open"?"● MARKET OPEN":ms==="pre"?"◑ PRE-MARKET":ms==="after"?"◑ AFTER-HOURS":"○ MARKET CLOSED";
   const msClass=ms==="open"?"mopen":"mclosed";
@@ -1695,7 +1807,7 @@ Return ONLY raw JSON (no markdown, no backticks):
         {tab==="stocks"&&<div className="page">
           <div className="hero">
             <h1>Find every <span>hidden gem</span><br/>in the market.</h1>
-            <p>RUBBERBAND.AI scans {UNIVERSE_BASE.length}+ stocks with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Prices fetched fresh on each scan.</p>
+            <p>RUBBERBAND.AI scans all {UNIVERSE_BASE.length} tickers with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Prices fetched fresh on each scan.</p>
           </div>
 
           <div className="email-banner">
@@ -1730,7 +1842,7 @@ Return ONLY raw JSON (no markdown, no backticks):
             <div className="sec-lbl">Screening Criteria</div>
             <div className="crit-grid">{sResult.criteria.map((c,i)=><div className={`cc ${cl(i)}`} key={i}><div className="cc-top"><div className="cc-nm">{c.metric}</div><span className={`cc-pill ${cl(i)}`}>{c.threshold}</span></div><div className="cc-desc">{c.description}</div><div className="cc-bar"><div className="cc-track"><div className={`cc-fill ${cl(i)}`} style={{width:`${Math.min(100,Math.max(0,Number(c.importance)||70))}%`}}/></div><div className="cc-meta"><span>Importance</span><span>{c.importance}/100</span></div></div></div>)}</div>
             <div className="filter-row">{["All","Strong Buy","Hidden Gems","Large Cap","International"].map(f=><button key={f} className={`btn-sm ${sFilter===f?"active":""}`} onClick={()=>setSFilter(f)}>{f}</button>)}<div className="sp"/>{["score","price","change"].map(s=><button key={s} className={`btn-sm ${sSort===s?"active":""}`} onClick={()=>setSSort(s)}>Sort: {s==="score"?"Score":s==="price"?"Price":"% Chg"}</button>)}</div>
-            <div className="scan-info">Live prices via Finnhub · {new Date().toLocaleTimeString()} · <span>{UNIVERSE_BASE.length} stocks analyzed</span></div>
+            <div className="scan-info">Live prices via Finnhub · {new Date().toLocaleTimeString()} · <span>{UNIVERSE_BASE.length} tickers analyzed</span></div>
             <div className="tbl-wrap"><table>
               <thead><tr><th>#</th><th>Ticker</th><th>Live Price</th><th>Mkt Cap</th><th>Score</th><th>MR Signal</th><th>Key Metrics</th><th>Thesis</th><th>Rating</th></tr></thead>
               <tbody>{dispStocks.map((s,i)=><tr key={s.t+i}>
