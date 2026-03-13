@@ -721,25 +721,26 @@ function generateExpirationDates() {
   const today = new Date(); today.setHours(0,0,0,0);
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const addedDates = new Set();
+  const seen   = new Set();
   const result = [];
 
-  const makeEntry = (d) => {
-    const dte     = Math.round((d.getTime() - today.getTime()) / 86400000);
+  const makeEntry = (dateObj) => {
+    const dte = Math.round((dateObj.getTime() - today.getTime()) / 86400000);
     if (dte < 0) return null;
-    const mon     = MONTHS[d.getMonth()];
-    const day     = d.getDate();
-    const year    = d.getFullYear();
-    const dow     = DAYS[d.getDay()];
-    const dateStr = `${year}-${String(d.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    if (addedDates.has(dateStr)) return null;
-    addedDates.add(dateStr);
-
+    const mon  = MONTHS[dateObj.getMonth()];
+    const day  = dateObj.getDate();
+    const year = dateObj.getFullYear();
+    const dow  = DAYS[dateObj.getDay()];
+    const mm   = String(dateObj.getMonth()+1).padStart(2,'0');
+    const dd   = String(day).padStart(2,'0');
+    const dateStr = `${year}-${mm}-${dd}`;
+    if (seen.has(dateStr)) return null;
+    seen.add(dateStr);
     const weekNum       = Math.ceil(day / 7);
-    const isThirdFriday = d.getDay() === 5 && weekNum === 3;
-
+    const isFriday      = dateObj.getDay() === 5;
+    const isThirdFriday = isFriday && weekNum === 3;
     let kind;
-    if (dte === 0)       kind = '0 DTE';
+    if      (dte === 0)  kind = '0 DTE';
     else if (dte === 1)  kind = '1 DTE';
     else if (dte === 2)  kind = '2 DTE';
     else if (dte === 3)  kind = '3 DTE';
@@ -747,33 +748,32 @@ function generateExpirationDates() {
     else if (dte === 5)  kind = '5 DTE';
     else if (dte === 6)  kind = '6 DTE';
     else if (dte <= 13)  kind = 'Weekly';
-    else if (dte <= 20)  kind = isThirdFriday ? 'Monthly' : 'Weekly';
-    else if (dte <= 37)  kind = isThirdFriday ? 'Monthly' : 'Weekly';
-    else if (dte <= 100) kind = isThirdFriday ? 'Monthly'    : 'Weekly';
-    else if (dte <= 200) kind = isThirdFriday ? 'Quarterly'  : 'Weekly';
+    else if (dte <= 37)  kind = isThirdFriday ? 'Monthly'   : 'Weekly';
+    else if (dte <= 100) kind = isThirdFriday ? 'Monthly'   : 'Weekly';
+    else if (dte <= 200) kind = isThirdFriday ? 'Quarterly' : 'Weekly';
     else                 kind = `LEAPS ${year}`;
-
     const display = dte <= 6
       ? `${dow} ${mon} ${day}  ·  ${dte} DTE`
       : `${mon} ${day}, ${year}  ·  ${dte}d  ·  ${kind}`;
-
-    return { dateStr, label: `${mon} ${day}, ${year}`, short: `${mon} ${day}`,
-             full: `${dow} ${mon} ${day}, ${year}`, dte, kind, year, display };
+    return { dateStr, label:`${mon} ${day}, ${year}`, short:`${mon} ${day}`,
+             full:`${dow} ${mon} ${day}, ${year}`, dte, kind, year, display };
   };
 
-  // ── Step 1: Add today + next 6 calendar days (1–6 DTE) ──
-  // These are Mon–Sun near-term expirations (0–6 DTE range)
-  for (let i = 0; i <= 6; i++) {
-    const d = new Date(today); d.setDate(today.getDate() + i);
+  // ── Tier 1: ALWAYS include today + next 6 weekdays (0–6 DTE guaranteed) ──
+  // This ensures 1 DTE and 2 DTE are ALWAYS in the list regardless of day of week
+  for (let offset = 0; offset <= 8; offset++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + offset);
     const dow = d.getDay();
-    // Skip weekends — options don't expire Sat/Sun
-    if (dow === 0 || dow === 6) continue;
+    if (dow === 0 || dow === 6) continue; // skip weekends
     const entry = makeEntry(d);
     if (entry) result.push(entry);
+    if (result.length >= 7) break; // got 0-6 DTE covered
   }
 
-  // ── Step 2: All Fridays for next 730 days (weekly + monthly + LEAPS) ──
+  // ── Tier 2: Every Friday for the next 730 days (weeklies, monthlies, LEAPS) ──
   const fri = new Date(today);
+  // Advance to first Friday
   while (fri.getDay() !== 5) fri.setDate(fri.getDate() + 1);
   const end = new Date(today); end.setDate(today.getDate() + 730);
   while (fri <= end) {
@@ -782,11 +782,10 @@ function generateExpirationDates() {
     fri.setDate(fri.getDate() + 7);
   }
 
-  // Sort by DTE ascending
-  result.sort((a,b) => a.dte - b.dte);
+  // Sort by DTE so dropdown reads 0 DTE → LEAPS chronologically
+  result.sort((a, b) => a.dte - b.dte);
   return result;
 }
-
 // Pre-compute once at startup — instant reference for the dropdown
 const ALL_EXPIRATIONS = generateExpirationDates();
 
@@ -1340,8 +1339,6 @@ function TVChart({ ticker, interval = "D", height = "100%", theme = "dark" }) {
 export default function App() {
   const [tab,setTab]=useState("stocks");
   const [prices,setPrices]=useState({});
-  const [pLoading,setPLoading]=useState(false);
-  const [fetchProg,setFetchProg]=useState({done:0,total:0});
   const [lastRefresh,setLastRefresh]=useState(null);
   const [ms,setMs]=useState(mktStatus());
   const [strategy,setStrategy]=useState("Growth");
@@ -1394,39 +1391,7 @@ export default function App() {
     return()=>clearInterval(id);
   },[]);
 
-  // On mount: silently pre-fetch stock screener prices in background (73 tickers only)
-  // Options prices are fetched ON DEMAND when user hits Scan — never in background
-  useEffect(()=>{
-    let cancelled=false;
-    const preload=async()=>{
-      setPLoading(true);
-      const tickers=UNIVERSE_BASE.map(s=>s.t);
-      const CHUNK=5; const GAP=200; // conservative — leave room for user-triggered scans
-      for(let i=0;i<tickers.length;i+=CHUNK){
-        if(cancelled)break;
-        const chunk=tickers.slice(i,i+CHUNK);
-        const results=await Promise.allSettled(chunk.map(t=>fetchQuote(t)));
-        const batch={};
-        results.forEach((r,j)=>{if(r.status==='fulfilled'&&r.value)batch[chunk[j]]=r.value;});
-        setPrices(prev=>({...prev,...batch}));
-        setFetchProg({done:Math.min(i+CHUNK,tickers.length),total:tickers.length});
-        if(i===0)setLastRefresh(new Date());
-        if(i+CHUNK<tickers.length)await new Promise(r=>setTimeout(r,GAP));
-      }
-      if(!cancelled){setLastRefresh(new Date());setPLoading(false);}
-    };
-    preload();
-    return()=>{cancelled=true;};
-  },[]); // runs ONCE on mount only — no auto-repeat
-
-  // When user switches options ticker, pre-fetch that ONE price quietly
-  useEffect(()=>{
-    const quickFetch=async()=>{
-      const q=await fetchQuote(optTicker);
-      if(q)setPrices(prev=>({...prev,[optTicker]:q}));
-    };
-    quickFetch();
-  },[optTicker]);
+  // NO background fetching — Finnhub only called when user hits Scan or Run Screen
 
   useEffect(()=>{try{localStorage.setItem("rubberband_emails",JSON.stringify(eList));}catch{};},[eList]);
 
@@ -1451,9 +1416,9 @@ export default function App() {
   const runStocks=useCallback(async()=>{
     const rid=++runId.current;
     setSLoading(true);setSStep(1);setSProg(10);setSResult(null);setStocks([]);setSFilter("All");
-    // Fetch fresh prices for all stock screener tickers on demand
+    // Fetch fresh prices for stock screener tickers — sequential, on demand only
     const stockTickers=UNIVERSE_BASE.map(s=>s.t);
-    const CHUNK=8;const GAP=100;
+    const CHUNK=8;const GAP=150;
     for(let i=0;i<stockTickers.length;i+=CHUNK){
       if(runId.current!==rid)return;
       const chunk=stockTickers.slice(i,i+CHUNK);
@@ -1465,6 +1430,7 @@ export default function App() {
       if(i+CHUNK<stockTickers.length)await new Promise(r=>setTimeout(r,GAP));
     }
     if(runId.current!==rid)return;
+    setLastRefresh(new Date());
     setSProg(65);
     const universe=liveUniverse();
     const scored=universe.map(s=>({...s,score:scoreStock(s,strategy,sector,market)})).sort((a,b)=>b.score-a.score).slice(0,18).map(s=>({...s,rating:getRating(s.score),metrics:getMetrics(s,strategy),thesis:buildThesis(s,strategy),isGem:s.cap==="Small"||s.cap==="Micro"}));
@@ -1486,15 +1452,7 @@ export default function App() {
     if(preferred)setOptExp(preferred.dateStr);
   },[optTicker]);
 
-  // Refresh IV from Finnhub chain cache every 8 min
-  useEffect(()=>{
-    const id=setInterval(async()=>{
-      delete OPT_CACHE[optTicker]; // force refresh
-      const data = await loadFinnhubChain(optTicker);
-      if(data?.iv) setIvCache(prev=>({...prev,[optTicker]:data.iv}));
-    }, OPT_CACHE_TTL);
-    return()=>clearInterval(id);
-  },[optTicker]);
+
 
   /* OPTIONS SCREENER */
   const pricesRef=useRef(prices);
@@ -1723,7 +1681,7 @@ Return ONLY raw JSON (no markdown, no backticks):
           <div className="hdr-right">
             <span className="chip live">● {clock}</span>
             <span className={`chip ${msClass}`}>{msLabel}</span>
-            {pLoading?<span className="chip mloading">⟳ {fetchProg.done}/{fetchProg.total} prices</span>:lastRefresh&&<span className="chip ai">LIVE ✓</span>}
+            {false?<span className="chip mloading">⟳ {0}/{0} prices</span>:lastRefresh&&<span className="chip ai">LIVE ✓</span>}
           </div>
         </header>
 
@@ -1745,7 +1703,7 @@ Return ONLY raw JSON (no markdown, no backticks):
             {eOk?<div className="sub-ok">✅ You're in! Watch your inbox Sunday.</div>:<div className="eb-form"><input className="ei wide" placeholder="your@email.com" type="email" value={eEmail} onChange={e=>setEEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><button className="btn-sub" onClick={subscribe} disabled={!eEmail.includes("@")}>Subscribe Free →</button></div>}
           </div>
 
-          {lastRefresh&&<div className="refresh-row"><div className="ldot"/><span>Live via Finnhub · Prices as of {lastRefresh.toLocaleTimeString()}</span>{pLoading&&<div className="spin-s"/>}</div>}
+          {lastRefresh&&<div className="refresh-row"><div className="ldot"/><span>Live via Finnhub · Prices as of {lastRefresh.toLocaleTimeString()}</span>{false}</div>}
 
           <div className="panel">
             <div className="panel-title">Screen Configuration</div>
@@ -1754,7 +1712,7 @@ Return ONLY raw JSON (no markdown, no backticks):
               <div className="fld"><label>Sector</label><div className="sel-wrap"><select value={sector} onChange={e=>setSector(e.target.value)} disabled={sLoading}>{SECTORS.map(s=><option key={s}>{s}</option>)}</select></div></div>
               <div className="fld"><label>Market / Geography</label><div className="sel-wrap"><select value={market} onChange={e=>setMarket(e.target.value)} disabled={sLoading}>{MARKETS.map(m=><option key={m}>{m}</option>)}</select></div></div>
             </div>
-            <button className="btn-green" onClick={runStocks} disabled={sLoading||pLoading}>{sLoading?<><div className="spin"/>Scanning…</>:pLoading?<><div className="spin"/>Loading Live Prices…</>:"Run Screen — Find All Matching Stocks"}</button>
+            <button className="btn-green" onClick={runStocks} disabled={sLoading}>{sLoading?<><div className="spin"/>Scanning…</>:false?<><div className="spin"/>Loading Live Prices…</>:"Run Screen — Find All Matching Stocks"}</button>
           </div>
 
           {sLoading&&<div className="lbox"><div className="lsteps">{SSTEPS.map((s,i)=><div key={i} className={`lstep ${sStep>i?"done":sStep===i?"active":""}`}><div className="lstep-ico">{sStep>i?"✓":sStep===i?"…":i+1}</div><span>{s}</span></div>)}</div><div className="pbar"><div className="pfill g" style={{width:`${sProg}%`}}/></div></div>}
@@ -1827,7 +1785,7 @@ Return ONLY raw JSON (no markdown, no backticks):
           <div className="hero">
             <h1>Options <span className="orange">chain screener</span><br/>with exact entry points.</h1>
             <p>Full Greeks · Live underlying prices · {OPT_BASE.length}+ tickers · Day/Week/Month H&amp;L ranges · Precise entry, targets &amp; stops.</p>
-            {lastRefresh&&<div className="refresh-row" style={{marginTop:10}}><div className="ldot"/><span>Prices fetched fresh on each scan · Last: {lastRefresh.toLocaleTimeString()}</span>{pLoading&&<div className="spin-s"/>}</div>}
+            {lastRefresh&&<div className="refresh-row" style={{marginTop:10}}><div className="ldot"/><span>Prices fetched fresh on each scan · Last: {lastRefresh.toLocaleTimeString()}</span>{false}</div>}
           </div>
 
           <div className="email-banner" style={{marginBottom:20}}>
