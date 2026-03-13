@@ -352,33 +352,6 @@ tbody td{padding:11px 13px;vertical-align:middle;}
 .rsi-gauge{position:relative;height:10px;background:linear-gradient(90deg,var(--green) 0%,var(--green) 28%,var(--gold) 28%,var(--gold) 35%,var(--dim2) 35%,var(--dim2) 65%,var(--gold) 65%,var(--gold) 72%,var(--red) 72%,var(--red) 100%);border-radius:5px;margin:8px 0 4px;overflow:visible;}
 .rsi-needle{position:absolute;top:-3px;width:3px;height:16px;background:white;border-radius:2px;transform:translateX(-50%);transition:left .5s ease;box-shadow:0 0 4px rgba(0,0,0,.5);}
 .rsi-labels{display:flex;justify-content:space-between;font-size:8.5px;color:var(--dim);}
-/* ── TRADINGVIEW CHARTS ── */
-.chart-modal-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;}
-.chart-modal{background:var(--s1);border:1px solid var(--b2);border-radius:16px;width:100%;max-width:920px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,.7);}
-.chart-modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--b1);flex-shrink:0;}
-.chart-modal-hdr-left{display:flex;align-items:center;gap:10px;}
-.chart-modal-tk{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--txt);}
-.chart-modal-name{font-size:11px;color:var(--dim);margin-top:1px;}
-.chart-modal-price{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;}
-.chart-modal-close{background:rgba(255,255,255,.06);border:1px solid var(--b2);color:var(--dim);width:32px;height:32px;border-radius:8px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
-.chart-modal-close:hover{background:rgba(255,77,106,.15);color:var(--red);border-color:var(--red);}
-.chart-interval-bar{display:flex;gap:6px;padding:10px 20px;border-bottom:1px solid var(--b1);flex-shrink:0;flex-wrap:wrap;}
-.chart-int-btn{font-size:10px;font-family:'DM Mono',monospace;padding:4px 11px;border-radius:6px;border:1px solid var(--b2);background:transparent;color:var(--dim);cursor:pointer;letter-spacing:.5px;transition:all .15s;}
-.chart-int-btn:hover{color:var(--txt);border-color:var(--b2);}
-.chart-int-btn.active{background:rgba(0,232,122,.12);border-color:rgba(0,232,122,.4);color:var(--green);}
-.chart-frame-wrap{flex:1;min-height:420px;background:#000;}
-.chart-frame-wrap iframe{width:100%;height:100%;border:none;display:block;}
-/* Inline chart panel in options tab */
-.opt-chart-panel{background:var(--s1);border:1px solid var(--b1);border-radius:13px;overflow:hidden;margin-bottom:18px;}
-.opt-chart-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--b1);flex-wrap:wrap;gap:8px;}
-.opt-chart-title{font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:var(--txt);display:flex;align-items:center;gap:8px;}
-.opt-chart-intervals{display:flex;gap:5px;}
-.opt-chart-body{height:380px;background:#000;}
-.opt-chart-body iframe{width:100%;height:100%;border:none;display:block;}
-/* Sparkline click hint */
-.tkr-chart-btn{font-size:8.5px;color:var(--blue);opacity:.7;cursor:pointer;margin-top:3px;letter-spacing:.4px;transition:opacity .15s;}
-.tkr-chart-btn:hover{opacity:1;}
-
 `;
 
 /* ── UNIVERSE ── */
@@ -1083,26 +1056,12 @@ function strikeIncrement(price) {
 function snapToGrid(price, incr) {
   return Math.round(price / incr) * incr;
 }
-function genContract(ticker,price,iv,optType,expDateStr,idx){
+function genContract(ticker,price,iv,optType,expLabel,idx){
   const isCall=optType==="call";
-  // expDateStr is a real "YYYY-MM-DD" string — compute DTE directly
-  const today=new Date(); today.setHours(0,0,0,0);
-  const expDate=new Date((expDateStr||"")+"T00:00:00");
-  const isValidDate=!isNaN(expDate.getTime());
-  const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const realDte=isValidDate?Math.max(Math.round((expDate.getTime()-today.getTime())/86400000),1):30;
-  const mon=MONTHS[expDate.getMonth()];
-  const day=expDate.getDate();
-  const yr=expDate.getFullYear();
-  const dow=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][expDate.getDay()];
-  const expInfo={
-    realDte,
-    label:`${mon} ${day}, ${yr}`,
-    short:`${mon} ${day}`,
-    full:`${dow} ${mon} ${day}, ${yr}`,
-    date:expDate,
-  };
-  const t=Math.max(realDte/365,0.001);
+  const dte=parseInt(expLabel.match(/\d+/)?.[0]||"30");
+  // Compute real calendar expiration date (always based on today's date)
+  const expInfo = calcExpirationDate(dte);
+  const t=Math.max(expInfo.realDte/365,.001);
   // Compute proper strike grid based on live price
   const incr = strikeIncrement(price);
   const atm = snapToGrid(price, incr);
@@ -1137,7 +1096,7 @@ function genContract(ticker,price,iv,optType,expDateStr,idx){
   else if(!isCall&&absDelta>.3)signal="bearish";
   return {
     ticker,name:OPT_BASE.find(x=>x.t===ticker)?.n||ticker,
-    stockPrice:price,strike,optType,expLabel:expDateStr,dte:expInfo.realDte,
+    stockPrice:price,strike,optType,expLabel,dte:expInfo.realDte,
     expirationDate:expInfo.label,
     expirationFull:expInfo.full,
     expirationShort:expInfo.short,
@@ -1169,71 +1128,9 @@ const cl=i=>COL[i%3];
 const STRATEGIES=["Growth","Dividend","Value","Momentum","Quality","GARP","Deep Value","Small Cap Growth"];
 const SECTORS=["All Sectors","Technology","Healthcare","Financials","Energy","Consumer Discretionary","Industrials","Utilities","Real Estate","Materials","Communication Services","Consumer Staples","Biotech","Semiconductors","Clean Energy","Fintech","Defense","Mining"];
 const MARKETS=["US Large Cap","US Mid Cap","US Small Cap","US Micro Cap","International Developed","Emerging Markets","Global","Canada","Europe","Asia Pacific","Latin America"];
-// ── Label a real calendar expiration date for display in the dropdown ──
-// Input: "YYYY-MM-DD" string from Finnhub
-// Output: "Mar 21 · 1 DTE · Same-Day" style label — exact DTE always shown
-function labelExpDate(dateStr) {
-  if (!dateStr) return null;
-  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-  const today  = new Date(); today.setHours(0,0,0,0);
-  const exp    = new Date(dateStr + "T00:00:00");
-  if (isNaN(exp.getTime())) return null;
-  const dte  = Math.round((exp.getTime() - today.getTime()) / 86400000);
-  const mon  = MONTHS[exp.getMonth()];
-  const day  = exp.getDate();
-  const year = exp.getFullYear();
-  const dow  = exp.getDay();
-  const dowName = DAYS[dow];
-  // ── Exact kind label — every DTE gets a precise tag ──
-  let kind;
-  if (dte <= 0)        kind = "Same-Day";
-  else if (dte === 1)  kind = "1 DTE";
-  else if (dte === 2)  kind = "2 DTE";
-  else if (dte === 3)  kind = "3 DTE";
-  else if (dte === 4)  kind = "4 DTE";
-  else if (dte === 5)  kind = "5 DTE";
-  else if (dte <= 9)   kind = "Weekly";
-  else if (dte <= 16)  kind = "2-Week";
-  else if (dte <= 23)  kind = "3-Week";
-  else if (dte <= 37)  kind = "Monthly";   // ~30 DTE
-  else if (dte <= 55)  kind = "Monthly";   // ~45 DTE
-  else if (dte <= 75)  kind = "Quarterly";
-  else if (dte <= 105) kind = "Quarterly";
-  else if (dte <= 200) kind = "LEAPS";
-  else                 kind = `LEAPS ${year}`;
-  // Promote to "Monthly" label if it's a standard 3rd Friday (dow===5, right range)
-  if (dte >= 17 && dte <= 55 && dow === 5) kind = "Monthly";
-  // Display: "Mar 21 · 1 DTE · Fri" for short; full label for option element
-  const dteTag = dte <= 0 ? "0 DTE" : `${dte} DTE`;
-  return {
-    label:   `${mon} ${day}, ${year}`,
-    short:   `${mon} ${day}`,
-    full:    `${dowName} ${mon} ${day}, ${year}`,
-    dte, kind, year, dateStr,
-    display: dte<=5 ? `${dowName} ${mon} ${day}  ·  ${dteTag}` : `${mon} ${day}, ${year}  ·  ${dteTag}  ·  ${kind}`,
-  };
-}
+const EXPS=["Weekly (3 DTE)","Weekly (7 DTE)","Bi-Weekly (14 DTE)","Monthly (30 DTE)","Monthly (45 DTE)","Quarterly (60 DTE)","Quarterly (90 DTE)","LEAPS (180 DTE)","LEAPS (365 DTE)"];
 const OSTRATEGIES=["High IV Crush (Sell)","Low IV Buy","Momentum Calls","Protective Puts","Covered Calls","Cash-Secured Puts","Debit Spreads","Iron Condors","Directional (Calls)","Directional (Puts)"];
 const OTYPES=["Calls Only","Puts Only","Both Calls & Puts"];
-
-
-/* ── TRADINGVIEW WIDGET COMPONENT ──
-   Uses TradingView's free chart embed. No API key. Real-time data.
-   interval: "1" "5" "15" "60" "D" "W"
-*/
-function TVChart({ ticker, interval = "D", height = "100%", theme = "dark" }) {
-  const src = `https://s.tradingview.com/widgetembed/?frameElementId=tv_chart&symbol=${encodeURIComponent(ticker)}&interval=${interval}&hidesidetoolbar=1&symboledit=0&saveimage=0&toolbarbg=0d1117&studies=[]&hideideas=1&theme=${theme}&style=1&timezone=exchange&withdateranges=1&showpopupbutton=0&studies_overrides={}&overrides={}&enabled_features=[]&disabled_features=["header_symbol_search","header_compare","header_undo_redo","header_screenshot","header_saveload"]&locale=en&utm_source=rubberband.ai&utm_medium=widget`;
-  return (
-    <iframe
-      key={ticker + interval}
-      src={src}
-      style={{ width: "100%", height: height, border: "none", display: "block", background: "#000" }}
-      allow="autoplay"
-      title={`${ticker} chart`}
-    />
-  );
-}
 
 /* ══════════════════════════════════════════════
    APP
@@ -1257,9 +1154,7 @@ export default function App() {
   const [sSort,setSSort]=useState("score");
   const [optTicker,setOptTicker]=useState("NVDA");
   const [optType,setOptType]=useState("Both Calls & Puts");
-  const [optExp,setOptExp]=useState(null); // real "YYYY-MM-DD" from Finnhub
-  const [availExps,setAvailExps]=useState([]); // [{dateStr,label,dte,kind,display}]
-  const [expsLoading,setExpsLoading]=useState(false);
+  const [optExp,setOptExp]=useState("Monthly (30 DTE)");
   const [optStrat,setOptStrat]=useState("Directional (Calls)");
   const [optCatFilter,setOptCatFilter]=useState("All");
   const [optSearch,setOptSearch]=useState("");
@@ -1280,10 +1175,7 @@ export default function App() {
   const [eList,setEList]=useState(()=>{try{return JSON.parse(localStorage.getItem("rubberband_emails")||"[]");}catch{return [];}});
   const [eOk,setEOk]=useState(false);
   const runId=useRef(0);
-  const optRunId=useRef(0);
-  const [chartTicker,setChartTicker]=useState(null);   // null = modal closed
-  const [chartInterval,setChartInterval]=useState("D");
-  const [optChartInterval,setOptChartInterval]=useState("D"); // separate from stock runId to prevent cross-cancellation
+  const optRunId=useRef(0); // separate from stock runId to prevent cross-cancellation
   const [clock,setClock]=useState(new Date().toLocaleTimeString());
 
   useEffect(()=>{
@@ -1354,34 +1246,6 @@ export default function App() {
     setSResult(crit);setStocks(scored);setSLoading(false);
   },[strategy,sector,market,prices]);
 
-  // ── Fetch real expiration dates from Finnhub when ticker changes ──
-  useEffect(()=>{
-    let cancelled=false;
-    const loadExps=async()=>{
-      setExpsLoading(true);
-      try {
-        const r=await fetch(`${FINNHUB_URL}/stock/option-chain?symbol=${optTicker}&token=${FINNHUB_KEY}`);
-        if(!r.ok||cancelled)return;
-        const d=await r.json();
-        if(!d||!Array.isArray(d.data)||cancelled)return;
-        // Extract all unique expiration dates, sort ascending
-        const dates=[...new Set(d.data.map(e=>e.expirationDate).filter(Boolean))].sort();
-        if(!dates.length||cancelled)return;
-        const labeled=dates.map(labelExpDate).filter(e=>e&&e.dte>=0); // include 0 DTE (same-day)
-        setAvailExps(labeled);
-        // Auto-select closest to 30 DTE
-        const preferred=labeled.reduce((best,e)=>{
-          if(!best)return e;
-          return Math.abs(e.dte-30)<Math.abs(best.dte-30)?e:best;
-        },null)||labeled[0];
-        if(preferred&&!cancelled) setOptExp(preferred.dateStr);
-      } catch{}
-      if(!cancelled)setExpsLoading(false);
-    };
-    loadExps();
-    return()=>{cancelled=true;};
-  },[optTicker]);
-
   // Auto-fetch live IV when ticker changes
   useEffect(()=>{
     let cancelled=false;
@@ -1445,16 +1309,10 @@ export default function App() {
     const livePrice = freshQuote.price;
     setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
 
-    // ── STEP 2: Use the real expiration date string directly ──
+    // ── STEP 2: Compute target expiration ──
     setOStep(2);setOProg(30);
-    // expNow is a real "YYYY-MM-DD" date string from Finnhub expirations
-    const expInfo = labelExpDate(expNow);
-    const targetExpInfo = {
-      label:   expInfo?.label    || expNow,
-      short:   expInfo?.short    || expNow,
-      realDte: expInfo?.dte      || 30,
-      dateStr: expNow,
-    };
+    const targetDte     = parseInt(expNow.match(/\d+/)?.[0]||'30');
+    const targetExpInfo = calcExpirationDate(targetDte);
 
     // ── STEP 3: Fetch Finnhub option chain + IV in parallel ──
     setOStep(3);setOProg(48);
@@ -1507,7 +1365,7 @@ export default function App() {
     for(const tp of types){
       for(let i=0;i<3;i++){
         // genContract always uses td.p — the live price we just fetched
-        const c = genContract(tickerNow, td.p, td.iv, tp, expNow, i); // expNow = real YYYY-MM-DD
+        const c = genContract(tickerNow, td.p, td.iv, tp, expNow, i);
 
         // Merge real Finnhub chain data if we have a matching strike
         if(chainStrikes.length>0){
@@ -1696,10 +1554,9 @@ Return ONLY raw JSON (no markdown, no backticks):
               <tbody>{dispStocks.map((s,i)=><tr key={s.t+i}>
                 <td style={{color:"var(--dim)",fontSize:10}}>{i+1}</td>
                 <td>
-                  <div className="tkr-cell" style={{cursor:"pointer"}} onClick={()=>{setChartTicker(s.t);setChartInterval("D");}}>
+                  <div className="tkr-cell">
                     <div className="tkr-top"><div className="tk">{s.t}</div>{s.isGem&&<div className="gem">💎</div>}</div>
                     <div className="co">{s.n}</div>
-                    <div className="tkr-chart-btn">📈 View Chart</div>
                     {s.p&&<div className="tkr-price">
                       <span className="ldot-sm"/>
                       <span className="tp-val">{fmt(s.p)}</span>
@@ -1753,28 +1610,6 @@ Return ONLY raw JSON (no markdown, no backticks):
             {eOk?<div className="sub-ok">✅ You're in!</div>:<div className="eb-form"><input className="ei wide" placeholder="your@email.com" type="email" value={eEmail} onChange={e=>setEEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><button className="btn-sub" onClick={subscribe} disabled={!eEmail.includes("@")}>Subscribe →</button></div>}
           </div>
 
-          {/* ── LIVE CHART for selected options ticker ── */}
-          <div className="opt-chart-panel">
-            <div className="opt-chart-hdr">
-              <div className="opt-chart-title">
-                <span style={{color:"var(--cyan)"}}>📈</span>
-                <span>{optTicker}</span>
-                {prices[optTicker]&&<span style={{fontSize:12,fontWeight:400,color:prices[optTicker].change>=0?"var(--green)":"var(--red)"}}>
-                  {fmt(prices[optTicker].price)} <span style={{fontSize:10}}>{prices[optTicker].change>=0?"+":""}{prices[optTicker].change?.toFixed(2)}%</span>
-                </span>}
-                <span style={{fontSize:10,color:"var(--dim)",fontWeight:400}}>{[...UNIVERSE_BASE,...OPT_BASE].find(x=>x.t===optTicker)?.n}</span>
-              </div>
-              <div className="opt-chart-intervals">
-                {[["1m","1"],["5m","5"],["15m","15"],["1h","60"],["1D","D"],["1W","W"]].map(([label,val])=>(
-                  <button key={val} className={`chart-int-btn${optChartInterval===val?" active":""}`} onClick={()=>setOptChartInterval(val)}>{label}</button>
-                ))}
-              </div>
-            </div>
-            <div className="opt-chart-body">
-              <TVChart ticker={optTicker} interval={optChartInterval} height="380px"/>
-            </div>
-          </div>
-
           {/* ── OPTIONS CONFIG PANEL ── */}
           <div className="panel">
             <div className="panel-title">Options Configuration</div>
@@ -1821,17 +1656,7 @@ Return ONLY raw JSON (no markdown, no backticks):
                 </div>
               </div>
               <div className="fld"><label>Contract Type</label><div className="sel-wrap"><select value={optType} onChange={e=>setOptType(e.target.value)} disabled={oLoading}>{OTYPES.map(x=><option key={x}>{x}</option>)}</select></div></div>
-              <div className="fld">
-                <label>Expiration {expsLoading&&<span style={{fontSize:9,color:"var(--gold)"}}>⟳ loading...</span>}</label>
-                <div className="sel-wrap">
-                  <select value={optExp||""} onChange={e=>setOptExp(e.target.value)} disabled={oLoading||expsLoading}>
-                    {availExps.length===0&&<option value="">Loading dates...</option>}
-                    {availExps.map(e=>(
-                      <option key={e.dateStr} value={e.dateStr}>{e.display}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <div className="fld"><label>Expiration</label><div className="sel-wrap"><select value={optExp} onChange={e=>setOptExp(e.target.value)} disabled={oLoading}>{EXPS.map(x=><option key={x}>{x}</option>)}</select></div></div>
               <div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={optStrat} onChange={e=>setOptStrat(e.target.value)} disabled={oLoading}>{OSTRATEGIES.map(x=><option key={x}>{x}</option>)}</select></div></div>
             </div>
             <button className="btn-blue" onClick={runOptions} disabled={oLoading}>{oLoading?<><div className="spin-w"/>Scanning…</>:"⚡ Scan Option Chain — Generate Entry Points"}</button>
@@ -1926,7 +1751,7 @@ Return ONLY raw JSON (no markdown, no backticks):
                     {oContracts.length>0&&!oLoading&&oInsights&&oTicker&&<div className="results">
             <div className="sumbox">
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
-                <div className="sum-title" style={{margin:0}}>{oTicker.t} Options — {oTicker.expLabel?labelExpDate(oTicker.expLabel)?.label||oTicker.expLabel:""}</div>
+                <div className="sum-title" style={{margin:0}}>{oTicker.t} Options — {oTicker.expLabel||optExp}</div>
                 {oTicker&&prices[oTicker.t]&&(
                   <span className="live-tag">
                     <span className="ldot"/>
@@ -1941,7 +1766,7 @@ Return ONLY raw JSON (no markdown, no backticks):
                 <span>📍 Scanned: <b style={{color:"var(--txt)"}}>{oTicker.t}</b></span>
                 <span>⏱ At: <b style={{color:"var(--txt)"}}>{oTicker.scanTime}</b></span>
                 <span>💰 Price: <b style={{color:"var(--green)"}}>${oTicker.p}</b></span>
-                <span>📅 Exp: <b style={{color:"var(--gold)"}}>{oTicker.expLabel?labelExpDate(oTicker.expLabel)?.display||oTicker.expLabel:""}</b></span>
+                <span>📅 Exp: <b style={{color:"var(--gold)"}}>{oTicker.expLabel}</b></span>
               </div>
               <div className="sum-body">{oInsights.summary}</div>
               {oInsights.tags?.length>0&&<div className="tags">{oInsights.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}
@@ -2021,39 +1846,6 @@ Return ONLY raw JSON (no markdown, no backticks):
           )}
         </div>}
       </div>
-        {/* ── CHART MODAL (stock screener click-through) ── */}
-        {chartTicker&&(
-          <div className="chart-modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setChartTicker(null);}}>
-            <div className="chart-modal">
-              <div className="chart-modal-hdr">
-                <div className="chart-modal-hdr-left">
-                  <div>
-                    <div className="chart-modal-tk">{chartTicker}</div>
-                    <div className="chart-modal-name">{[...UNIVERSE_BASE,...OPT_BASE].find(x=>x.t===chartTicker)?.n||chartTicker}</div>
-                  </div>
-                  {prices[chartTicker]&&(
-                    <div style={{marginLeft:12}}>
-                      <span className="chart-modal-price" style={{color:prices[chartTicker].change>=0?"var(--green)":"var(--red)"}}>{fmt(prices[chartTicker].price)}</span>
-                      <span style={{fontSize:11,marginLeft:8,color:prices[chartTicker].change>=0?"var(--green)":"var(--red)"}}>
-                        {prices[chartTicker].change>=0?"+":""}{prices[chartTicker].change?.toFixed(2)}%
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <button className="chart-modal-close" onClick={()=>setChartTicker(null)}>✕</button>
-              </div>
-              <div className="chart-interval-bar">
-                {[["1m","1"],["5m","5"],["15m","15"],["1h","60"],["1D","D"],["1W","W"],["1M","M"]].map(([label,val])=>(
-                  <button key={val} className={`chart-int-btn${chartInterval===val?" active":""}`} onClick={()=>setChartInterval(val)}>{label}</button>
-                ))}
-              </div>
-              <div className="chart-frame-wrap">
-                <TVChart ticker={chartTicker} interval={chartInterval} height="460px"/>
-              </div>
-            </div>
-          </div>
-        )}
-
     </>
   );
 }
