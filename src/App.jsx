@@ -920,7 +920,10 @@ async function loadFinnhubChain(ticker) {
     try {
       // Finnhub option chain — real OI, volume, bid/ask per strike
       const url = `${FINNHUB_URL}/stock/option-chain?symbol=${ticker}&token=${FINNHUB_KEY}`;
-      const r = await fetch(url);
+      const ctrl=new AbortController();
+      const t=setTimeout(()=>ctrl.abort(),12000);
+      const r = await fetch(url,{signal:ctrl.signal});
+      clearTimeout(t);
       if (!r.ok) return null;
       const d = await r.json();
       if (!d || !Array.isArray(d.data) || !d.data.length) return null;
@@ -1606,53 +1609,46 @@ export default function App() {
   useEffect(()=>{pricesRef.current=prices;},[prices]);
 
   const runOptions=useCallback(async()=>{
-    // ── Each scan gets a unique ID scoped to options only ──
     const rid=++optRunId.current;
+    const tickerNow=optTicker, expNow=optExp, typeNow=optType, stratNow=optStrat;
+    const base=OPT_BASE.find(x=>x.t===tickerNow);
 
-    // ── Snapshot ALL config at call time — immune to any state change mid-scan ──
-    const tickerNow = optTicker;
-    const expNow    = optExp;
-    const typeNow   = optType;
-    const stratNow  = optStrat;
-    const base      = OPT_BASE.find(x=>x.t===tickerNow);
-    if(!base){ console.warn('Unknown ticker:',tickerNow); return; }
+    // Helper — always clears loading state before any exit
+    const abort=(msg)=>{ setOLoading(false); if(msg) setOInsights({error:true,msg}); };
 
-    // Clear previous results immediately so stale data never shows
-    setOLoading(true);
-    setOProg(10);
-    setOContracts([]);setOInsights(null);setOTicker(null);
+    if(!base){ abort(); return; }
 
-    // ── STEP 1: Fetch live price from Finnhub ──
+    setOLoading(true); setOProg(10);
+    setOContracts([]); setOInsights(null); setOTicker(null);
+
+    // ── STEP 1: Live price ──
     setOStep(1); setOProg(20);
     const freshQuote = await fetchQuote(tickerNow);
-    if(optRunId.current!==rid) return;
-
-    if(!freshQuote || freshQuote.price <= 0){
-      setOLoading(false);
-      setOInsights({ error:true, msg:`Finnhub could not load a live price for ${tickerNow}. Check your internet connection and try again.` });
+    if(optRunId.current!==rid){ abort(); return; }
+    if(!freshQuote||freshQuote.price<=0){
+      abort(`Could not load live price for ${tickerNow}. Check connection and try again.`);
       return;
     }
-    const livePrice = freshQuote.price;
+    const livePrice=freshQuote.price;
     setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
     setLastRefresh(new Date());
 
-    // ── STEP 2: Fetch option chain from Finnhub (expNow is YYYY-MM-DD) ──
+    // ── STEP 2: Option chain + IV (10s timeout each) ──
     setOStep(2); setOProg(40);
-    // Fetch chain + IV in parallel — both use the same loadFinnhubChain cache
-    let chainData = null;
-    let liveIV    = null;
+    let chainData=null, liveIV=null;
     try {
-      [chainData] = await Promise.all([
-        fetchOptionChainData(tickerNow, expNow),   // expNow = "YYYY-MM-DD"
-        fetchLiveIV(tickerNow).then(iv => { if(iv) liveIV = iv; })
+      const withTimeout=(p,ms)=>Promise.race([p, new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),ms))]);
+      [chainData]=await Promise.all([
+        withTimeout(fetchOptionChainData(tickerNow,expNow),10000).catch(()=>null),
+        withTimeout(fetchLiveIV(tickerNow),10000).catch(()=>null).then(iv=>{if(iv)liveIV=iv;})
       ]);
-    } catch(e){ console.warn('Chain fetch error:',e); }
-
-    if(optRunId.current!==rid) return;
-    liveIV = liveIV || ivCache[tickerNow] || base.iv || 35;
+    } catch{}
+    if(optRunId.current!==rid){ abort(); return; }
+    liveIV=liveIV||ivCache[tickerNow]||base.iv||35;
     if(chainData) setOptChain(prev=>({...prev,[tickerNow]:chainData}));
     setOProg(55);
 
+    // ── STEP 3: Build contracts ──
     setOStep(3); setOProg(65);
     const td = {
       t:           tickerNow,
@@ -1743,22 +1739,25 @@ export default function App() {
     contracts.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
 
     setOStep(5); setOProg(88);
-    // ── AI insights scoped to tickerNow ──
+    // ── AI insights — 12s timeout so scan never hangs here ──
     let ins=null;
     try{
+      const ctrl=new AbortController();
+      const aiTimer=setTimeout(()=>ctrl.abort(),12000);
       const res=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
+        signal:ctrl.signal,
         body:JSON.stringify({
           model:'claude-sonnet-4-20250514',
-          max_tokens:1200,
+          max_tokens:800,
           messages:[{role:'user',content:
-            `Options analyst. Ticker: ${tickerNow}. Company: ${base.n}. Live price: $${td.p}. IV=${td.iv}%. Strategy=${stratNow}. Expiration=${expNow}.
-Return ONLY raw JSON (no markdown, no backticks):
-{"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`
+            `Options analyst. ${tickerNow} at $${td.p}. IV=${td.iv}%. Strategy=${stratNow}. Exp=${expNow}.
+Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`
           }]
         })
       });
+      clearTimeout(aiTimer);
       if(res.ok){
         const e=await res.json();
         const raw=(e.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
@@ -1782,7 +1781,7 @@ Return ONLY raw JSON (no markdown, no backticks):
     };
 
     // Final guard — if ticker changed during scan, discard results
-    if(optRunId.current!==rid)return;
+    if(optRunId.current!==rid){ setOLoading(false); return; }
 
     setOProg(100);
     setOTicker(td);
