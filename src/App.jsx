@@ -2,7 +2,6 @@ import { useState, useCallback, useRef, useEffect } from "react";
 
 const FINNHUB_KEY = "d6ogvahr01qnu98i1cp0d6ogvahr01qnu98i1cpg";
 const FINNHUB_URL = "https://finnhub.io/api/v1";
-const REFRESH_MS = 60000;
 // Options chain cache — keyed by ticker, stores Finnhub chain data at scan time
 const OPT_CACHE     = {};
 const OPT_CACHE_TTL = 8 * 60 * 1000;
@@ -887,29 +886,6 @@ function fetchExpirationDates() {
   return ALL_EXPIRATIONS;
 }
 
-// Set true during options scan so batchFetch backs off the rate limit
-let SCAN_ACTIVE = false;
-
-async function batchFetch(tickers, onProgress) {
-  const out = {};
-  const CHUNK = 6;          // slightly smaller chunks to stay under rate limit
-  const GAP   = 120;        // slightly more breathing room between chunks
-  let done = 0;
-  for (let i = 0; i < tickers.length; i += CHUNK) {
-    // Pause background fetch if an options scan is in progress
-    if (SCAN_ACTIVE) await new Promise(r => setTimeout(r, 2000));
-    const chunk = tickers.slice(i, i + CHUNK);
-    const results = await Promise.allSettled(chunk.map(t => fetchQuote(t)));
-    results.forEach((r, j) => {
-      if (r.status === 'fulfilled' && r.value) out[chunk[j]] = r.value;
-    });
-    done += chunk.length;
-    if (onProgress) onProgress(Math.min(done, tickers.length), tickers.length);
-    if (i + CHUNK < tickers.length) await new Promise(r => setTimeout(r, GAP));
-  }
-  return out;
-}
-
 function fmtCap(price, t) {
   const sh = {NVDA:24.4,MSFT:7.4,AAPL:15.4,GOOGL:12.3,META:2.5,AVGO:.46,ORCL:2.7,CRM:.96,ADBE:.44,NOW:.2,DDOG:.32,HUBS:.05,MNDY:.05,TOST:.57,AFRM:.31,LLY:.95,UNH:.92,ISRG:.35,DXCM:.39,JPM:2.87,BAC:7.8,GS:.34,V:2.05,COIN:.25,XOM:4,CVX:1.89,FSLR:.11,ENPH:.13,GE:1.09,AMZN:10.4,TSLA:3.2,NEE:2.05,PLTR:2.1,AMD:1.62,RDDT:.16};
   const cap = (price * (sh[t] || .08)) * 1e9;
@@ -1418,40 +1394,32 @@ export default function App() {
     return()=>clearInterval(id);
   },[]);
 
-  // Fetch all prices on mount + every 30s — selected options ticker refreshes instantly
+  // On mount: silently pre-fetch stock screener prices in background (73 tickers only)
+  // Options prices are fetched ON DEMAND when user hits Scan — never in background
   useEffect(()=>{
-    const refresh=async()=>{
-      if(pLoading)return;
-      // Deduplicate full ticker universe
-      const allTickers=[...new Set([...UNIVERSE_BASE.map(s=>s.t),...OPT_BASE.map(s=>s.t)])];
-      // Priority: selected options ticker first, then stocks, then rest
-      const stockTickers=UNIVERSE_BASE.map(s=>s.t);
-      const priority=[optTicker,...stockTickers.filter(t=>t!==optTicker)];
-      const rest=allTickers.filter(t=>!priority.includes(t));
-      const tickers=[...priority,...rest];
+    let cancelled=false;
+    const preload=async()=>{
       setPLoading(true);
-      // Fetch in chunks — update prices incrementally as chunks complete
-      const CHUNK=8;const GAP=80;
+      const tickers=UNIVERSE_BASE.map(s=>s.t);
+      const CHUNK=5; const GAP=200; // conservative — leave room for user-triggered scans
       for(let i=0;i<tickers.length;i+=CHUNK){
+        if(cancelled)break;
         const chunk=tickers.slice(i,i+CHUNK);
         const results=await Promise.allSettled(chunk.map(t=>fetchQuote(t)));
         const batch={};
         results.forEach((r,j)=>{if(r.status==='fulfilled'&&r.value)batch[chunk[j]]=r.value;});
         setPrices(prev=>({...prev,...batch}));
         setFetchProg({done:Math.min(i+CHUNK,tickers.length),total:tickers.length});
-        // Show "LIVE" as soon as priority tickers are done
         if(i===0)setLastRefresh(new Date());
         if(i+CHUNK<tickers.length)await new Promise(r=>setTimeout(r,GAP));
       }
-      setLastRefresh(new Date());
-      setPLoading(false);
+      if(!cancelled){setLastRefresh(new Date());setPLoading(false);}
     };
-    refresh();
-    const id=setInterval(refresh,REFRESH_MS);
-    return()=>clearInterval(id);
-  },[optTicker]);
+    preload();
+    return()=>{cancelled=true;};
+  },[]); // runs ONCE on mount only — no auto-repeat
 
-  // Instant price refresh when user switches ticker (no waiting for interval)
+  // When user switches options ticker, pre-fetch that ONE price quietly
   useEffect(()=>{
     const quickFetch=async()=>{
       const q=await fetchQuote(optTicker);
@@ -1482,10 +1450,23 @@ export default function App() {
   /* STOCK SCREENER */
   const runStocks=useCallback(async()=>{
     const rid=++runId.current;
-    setSLoading(true);setSStep(1);setSProg(20);setSResult(null);setStocks([]);setSFilter("All");
-    // Score instantly — pure JS, no delay needed
+    setSLoading(true);setSStep(1);setSProg(10);setSResult(null);setStocks([]);setSFilter("All");
+    // Fetch fresh prices for all stock screener tickers on demand
+    const stockTickers=UNIVERSE_BASE.map(s=>s.t);
+    const CHUNK=8;const GAP=100;
+    for(let i=0;i<stockTickers.length;i+=CHUNK){
+      if(runId.current!==rid)return;
+      const chunk=stockTickers.slice(i,i+CHUNK);
+      const results=await Promise.allSettled(chunk.map(t=>fetchQuote(t)));
+      const batch={};
+      results.forEach((r,j)=>{if(r.status==='fulfilled'&&r.value)batch[chunk[j]]=r.value;});
+      setPrices(prev=>({...prev,...batch}));
+      setSProg(10+Math.round(((i+CHUNK)/stockTickers.length)*50));
+      if(i+CHUNK<stockTickers.length)await new Promise(r=>setTimeout(r,GAP));
+    }
+    if(runId.current!==rid)return;
+    setSProg(65);
     const universe=liveUniverse();
-    setSProg(50);
     const scored=universe.map(s=>({...s,score:scoreStock(s,strategy,sector,market)})).sort((a,b)=>b.score-a.score).slice(0,18).map(s=>({...s,rating:getRating(s.score),metrics:getMetrics(s,strategy),thesis:buildThesis(s,strategy),isGem:s.cap==="Small"||s.cap==="Micro"}));
     setSProg(70);
     // Fire AI and render stocks simultaneously — don't block UI on AI
@@ -1531,8 +1512,6 @@ export default function App() {
     const base      = OPT_BASE.find(x=>x.t===tickerNow);
     if(!base){ console.warn('Unknown ticker:',tickerNow); return; }
 
-    // Pause background price fetching so scan gets full rate limit budget
-    SCAN_ACTIVE = true;
     // Clear previous results immediately so stale data never shows
     setOLoading(true);
     setOProg(10);
@@ -1579,7 +1558,6 @@ export default function App() {
     if (!livePrice) {
       // Last resort: show user-friendly error inline, not a blocking alert
       setOLoading(false);
-      SCAN_ACTIVE = false;
       setOInsights({ error: true, msg: `Live price unavailable for ${tickerNow}. Markets may be closed or Finnhub rate limit reached. Try again in a moment.` });
       return;
     }
@@ -1718,7 +1696,6 @@ Return ONLY raw JSON (no markdown, no backticks):
     if(optRunId.current!==rid)return;
 
     setOProg(100);
-    SCAN_ACTIVE = false;
     setOTicker(td);
     setOContracts(contracts);
     setOInsights(ins);
@@ -1760,7 +1737,7 @@ Return ONLY raw JSON (no markdown, no backticks):
         {tab==="stocks"&&<div className="page">
           <div className="hero">
             <h1>Find every <span>hidden gem</span><br/>in the market.</h1>
-            <p>RUBBERBAND.AI scans {UNIVERSE_BASE.length}+ stocks with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Auto-refreshes every 30 seconds.</p>
+            <p>RUBBERBAND.AI scans {UNIVERSE_BASE.length}+ stocks with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Prices fetched fresh on each scan.</p>
           </div>
 
           <div className="email-banner">
@@ -1768,7 +1745,7 @@ Return ONLY raw JSON (no markdown, no backticks):
             {eOk?<div className="sub-ok">✅ You're in! Watch your inbox Sunday.</div>:<div className="eb-form"><input className="ei wide" placeholder="your@email.com" type="email" value={eEmail} onChange={e=>setEEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><button className="btn-sub" onClick={subscribe} disabled={!eEmail.includes("@")}>Subscribe Free →</button></div>}
           </div>
 
-          {lastRefresh&&<div className="refresh-row"><div className="ldot"/><span>Live via Finnhub · Updated {lastRefresh.toLocaleTimeString()} · Auto-refresh every 30s</span>{pLoading&&<div className="spin-s"/>}</div>}
+          {lastRefresh&&<div className="refresh-row"><div className="ldot"/><span>Live via Finnhub · Prices as of {lastRefresh.toLocaleTimeString()}</span>{pLoading&&<div className="spin-s"/>}</div>}
 
           <div className="panel">
             <div className="panel-title">Screen Configuration</div>
@@ -1850,7 +1827,7 @@ Return ONLY raw JSON (no markdown, no backticks):
           <div className="hero">
             <h1>Options <span className="orange">chain screener</span><br/>with exact entry points.</h1>
             <p>Full Greeks · Live underlying prices · {OPT_BASE.length}+ tickers · Day/Week/Month H&amp;L ranges · Precise entry, targets &amp; stops.</p>
-            {lastRefresh&&<div className="refresh-row" style={{marginTop:10}}><div className="ldot"/><span>All prices live via Finnhub · Updated {lastRefresh.toLocaleTimeString()} · Auto-refresh 60s</span>{pLoading&&<div className="spin-s"/>}</div>}
+            {lastRefresh&&<div className="refresh-row" style={{marginTop:10}}><div className="ldot"/><span>Prices fetched fresh on each scan · Last: {lastRefresh.toLocaleTimeString()}</span>{pLoading&&<div className="spin-s"/>}</div>}
           </div>
 
           <div className="email-banner" style={{marginBottom:20}}>
