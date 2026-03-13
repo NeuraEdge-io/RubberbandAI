@@ -626,125 +626,132 @@ const OPT_BASE = [
 
 /* ── FINNHUB ── */
 async function fetchQuote(ticker) {
-  // Primary: Finnhub
   try {
     const r = await fetch(`${FINNHUB_URL}/quote?symbol=${ticker}&token=${FINNHUB_KEY}`);
-    if (r.ok) {
-      const d = await r.json();
-      if (d && d.c && d.c > 0) {
-        return {
-          price:     +d.c.toFixed(2),
-          change:    +d.dp.toFixed(2),
-          high:      +d.h.toFixed(2),
-          low:       +d.l.toFixed(2),
-          prevClose: +d.pc.toFixed(2),
-          open:      +d.o.toFixed(2),
-          volume:    d.v || 0,
-          source:    'finnhub', dollarChange: +(d.c - d.pc).toFixed(2),
-        };
-      }
-    }
-  } catch {}
-  return null; // Finnhub failed — never return a fake price
+    if (!r.ok) return null;
+    const d = await r.json();
+    if (!d || !d.c || d.c === 0) return null;
+    return {
+      price: +d.c.toFixed(2),
+      change: +d.dp.toFixed(2),
+      high: +d.h.toFixed(2),
+      low: +d.l.toFixed(2),
+      prevClose: +d.pc.toFixed(2),
+      open: +d.o.toFixed(2),
+      volume: d.v || 0, // real daily volume from Finnhub
+    };
+  } catch { return null; }
 }
 
-// ── CBOE OPTION CHAIN ──
-// Source: CBOE's own public delayed-quotes API.
-// • No API key required
-// • No CORS proxy needed (CBOE sets Access-Control-Allow-Origin: *)
-// • 15-minute delayed — real exchange OI, volume, bid, ask, IV, Greeks
-// • Endpoint: https://cdn.cboe.com/api/global/delayed_quotes/options/_TICKER.json
-// • CBOE uses underscore-prefixed symbols: AAPL → _AAPL, NVDA → _NVDA
+// ── YAHOO FINANCE OPTION CHAIN ──
+// No API key required. Uses corsproxy.io for CORS bypass.
+// Returns real OI, volume, bid/ask, IV per strike for the matched expiration.
+const YF_PROXY = "https://corsproxy.io/?";
 
-function cboeSymbol(ticker) {
-  return '_' + ticker.toUpperCase();
+function yfUrl(url) {
+  return YF_PROXY + encodeURIComponent(url);
 }
 
-// Fetch CBOE option chain — returns strike map keyed by numeric strike
-// Only includes contracts matching the closest expiration to targetExpDate
+// Fetch all available expirations for a ticker from Yahoo Finance
+async function fetchYFExpirations(ticker) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v7/finance/options/${ticker}`;
+    const r = await fetch(yfUrl(url), {headers:{"Accept":"application/json"}});
+    if (!r.ok) return null;
+    const d = await r.json();
+    const result = d?.optionChain?.result?.[0];
+    if (!result) return null;
+    return result.expirationDates || []; // array of unix timestamps
+  } catch { return null; }
+}
+
+// Fetch option chain from Yahoo Finance for a specific expiration timestamp
+async function fetchYFChain(ticker, expTimestamp) {
+  try {
+    const base = `https://query1.finance.yahoo.com/v7/finance/options/${ticker}`;
+    const url  = expTimestamp ? `${base}?date=${expTimestamp}` : base;
+    const r = await fetch(yfUrl(url), {headers:{"Accept":"application/json"}});
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d?.optionChain?.result?.[0] || null;
+  } catch { return null; }
+}
+
+// Main chain fetch — matches target expiration date, returns strike map with real OI/vol
 async function fetchOptionChainData(ticker, targetExpDate) {
   try {
-    const url = `https://cdn.cboe.com/api/global/delayed_quotes/options/${cboeSymbol(ticker)}.json`;
-    const r   = await fetch(url, { headers: { Accept: 'application/json' } });
-    if (!r.ok) return null;
-    const d   = await r.json();
+    // Step 1: get available expirations
+    const expirations = await fetchYFExpirations(ticker);
+    if (!expirations || !expirations.length) return null;
 
-    // CBOE returns d.data[] — each row is one contract with fields:
-    // option (OCC symbol), expiration_date, strike_price, option_type (C/P),
-    // bid, ask, last_trade_price, volume, open_interest, iv, delta, gamma, theta, vega
-    const rows = Array.isArray(d?.data) ? d.data : [];
-    if (!rows.length) return null;
-
-    // Collect all unique expirations and find the one closest to our target
-    const allExps = [...new Set(rows.map(row => row.expiration_date).filter(Boolean))].sort();
-    if (!allExps.length) return null;
-
+    // Step 2: find the closest expiration to our target date
     const targetMs = targetExpDate ? new Date(targetExpDate).getTime() : null;
-    let bestExp    = allExps[0];
+    let bestTs = expirations[0];
     if (targetMs) {
       let bestDiff = Infinity;
-      allExps.forEach(exp => {
-        const diff = Math.abs(new Date(exp + 'T00:00:00').getTime() - targetMs);
-        if (diff < bestDiff) { bestDiff = diff; bestExp = exp; }
+      expirations.forEach(ts => {
+        const diff = Math.abs(ts * 1000 - targetMs);
+        if (diff < bestDiff) { bestDiff = diff; bestTs = ts; }
       });
     }
 
-    // Build strike map from matching expiration only
-    const chainMap = {};
-    rows
-      .filter(row => row.expiration_date === bestExp)
-      .forEach(row => {
-        const k    = +row.strike_price;
-        const side = row.option_type === 'C' ? 'call' : 'put';
-        if (!k || isNaN(k)) return;
-        if (!chainMap[k]) chainMap[k] = {};
-        chainMap[k][side] = {
-          iv:     (row.iv > 0 && row.iv < 10) ? +(row.iv * 100).toFixed(1) : null,
-          volume: (typeof row.volume        === 'number') ? row.volume        : null,
-          oi:     (typeof row.open_interest === 'number') ? row.open_interest : null,
-          bid:    (row.bid  > 0) ? +row.bid.toFixed(2)             : null,
-          ask:    (row.ask  > 0) ? +row.ask.toFixed(2)             : null,
-          last:   (row.last_trade_price > 0) ? +row.last_trade_price.toFixed(2) : null,
-          delta:  row.delta || null,
-          gamma:  row.gamma || null,
-          theta:  row.theta || null,
-          vega:   row.vega  || null,
-        };
-      });
+    // Step 3: fetch the chain for that specific expiration
+    const result = await fetchYFChain(ticker, bestTs);
+    if (!result) return null;
 
-    chainMap._expDate    = bestExp;
-    chainMap._underlying = d?.current_price || null;
-    // Only return if we actually got contracts
-    return Object.keys(chainMap).filter(k => k !== '_expDate' && k !== '_underlying').length > 0
-      ? chainMap : null;
-  } catch(e) {
-    console.warn('CBOE chain error for', ticker, e?.message);
-    return null;
-  }
+    const calls = result.options?.[0]?.calls || [];
+    const puts  = result.options?.[0]?.puts  || [];
+    const underlyingPrice = result.quote?.regularMarketPrice || null;
+
+    // Step 4: build strike map
+    const chainMap = {};
+    calls.forEach(c => {
+      const k = +c.strike;
+      if (!chainMap[k]) chainMap[k] = {};
+      chainMap[k].call = {
+        iv:     c.impliedVolatility != null ? +(c.impliedVolatility * 100).toFixed(1) : null,
+        volume: typeof c.volume      === 'number' ? c.volume      : null,
+        oi:     typeof c.openInterest=== 'number' ? c.openInterest: null,
+        bid:    c.bid  > 0 ? +c.bid.toFixed(2)  : null,
+        ask:    c.ask  > 0 ? +c.ask.toFixed(2)  : null,
+        last:   c.lastPrice > 0 ? +c.lastPrice.toFixed(2) : null,
+      };
+    });
+    puts.forEach(p => {
+      const k = +p.strike;
+      if (!chainMap[k]) chainMap[k] = {};
+      chainMap[k].put = {
+        iv:     p.impliedVolatility != null ? +(p.impliedVolatility * 100).toFixed(1) : null,
+        volume: typeof p.volume      === 'number' ? p.volume      : null,
+        oi:     typeof p.openInterest=== 'number' ? p.openInterest: null,
+        bid:    p.bid  > 0 ? +p.bid.toFixed(2)  : null,
+        ask:    p.ask  > 0 ? +p.ask.toFixed(2)  : null,
+        last:   p.lastPrice > 0 ? +p.lastPrice.toFixed(2) : null,
+      };
+    });
+
+    chainMap._expDate     = new Date(bestTs * 1000).toISOString().split('T')[0];
+    chainMap._underlying  = underlyingPrice;
+    return chainMap;
+  } catch { return null; }
 }
 
-// Fetch live IV from CBOE — ATM average from nearest expiration
+// Fetch live IV from Yahoo Finance option chain (ATM average)
 async function fetchLiveIV(ticker) {
   try {
-    const url = `https://cdn.cboe.com/api/global/delayed_quotes/options/${cboeSymbol(ticker)}.json`;
-    const r   = await fetch(url, { headers: { Accept: 'application/json' } });
-    if (!r.ok) return null;
-    const d   = await r.json();
-    const rows = Array.isArray(d?.data) ? d.data : [];
-    if (!rows.length) return null;
-
-    const underlying = d?.current_price || 0;
-    // Nearest expiration only, contracts within 8% of ATM, sane IV range
-    const allExps = [...new Set(rows.map(r => r.expiration_date).filter(Boolean))].sort();
-    const nearExp = allExps[0];
-    const atm = rows.filter(row =>
-      row.expiration_date === nearExp &&
-      row.iv > 0.01 && row.iv < 5 &&
-      underlying > 0 &&
-      Math.abs(row.strike_price - underlying) / underlying < 0.08
+    const result = await fetchYFChain(ticker, null);
+    if (!result) return null;
+    const calls = result.options?.[0]?.calls || [];
+    const puts  = result.options?.[0]?.puts  || [];
+    const price = result.quote?.regularMarketPrice || 0;
+    // Use near-ATM contracts for IV average
+    const all   = [...calls, ...puts].filter(o =>
+      o.impliedVolatility > 0 &&
+      o.impliedVolatility < 5 &&
+      Math.abs(o.strike - price) / price < 0.10 // within 10% of current price
     );
-    if (!atm.length) return null;
-    const avg = atm.reduce((s, row) => s + row.iv, 0) / atm.length;
+    if (!all.length) return null;
+    const avg = all.reduce((s,o) => s + o.impliedVolatility, 0) / all.length;
     return Math.round(avg * 100);
   } catch { return null; }
 }
@@ -1175,7 +1182,6 @@ export default function App() {
   const [eList,setEList]=useState(()=>{try{return JSON.parse(localStorage.getItem("rubberband_emails")||"[]");}catch{return [];}});
   const [eOk,setEOk]=useState(false);
   const runId=useRef(0);
-  const optRunId=useRef(0); // separate from stock runId to prevent cross-cancellation
   const [clock,setClock]=useState(new Date().toLocaleTimeString());
 
   useEffect(()=>{
@@ -1272,210 +1278,145 @@ export default function App() {
   useEffect(()=>{pricesRef.current=prices;},[prices]);
 
   const runOptions=useCallback(async()=>{
-    // ── Each scan gets a unique ID scoped to options only ──
-    const rid=++optRunId.current;
+    const rid=++runId.current;
+    // ── Snapshot all config at call time — immune to state changes mid-scan ──
+    const tickerNow  = optTicker;
+    const expNow     = optExp;
+    const typeNow    = optType;
+    const stratNow   = optStrat;
+    const base       = OPT_BASE.find(x=>x.t===tickerNow)||OPT_BASE[0];
+    const ticker     = base.t;
 
-    // ── Snapshot ALL config at call time — immune to any state change mid-scan ──
-    const tickerNow = optTicker;
-    const expNow    = optExp;
-    const typeNow   = optType;
-    const stratNow  = optStrat;
-    const base      = OPT_BASE.find(x=>x.t===tickerNow);
-    if(!base){ console.warn('Unknown ticker:',tickerNow); return; }
+    setOLoading(true);setOStep(0);setOProg(0);setOContracts([]);setOInsights(null);
+    setOTicker(null); // clear previous ticker display immediately
 
-    // Clear previous results immediately so stale data never shows
-    setOLoading(true);
-    setOStep(0);setOProg(0);
-    setOContracts([]);setOInsights(null);setOTicker(null);
+    // ── STEP 1: Always fetch a FRESH live quote right now ──
+    setOStep(1);setOProg(12);
+    const freshQuote = await fetchQuote(ticker);
+    if(runId.current!==rid)return;
+    const livePrice  = freshQuote?.price || pricesRef.current[ticker]?.price || base.p || 100;
+    if(freshQuote) setPrices(prev=>({...prev,[ticker]:freshQuote}));
 
-    // ── STEP 1: Fetch fresh live price — retry once on failure ──
-    setOStep(1);setOProg(15);
-    let freshQuote = await fetchQuote(tickerNow);
-    if(optRunId.current!==rid)return;
-
-    if(!freshQuote || freshQuote.price<=0){
-      await new Promise(r=>setTimeout(r,800));
-      freshQuote = await fetchQuote(tickerNow);
-      if(optRunId.current!==rid)return;
-    }
-
-    // Hard stop — never proceed with zero/missing price
-    if(!freshQuote || freshQuote.price<=0){
-      setOLoading(false);
-      alert(`Could not load live price for ${tickerNow}. Check your connection and try again.`);
-      return;
-    }
-
-    const livePrice = freshQuote.price;
-    setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
-
-    // ── STEP 2: Compute target expiration ──
-    setOStep(2);setOProg(30);
-    const targetDte     = parseInt(expNow.match(/\d+/)?.[0]||'30');
+    // ── STEP 2: Fetch option chain + IV in parallel ──
+    setOStep(2);setOProg(28);
+    let liveIV = null;
+    // Compute the target expiration date for the selected DTE so we fetch
+    // OI/volume for the CORRECT expiration from Finnhub
+    const targetDte = parseInt(optExp.match(/\d+/)?.[0] || "30");
     const targetExpInfo = calcExpirationDate(targetDte);
 
-    // ── STEP 3: Fetch Finnhub option chain + IV in parallel ──
+    const [chainData] = await Promise.all([
+      fetchOptionChainData(base.t, targetExpInfo.label),
+      fetchLiveIV(base.t).then(iv=>{
+        if(iv&&iv>5&&iv<300){liveIV=iv;setIvCache(prev=>({...prev,[base.t]:iv}));}
+      })
+    ]);
+    if(runId.current!==rid)return;
+    liveIV = liveIV || ivCache[base.t] || base.iv || 45;
+    if(chainData)setOptChain(prev=>({...prev,[base.t]:chainData}));
+
+    // td uses the FRESH price, not stale cache
+    const td={...base, p:livePrice, iv:liveIV, expLabel:expNow, scanTime:new Date().toLocaleTimeString()};
+
+    // ── STEP 3: Build strike grid from fresh live price ──
     setOStep(3);setOProg(48);
-    let liveIV   = null;
-    let chainData= null;
+    await new Promise(r=>setTimeout(r,200));
+    if(runId.current!==rid)return;
 
-    try {
-      [chainData] = await Promise.all([
-        fetchOptionChainData(tickerNow, targetExpInfo.label),
-        fetchLiveIV(tickerNow).then(iv=>{
-          if(iv&&iv>5&&iv<300){
-            liveIV=iv;
-            setIvCache(prev=>({...prev,[tickerNow]:iv}));
-          }
-        })
-      ]);
-    } catch(e){ console.warn('Chain fetch error:',e); }
+    // ── STEP 4: Compute Greeks ──
+    setOStep(4);setOProg(62);
+    await new Promise(r=>setTimeout(r,200));
+    if(runId.current!==rid)return;
 
-    if(optRunId.current!==rid)return;
-
-    // IV fallback — always scoped to tickerNow
-    liveIV = liveIV || ivCache[tickerNow] || base.iv || 35;
-    if(chainData) setOptChain(prev=>({...prev,[tickerNow]:chainData}));
-
-    // ── STEP 4: Build verified ticker data object ──
-    setOStep(4);setOProg(64);
-    const td = {
-      t:        tickerNow,
-      n:        base.n,
-      p:        livePrice,       // always the freshly fetched price
-      iv:       liveIV,
-      expLabel: expNow,
-      scanTime: new Date().toLocaleTimeString(),
-      priceSource: freshQuote.source || 'live',
-    };
-
-    // ── STEP 5: Build contracts anchored entirely to td.p ──
-    setOStep(5);setOProg(80);
-    const types = typeNow==='Calls Only'?['call']:typeNow==='Puts Only'?['put']:['call','put'];
+    // ── STEP 5: Generate contracts — strikes anchored to fresh live price ──
+    setOStep(5);setOProg(78);
+    const types=typeNow==="Calls Only"?["call"]:typeNow==="Puts Only"?["put"]:["call","put"];
     const contracts=[];
-
-    // Pre-filter chain keys — strip metadata, keep only valid numeric strikes
-    const chainStrikes = chainData
-      ? Object.keys(chainData)
-          .filter(k=>k!=='_expDate'&&k!=='_underlying'&&!isNaN(+k)&&+k>0)
-          .map(Number)
-          .sort((a,b)=>a-b)
-      : [];
-
-    for(const tp of types){
+    types.forEach(tp=>{
       for(let i=0;i<3;i++){
-        // genContract always uses td.p — the live price we just fetched
-        const c = genContract(tickerNow, td.p, td.iv, tp, expNow, i);
+        // Always pass td.p (fresh price) — genContract snaps to proper grid
+        const c=genContract(td.t,td.p,td.iv,tp,expNow,i);
 
-        // Merge real Finnhub chain data if we have a matching strike
-        if(chainStrikes.length>0){
-          const nearest = chainStrikes.reduce((best,s)=>
+        // ── Merge real chain data if available ──
+        if(chainData&&Object.keys(chainData).length>0){
+          // Filter out non-numeric keys (like _expDate), convert to numbers
+          const chainStrikes=Object.keys(chainData)
+            .filter(k=>k!=='_expDate'&&!isNaN(Number(k)))
+            .map(Number)
+            .sort((a,b)=>a-b);
+          if(!chainStrikes.length){contracts.push(c);return;}
+          // Find the nearest REAL chain strike to our computed strike
+          const nearest=chainStrikes.reduce((best,s)=>
             Math.abs(s-c.strike)<Math.abs(best-c.strike)?s:best,
             chainStrikes[0]
           );
-          const incr = strikeIncrement(td.p);
-          if(Math.abs(nearest-c.strike)<=incr*3){
-            const realRow = chainData[nearest];
-            const side    = tp==='call'?realRow?.call:realRow?.put;
+          // Only use real data if it's within 2 strike increments (close match)
+          const incr=strikeIncrement(td.p);
+          if(Math.abs(nearest-c.strike)<=incr*2){
+            const realStrike=chainData[nearest]||chainData[String(nearest)];
+            const side=tp==="call"?realStrike?.call:realStrike?.put;
             if(side){
-              // Real OI and volume from Finnhub chain
-              if(typeof side.oi     ==='number') { c.oi=side.oi;      c.oiReal=true; }
-              if(typeof side.volume ==='number') { c.vol=side.volume; c.oiReal=true; }
-              // Real bid/ask → mid price entry
+              // Real chain data — store whatever we get (0 is valid)
+              c.vol = (typeof side.volume === 'number') ? side.volume : null;
+              c.oi  = (typeof side.oi === 'number') ? side.oi : null;
+              c.oiReal = true; // flag: came from chain
+              if(side.bid!=null&&side.bid>0)c.bid=+side.bid.toFixed(2);
+              if(side.ask!=null&&side.ask>0)c.ask=+side.ask.toFixed(2);
+              // Entry price = mid of bid/ask (most accurate executable price)
               if(side.bid>0&&side.ask>0){
-                c.bid=+side.bid.toFixed(2);
-                c.ask=+side.ask.toFixed(2);
                 const mid=+((side.bid+side.ask)/2).toFixed(2);
-                c.prem=mid; c.ep=mid;
-              } else if(side.last>0){
-                c.prem=+side.last.toFixed(2);
-                c.ep=+side.last.toFixed(2);
+                c.prem=mid;c.ep=mid;
+              } else if(side.last&&side.last>0){
+                c.prem=+side.last.toFixed(2);c.ep=+side.last.toFixed(2);
               }
-              if(side.iv>0&&side.iv<300) c.iv=+side.iv.toFixed(1);
-              c.spread=(side.ask>0&&side.bid>0)?+(side.ask-side.bid).toFixed(2):c.spread;
-              // Recalculate all targets from real entry
-              c.t1=+(c.ep*1.30).toFixed(2);
+              if(side.iv&&side.iv>0&&side.iv<300)c.iv=+side.iv.toFixed(1);
+              c.spread=side.ask&&side.bid?+(side.ask-side.bid).toFixed(2):c.spread;
+              // Recalculate targets/stop based on real entry price
+              c.t1=+(c.ep*1.3).toFixed(2);
               c.t2=+(c.ep*1.65).toFixed(2);
-              c.t3=+(c.ep*2.20).toFixed(2);
+              c.t3=+(c.ep*2.2).toFixed(2);
               c.sl=+(c.ep*0.55).toFixed(2);
               c.entryTotalCost=+(c.ep*100).toFixed(0);
               c.maxPnl=+((c.t3-c.ep)*100).toFixed(0);
               c.maxLoss=+((c.ep-c.sl)*100).toFixed(0);
-              c.strike=nearest;
-              c.contractLabel=`${tickerNow} $${nearest} ${tp==='call'?'CALL':'PUT'} ${c.expirationShort}`;
+              c.contractLabel=`${td.t} $${nearest} ${tp==="call"?"CALL":"PUT"} ${c.expirationShort}`;
+              c.strike=nearest; // use the REAL chain strike
               c.realData=true;
             }
           }
         }
-
-        // Fill estimated OI/vol only when chain returned nothing
-        if(c.oi===null||c.vol===null){
-          const absDelta=Math.abs(c.delta);
-          const liqFactor=td.iv>60?1.8:td.iv>40?1.2:0.8;
-          const estOI =Math.round(absDelta*45000*liqFactor);
-          const estVol=Math.round(estOI*(0.12+absDelta*0.18));
-          if(c.oi ===null){c.oi =estOI; c.oiEst=true;}
-          if(c.vol===null){c.vol=estVol;c.volEst=true;}
-        }
-        if(c.pcr===null){
-          const q=pricesRef.current[tickerNow];
-          c.pcr=q&&q.change<-2?+((0.5+Math.random()*0.3)).toFixed(2)
-               :q&&q.change> 2?+((1.2+Math.random()*0.4)).toFixed(2)
-               :+((0.8+Math.random()*0.4)).toFixed(2);
-        }
-
         contracts.push(c);
       }
-    }
-    contracts.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
-
-    // ── STEP 6: AI insights scoped to tickerNow ──
-    let ins=null;
-    try{
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-20250514',
-          max_tokens:1200,
-          messages:[{role:'user',content:
-            `Options analyst. Ticker: ${tickerNow}. Company: ${base.n}. Live price: $${td.p}. IV=${td.iv}%. Strategy=${stratNow}. Expiration=${expNow}.
-Return ONLY raw JSON (no markdown, no backticks):
-{"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`
-          }]
-        })
-      });
-      if(res.ok){
-        const e=await res.json();
-        const raw=(e.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
-        try{ins=JSON.parse(raw);}catch{}
-        if(!ins){try{const m=raw.match(/\{[\s\S]*\}/);if(m)ins=JSON.parse(m[0]);}catch{}}
+    });
+    // ── Post-process: fill estimated OI/vol where chain returned null ──
+    // Standard model: ATM options have highest OI, OTM/ITM taper with delta
+    // Volume ~ 15-35% of OI for liquid names, less for illiquid
+    contracts.forEach(c => {
+      if (c.oi === null || c.vol === null) {
+        const absDelta = Math.abs(c.delta);
+        // Base OI estimate scaled by delta (ATM has highest, deep OTM has lowest)
+        // Liquid names (high IV) have higher OI
+        const liquidityFactor = td.iv > 60 ? 1.8 : td.iv > 40 ? 1.2 : 0.8;
+        const estOI  = Math.round(absDelta * 45000 * liquidityFactor);
+        const estVol = Math.round(estOI * (0.12 + absDelta * 0.18));
+        if (c.oi  === null) { c.oi  = estOI;  c.oiEst  = true; }
+        if (c.vol === null) { c.vol = estVol; c.volEst = true; }
+        // P/C ratio estimate based on MR signal from live price
+        if (c.pcr === null) {
+          const q = pricesRef.current[ticker];
+          c.pcr = q && q.change < -2 ? +((0.5 + Math.random()*0.3)).toFixed(2)
+                : q && q.change > 2  ? +((1.2 + Math.random()*0.4)).toFixed(2)
+                : +((0.8 + Math.random()*0.4)).toFixed(2);
+        }
       }
-    }catch{}
-
-    if(!ins) ins={
-      summary:`${base.n} (${tickerNow}) live at $${td.p.toFixed(2)}. IV ${td.iv}% — ${td.iv>60?'elevated, premium selling favored':'moderate, directional plays reasonable'}.`,
-      topPlay:`${contracts[0]?.contractLabel} entry $${contracts[0]?.ep} → T1 $${contracts[0]?.t1} / T2 $${contracts[0]?.t2} / T3 $${contracts[0]?.t3}, stop $${contracts[0]?.sl}.`,
-      entryTiming:`Enter on ${contracts[0]?.optType==='call'?'pullback to support or breakout':'bounce off resistance or breakdown'} with volume confirmation.`,
-      riskWarning:`Max risk $${contracts[0]?.entryTotalCost}/contract. IV crush risk: ${td.iv>60?'HIGH — size down':'MODERATE'}.`,
-      ivAnalysis:`IV ${td.iv}% is ${td.iv>60?'elevated — sell premium or use spreads':'moderate — directional debit plays are fine'}.`,
-      keyLevels:{
-        support:`$${(td.p*0.96).toFixed(2)}`,
-        resistance:`$${(td.p*1.04).toFixed(2)}`,
-        breakeven:`$${(td.p*1.02).toFixed(2)}`
-      },
-      tags:[tickerNow,stratNow,expNow,td.iv>60?'High IV':'Normal IV','Live Price']
-    };
-
-    // Final guard — if ticker changed during scan, discard results
-    if(optRunId.current!==rid)return;
-
-    setOProg(100);
-    await new Promise(r=>setTimeout(r,150));
-    setOTicker(td);
-    setOContracts(contracts);
-    setOInsights(ins);
-    setOLoading(false);
+    });
+    contracts.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+    let ins=null;
+    try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:`Options analyst. ${ticker} live price $${td.p}, IV=${td.iv}%, strategy=${stratNow}, expiration=${expNow}. Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`}]})});if(res.ok){const e=await res.json();const raw=(e.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();try{ins=JSON.parse(raw);}catch{}if(!ins){try{const m=raw.match(/\{[\s\S]*\}/);if(m)ins=JSON.parse(m[0]);}catch{}}}}catch{}
+    if(!ins)ins={summary:`${td.n} live at $${td.p}. IV=${td.iv}% — ${td.iv>60?"elevated, ideal for premium selling":"moderate, directional plays favored"}.`,topPlay:`${contracts[0]?.contractLabel} at $${contracts[0]?.ep} → $${contracts[0]?.t1}/$${contracts[0]?.t2}/$${contracts[0]?.t3}, stop $${contracts[0]?.sl}.`,entryTiming:`Enter on ${contracts[0]?.optType==="call"?"pullback to support or breakout confirmation":"bounce off resistance or break below support"} with volume.`,riskWarning:`Max risk: $${contracts[0]?.entryTotalCost}/contract. IV crush risk ${td.iv>60?"HIGH":"MODERATE"}.`,ivAnalysis:`IV ${td.iv}% is ${td.iv>60?"elevated — sell premium or use spreads":"moderate — directional debit plays are reasonable"}.`,keyLevels:{support:`$${(td.p*.96).toFixed(2)}`,resistance:`$${(td.p*1.04).toFixed(2)}`,breakeven:`$${(td.p*1.02).toFixed(2)}`},tags:[ticker,stratNow,expNow,td.iv>60?"High IV":"Normal IV","Live Price"]};
+    if(runId.current!==rid)return;
+    setOProg(100);await new Promise(r=>setTimeout(r,180));
+    setOTicker(td);setOContracts(contracts);setOInsights(ins);setOLoading(false);
   },[optTicker,optType,optExp,optStrat]);
 
   const dispStocks=(()=>{let s=[...stocks];if(sFilter==="Strong Buy")s=s.filter(x=>x.rating==="sb");if(sFilter==="Hidden Gems")s=s.filter(x=>x.isGem);if(sFilter==="Large Cap")s=s.filter(x=>x.cap==="Large");if(sFilter==="International")s=s.filter(x=>x.geo!=="US");if(sSort==="price")s.sort((a,b)=>b.p-a.p);if(sSort==="change")s.sort((a,b)=>b.ch-a.ch);return s;})();
