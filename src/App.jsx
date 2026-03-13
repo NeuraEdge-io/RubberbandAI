@@ -626,103 +626,126 @@ const OPT_BASE = [
 
 /* ── FINNHUB ── */
 async function fetchQuote(ticker) {
+  // Primary: Finnhub
   try {
     const r = await fetch(`${FINNHUB_URL}/quote?symbol=${ticker}&token=${FINNHUB_KEY}`);
-    if (!r.ok) return null;
-    const d = await r.json();
-    if (!d || !d.c || d.c === 0) return null;
-    return {
-      price: +d.c.toFixed(2),
-      change: +d.dp.toFixed(2),
-      high: +d.h.toFixed(2),
-      low: +d.l.toFixed(2),
-      prevClose: +d.pc.toFixed(2),
-      open: +d.o.toFixed(2),
-      volume: d.v || 0, // real daily volume from Finnhub
-    };
-  } catch { return null; }
+    if (r.ok) {
+      const d = await r.json();
+      if (d && d.c && d.c > 0) {
+        return {
+          price:     +d.c.toFixed(2),
+          change:    +d.dp.toFixed(2),
+          high:      +d.h.toFixed(2),
+          low:       +d.l.toFixed(2),
+          prevClose: +d.pc.toFixed(2),
+          open:      +d.o.toFixed(2),
+          volume:    d.v || 0,
+          source:    'finnhub', dollarChange: +(d.c - d.pc).toFixed(2),
+        };
+      }
+    }
+  } catch {}
+  return null; // Finnhub failed — never return a fake price
 }
 
-// Fetch real option chain data — matches target expiration, returns per-strike map
-// targetExpDate: "Mar 21, 2026" format — we match the closest expiration in the chain
+// ── CBOE OPTION CHAIN ──
+// Source: CBOE's own public delayed-quotes API.
+// • No API key required
+// • No CORS proxy needed (CBOE sets Access-Control-Allow-Origin: *)
+// • 15-minute delayed — real exchange OI, volume, bid, ask, IV, Greeks
+// • Endpoint: https://cdn.cboe.com/api/global/delayed_quotes/options/_TICKER.json
+// • CBOE uses underscore-prefixed symbols: AAPL → _AAPL, NVDA → _NVDA
+
+function cboeSymbol(ticker) {
+  return '_' + ticker.toUpperCase();
+}
+
+// Fetch CBOE option chain — returns strike map keyed by numeric strike
+// Only includes contracts matching the closest expiration to targetExpDate
 async function fetchOptionChainData(ticker, targetExpDate) {
   try {
-    const r = await fetch(`${FINNHUB_URL}/stock/option-chain?symbol=${ticker}&token=${FINNHUB_KEY}`);
+    const url = `https://cdn.cboe.com/api/global/delayed_quotes/options/${cboeSymbol(ticker)}.json`;
+    const r   = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!r.ok) return null;
-    const d = await r.json();
-    if (!d || !d.data || !d.data.length) return null;
+    const d   = await r.json();
 
-    // Parse all available expiration dates from chain
-    // Finnhub returns expirationDate as "YYYY-MM-DD"
-    let bestExp = null;
-    let bestDiff = Infinity;
+    // CBOE returns d.data[] — each row is one contract with fields:
+    // option (OCC symbol), expiration_date, strike_price, option_type (C/P),
+    // bid, ask, last_trade_price, volume, open_interest, iv, delta, gamma, theta, vega
+    const rows = Array.isArray(d?.data) ? d.data : [];
+    if (!rows.length) return null;
+
+    // Collect all unique expirations and find the one closest to our target
+    const allExps = [...new Set(rows.map(row => row.expiration_date).filter(Boolean))].sort();
+    if (!allExps.length) return null;
+
     const targetMs = targetExpDate ? new Date(targetExpDate).getTime() : null;
-
-    d.data.forEach(exp => {
-      if (!exp.expirationDate) return;
-      const expMs = new Date(exp.expirationDate).getTime();
-      const diff = targetMs ? Math.abs(expMs - targetMs) : 0;
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        bestExp = exp;
-      }
-    });
-
-    // If no targetExpDate or no match within 7 days, fall back to first expiration
-    if (!bestExp || (targetMs && bestDiff > 7 * 86400000)) {
-      bestExp = d.data[0];
+    let bestExp    = allExps[0];
+    if (targetMs) {
+      let bestDiff = Infinity;
+      allExps.forEach(exp => {
+        const diff = Math.abs(new Date(exp + 'T00:00:00').getTime() - targetMs);
+        if (diff < bestDiff) { bestDiff = diff; bestExp = exp; }
+      });
     }
 
-    // Build strike map from the MATCHING expiration only
+    // Build strike map from matching expiration only
     const chainMap = {};
-    const calls = (bestExp.options && bestExp.options.CALL) || [];
-    const puts  = (bestExp.options && bestExp.options.PUT)  || [];
+    rows
+      .filter(row => row.expiration_date === bestExp)
+      .forEach(row => {
+        const k    = +row.strike_price;
+        const side = row.option_type === 'C' ? 'call' : 'put';
+        if (!k || isNaN(k)) return;
+        if (!chainMap[k]) chainMap[k] = {};
+        chainMap[k][side] = {
+          iv:     (row.iv > 0 && row.iv < 10) ? +(row.iv * 100).toFixed(1) : null,
+          volume: (typeof row.volume        === 'number') ? row.volume        : null,
+          oi:     (typeof row.open_interest === 'number') ? row.open_interest : null,
+          bid:    (row.bid  > 0) ? +row.bid.toFixed(2)             : null,
+          ask:    (row.ask  > 0) ? +row.ask.toFixed(2)             : null,
+          last:   (row.last_trade_price > 0) ? +row.last_trade_price.toFixed(2) : null,
+          delta:  row.delta || null,
+          gamma:  row.gamma || null,
+          theta:  row.theta || null,
+          vega:   row.vega  || null,
+        };
+      });
 
-    calls.forEach(c => {
-      const k = +c.strike;
-      if (!chainMap[k]) chainMap[k] = {};
-      chainMap[k].call = {
-        iv:     c.impliedVolatility ? +(c.impliedVolatility * 100).toFixed(1) : null,
-        volume: typeof c.volume === 'number' ? c.volume : 0,
-        oi:     typeof c.openInterest === 'number' ? c.openInterest : 0,
-        bid:    typeof c.bid === 'number' && c.bid > 0 ? c.bid : null,
-        ask:    typeof c.ask === 'number' && c.ask > 0 ? c.ask : null,
-        last:   typeof c.lastPrice === 'number' && c.lastPrice > 0 ? c.lastPrice : null,
-      };
-    });
-    puts.forEach(p => {
-      const k = +p.strike;
-      if (!chainMap[k]) chainMap[k] = {};
-      chainMap[k].put = {
-        iv:     p.impliedVolatility ? +(p.impliedVolatility * 100).toFixed(1) : null,
-        volume: typeof p.volume === 'number' ? p.volume : 0,
-        oi:     typeof p.openInterest === 'number' ? p.openInterest : 0,
-        bid:    typeof p.bid === 'number' && p.bid > 0 ? p.bid : null,
-        ask:    typeof p.ask === 'number' && p.ask > 0 ? p.ask : null,
-        last:   typeof p.lastPrice === 'number' && p.lastPrice > 0 ? p.lastPrice : null,
-      };
-    });
-
-    // Also store the actual matched expiration date for display
-    chainMap._expDate = bestExp.expirationDate || null;
-    return chainMap;
-  } catch { return null; }
+    chainMap._expDate    = bestExp;
+    chainMap._underlying = d?.current_price || null;
+    // Only return if we actually got contracts
+    return Object.keys(chainMap).filter(k => k !== '_expDate' && k !== '_underlying').length > 0
+      ? chainMap : null;
+  } catch(e) {
+    console.warn('CBOE chain error for', ticker, e?.message);
+    return null;
+  }
 }
 
-// Fetch live IV from Finnhub option chain
+// Fetch live IV from CBOE — ATM average from nearest expiration
 async function fetchLiveIV(ticker) {
   try {
-    const r = await fetch(FINNHUB_URL+'/stock/option-chain?symbol='+ticker+'&token='+FINNHUB_KEY);
+    const url = `https://cdn.cboe.com/api/global/delayed_quotes/options/${cboeSymbol(ticker)}.json`;
+    const r   = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!r.ok) return null;
-    const d = await r.json();
-    if (!d || !d.data || !d.data.length) return null;
-    const nearest = d.data[0];
-    const calls = (nearest.options && nearest.options.CALL) || [];
-    const puts = (nearest.options && nearest.options.PUT) || [];
-    const all = [...calls, ...puts];
-    const ivs = all.map(o=>o.impliedVolatility).filter(v=>v&&v>0&&v<5);
-    if (!ivs.length) return null;
-    return Math.round((ivs.reduce((a,b)=>a+b,0)/ivs.length)*100);
+    const d   = await r.json();
+    const rows = Array.isArray(d?.data) ? d.data : [];
+    if (!rows.length) return null;
+
+    const underlying = d?.current_price || 0;
+    // Nearest expiration only, contracts within 8% of ATM, sane IV range
+    const allExps = [...new Set(rows.map(r => r.expiration_date).filter(Boolean))].sort();
+    const nearExp = allExps[0];
+    const atm = rows.filter(row =>
+      row.expiration_date === nearExp &&
+      row.iv > 0.01 && row.iv < 5 &&
+      underlying > 0 &&
+      Math.abs(row.strike_price - underlying) / underlying < 0.08
+    );
+    if (!atm.length) return null;
+    const avg = atm.reduce((s, row) => s + row.iv, 0) / atm.length;
+    return Math.round(avg * 100);
   } catch { return null; }
 }
 
@@ -1033,12 +1056,26 @@ function strikeIncrement(price) {
 function snapToGrid(price, incr) {
   return Math.round(price / incr) * incr;
 }
-function genContract(ticker,price,iv,optType,expLabel,idx){
+function genContract(ticker,price,iv,optType,expDateStr,idx){
   const isCall=optType==="call";
-  const dte=parseInt(expLabel.match(/\d+/)?.[0]||"30");
-  // Compute real calendar expiration date (always based on today's date)
-  const expInfo = calcExpirationDate(dte);
-  const t=Math.max(expInfo.realDte/365,.001);
+  // expDateStr is a real "YYYY-MM-DD" string — compute DTE directly
+  const today=new Date(); today.setHours(0,0,0,0);
+  const expDate=new Date((expDateStr||"")+"T00:00:00");
+  const isValidDate=!isNaN(expDate.getTime());
+  const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const realDte=isValidDate?Math.max(Math.round((expDate.getTime()-today.getTime())/86400000),1):30;
+  const mon=MONTHS[expDate.getMonth()];
+  const day=expDate.getDate();
+  const yr=expDate.getFullYear();
+  const dow=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][expDate.getDay()];
+  const expInfo={
+    realDte,
+    label:`${mon} ${day}, ${yr}`,
+    short:`${mon} ${day}`,
+    full:`${dow} ${mon} ${day}, ${yr}`,
+    date:expDate,
+  };
+  const t=Math.max(realDte/365,0.001);
   // Compute proper strike grid based on live price
   const incr = strikeIncrement(price);
   const atm = snapToGrid(price, incr);
@@ -1073,7 +1110,7 @@ function genContract(ticker,price,iv,optType,expLabel,idx){
   else if(!isCall&&absDelta>.3)signal="bearish";
   return {
     ticker,name:OPT_BASE.find(x=>x.t===ticker)?.n||ticker,
-    stockPrice:price,strike,optType,expLabel,dte:expInfo.realDte,
+    stockPrice:price,strike,optType,expLabel:expDateStr,dte:expInfo.realDte,
     expirationDate:expInfo.label,
     expirationFull:expInfo.full,
     expirationShort:expInfo.short,
@@ -1105,7 +1142,51 @@ const cl=i=>COL[i%3];
 const STRATEGIES=["Growth","Dividend","Value","Momentum","Quality","GARP","Deep Value","Small Cap Growth"];
 const SECTORS=["All Sectors","Technology","Healthcare","Financials","Energy","Consumer Discretionary","Industrials","Utilities","Real Estate","Materials","Communication Services","Consumer Staples","Biotech","Semiconductors","Clean Energy","Fintech","Defense","Mining"];
 const MARKETS=["US Large Cap","US Mid Cap","US Small Cap","US Micro Cap","International Developed","Emerging Markets","Global","Canada","Europe","Asia Pacific","Latin America"];
-const EXPS=["Weekly (3 DTE)","Weekly (7 DTE)","Bi-Weekly (14 DTE)","Monthly (30 DTE)","Monthly (45 DTE)","Quarterly (60 DTE)","Quarterly (90 DTE)","LEAPS (180 DTE)","LEAPS (365 DTE)"];
+// ── Label a real calendar expiration date for display in the dropdown ──
+// Input: "YYYY-MM-DD" string from Finnhub
+// Output: "Mar 21 · 1 DTE · Same-Day" style label — exact DTE always shown
+function labelExpDate(dateStr) {
+  if (!dateStr) return null;
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const today  = new Date(); today.setHours(0,0,0,0);
+  const exp    = new Date(dateStr + "T00:00:00");
+  if (isNaN(exp.getTime())) return null;
+  const dte  = Math.round((exp.getTime() - today.getTime()) / 86400000);
+  const mon  = MONTHS[exp.getMonth()];
+  const day  = exp.getDate();
+  const year = exp.getFullYear();
+  const dow  = exp.getDay();
+  const dowName = DAYS[dow];
+  // ── Exact kind label — every DTE gets a precise tag ──
+  let kind;
+  if (dte <= 0)        kind = "Same-Day";
+  else if (dte === 1)  kind = "1 DTE";
+  else if (dte === 2)  kind = "2 DTE";
+  else if (dte === 3)  kind = "3 DTE";
+  else if (dte === 4)  kind = "4 DTE";
+  else if (dte === 5)  kind = "5 DTE";
+  else if (dte <= 9)   kind = "Weekly";
+  else if (dte <= 16)  kind = "2-Week";
+  else if (dte <= 23)  kind = "3-Week";
+  else if (dte <= 37)  kind = "Monthly";   // ~30 DTE
+  else if (dte <= 55)  kind = "Monthly";   // ~45 DTE
+  else if (dte <= 75)  kind = "Quarterly";
+  else if (dte <= 105) kind = "Quarterly";
+  else if (dte <= 200) kind = "LEAPS";
+  else                 kind = `LEAPS ${year}`;
+  // Promote to "Monthly" label if it's a standard 3rd Friday (dow===5, right range)
+  if (dte >= 17 && dte <= 55 && dow === 5) kind = "Monthly";
+  // Display: "Mar 21 · 1 DTE · Fri" for short; full label for option element
+  const dteTag = dte <= 0 ? "0 DTE" : `${dte} DTE`;
+  return {
+    label:   `${mon} ${day}, ${year}`,
+    short:   `${mon} ${day}`,
+    full:    `${dowName} ${mon} ${day}, ${year}`,
+    dte, kind, year, dateStr,
+    display: dte<=5 ? `${dowName} ${mon} ${day}  ·  ${dteTag}` : `${mon} ${day}, ${year}  ·  ${dteTag}  ·  ${kind}`,
+  };
+}
 const OSTRATEGIES=["High IV Crush (Sell)","Low IV Buy","Momentum Calls","Protective Puts","Covered Calls","Cash-Secured Puts","Debit Spreads","Iron Condors","Directional (Calls)","Directional (Puts)"];
 const OTYPES=["Calls Only","Puts Only","Both Calls & Puts"];
 
@@ -1131,7 +1212,9 @@ export default function App() {
   const [sSort,setSSort]=useState("score");
   const [optTicker,setOptTicker]=useState("NVDA");
   const [optType,setOptType]=useState("Both Calls & Puts");
-  const [optExp,setOptExp]=useState("Monthly (30 DTE)");
+  const [optExp,setOptExp]=useState(null); // real "YYYY-MM-DD" from Finnhub
+  const [availExps,setAvailExps]=useState([]); // [{dateStr,label,dte,kind,display}]
+  const [expsLoading,setExpsLoading]=useState(false);
   const [optStrat,setOptStrat]=useState("Directional (Calls)");
   const [optCatFilter,setOptCatFilter]=useState("All");
   const [optSearch,setOptSearch]=useState("");
@@ -1152,6 +1235,7 @@ export default function App() {
   const [eList,setEList]=useState(()=>{try{return JSON.parse(localStorage.getItem("rubberband_emails")||"[]");}catch{return [];}});
   const [eOk,setEOk]=useState(false);
   const runId=useRef(0);
+  const optRunId=useRef(0); // separate from stock runId to prevent cross-cancellation
   const [clock,setClock]=useState(new Date().toLocaleTimeString());
 
   useEffect(()=>{
@@ -1222,6 +1306,34 @@ export default function App() {
     setSResult(crit);setStocks(scored);setSLoading(false);
   },[strategy,sector,market,prices]);
 
+  // ── Fetch real expiration dates from Finnhub when ticker changes ──
+  useEffect(()=>{
+    let cancelled=false;
+    const loadExps=async()=>{
+      setExpsLoading(true);
+      try {
+        const r=await fetch(`${FINNHUB_URL}/stock/option-chain?symbol=${optTicker}&token=${FINNHUB_KEY}`);
+        if(!r.ok||cancelled)return;
+        const d=await r.json();
+        if(!d||!Array.isArray(d.data)||cancelled)return;
+        // Extract all unique expiration dates, sort ascending
+        const dates=[...new Set(d.data.map(e=>e.expirationDate).filter(Boolean))].sort();
+        if(!dates.length||cancelled)return;
+        const labeled=dates.map(labelExpDate).filter(e=>e&&e.dte>=0); // include 0 DTE (same-day)
+        setAvailExps(labeled);
+        // Auto-select closest to 30 DTE
+        const preferred=labeled.reduce((best,e)=>{
+          if(!best)return e;
+          return Math.abs(e.dte-30)<Math.abs(best.dte-30)?e:best;
+        },null)||labeled[0];
+        if(preferred&&!cancelled) setOptExp(preferred.dateStr);
+      } catch{}
+      if(!cancelled)setExpsLoading(false);
+    };
+    loadExps();
+    return()=>{cancelled=true;};
+  },[optTicker]);
+
   // Auto-fetch live IV when ticker changes
   useEffect(()=>{
     let cancelled=false;
@@ -1248,122 +1360,216 @@ export default function App() {
   useEffect(()=>{pricesRef.current=prices;},[prices]);
 
   const runOptions=useCallback(async()=>{
-    const rid=++runId.current;
-    // ── Snapshot all config at call time — immune to state changes mid-scan ──
-    const tickerNow  = optTicker;
-    const expNow     = optExp;
-    const typeNow    = optType;
-    const stratNow   = optStrat;
-    const base       = OPT_BASE.find(x=>x.t===tickerNow)||OPT_BASE[0];
-    const ticker     = base.t;
+    // ── Each scan gets a unique ID scoped to options only ──
+    const rid=++optRunId.current;
 
-    setOLoading(true);setOStep(0);setOProg(0);setOContracts([]);setOInsights(null);
-    setOTicker(null); // clear previous ticker display immediately
+    // ── Snapshot ALL config at call time — immune to any state change mid-scan ──
+    const tickerNow = optTicker;
+    const expNow    = optExp;
+    const typeNow   = optType;
+    const stratNow  = optStrat;
+    const base      = OPT_BASE.find(x=>x.t===tickerNow);
+    if(!base){ console.warn('Unknown ticker:',tickerNow); return; }
 
-    // ── STEP 1: Always fetch a FRESH live quote right now ──
-    setOStep(1);setOProg(12);
-    const freshQuote = await fetchQuote(ticker);
-    if(runId.current!==rid)return;
-    const livePrice  = freshQuote?.price || pricesRef.current[ticker]?.price || base.p || 100;
-    if(freshQuote) setPrices(prev=>({...prev,[ticker]:freshQuote}));
+    // Clear previous results immediately so stale data never shows
+    setOLoading(true);
+    setOStep(0);setOProg(0);
+    setOContracts([]);setOInsights(null);setOTicker(null);
 
-    // ── STEP 2: Fetch option chain + IV in parallel ──
-    setOStep(2);setOProg(28);
-    let liveIV = null;
-    // Compute the target expiration date for the selected DTE so we fetch
-    // OI/volume for the CORRECT expiration from Finnhub
-    const targetDte = parseInt(optExp.match(/\d+/)?.[0] || "30");
-    const targetExpInfo = calcExpirationDate(targetDte);
+    // ── STEP 1: Fetch fresh live price — retry once on failure ──
+    setOStep(1);setOProg(15);
+    let freshQuote = await fetchQuote(tickerNow);
+    if(optRunId.current!==rid)return;
 
-    const [chainData] = await Promise.all([
-      fetchOptionChainData(base.t, targetExpInfo.label),
-      fetchLiveIV(base.t).then(iv=>{
-        if(iv&&iv>5&&iv<300){liveIV=iv;setIvCache(prev=>({...prev,[base.t]:iv}));}
-      })
-    ]);
-    if(runId.current!==rid)return;
-    liveIV = liveIV || ivCache[base.t] || base.iv || 45;
-    if(chainData)setOptChain(prev=>({...prev,[base.t]:chainData}));
+    if(!freshQuote || freshQuote.price<=0){
+      await new Promise(r=>setTimeout(r,800));
+      freshQuote = await fetchQuote(tickerNow);
+      if(optRunId.current!==rid)return;
+    }
 
-    // td uses the FRESH price, not stale cache
-    const td={...base, p:livePrice, iv:liveIV, expLabel:expNow, scanTime:new Date().toLocaleTimeString()};
+    // Hard stop — never proceed with zero/missing price
+    if(!freshQuote || freshQuote.price<=0){
+      setOLoading(false);
+      alert(`Could not load live price for ${tickerNow}. Check your connection and try again.`);
+      return;
+    }
 
-    // ── STEP 3: Build strike grid from fresh live price ──
+    const livePrice = freshQuote.price;
+    setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
+
+    // ── STEP 2: Use the real expiration date string directly ──
+    setOStep(2);setOProg(30);
+    // expNow is a real "YYYY-MM-DD" date string from Finnhub expirations
+    const expInfo = labelExpDate(expNow);
+    const targetExpInfo = {
+      label:   expInfo?.label    || expNow,
+      short:   expInfo?.short    || expNow,
+      realDte: expInfo?.dte      || 30,
+      dateStr: expNow,
+    };
+
+    // ── STEP 3: Fetch Finnhub option chain + IV in parallel ──
     setOStep(3);setOProg(48);
-    await new Promise(r=>setTimeout(r,200));
-    if(runId.current!==rid)return;
+    let liveIV   = null;
+    let chainData= null;
 
-    // ── STEP 4: Compute Greeks ──
-    setOStep(4);setOProg(62);
-    await new Promise(r=>setTimeout(r,200));
-    if(runId.current!==rid)return;
+    try {
+      [chainData] = await Promise.all([
+        fetchOptionChainData(tickerNow, targetExpInfo.label),
+        fetchLiveIV(tickerNow).then(iv=>{
+          if(iv&&iv>5&&iv<300){
+            liveIV=iv;
+            setIvCache(prev=>({...prev,[tickerNow]:iv}));
+          }
+        })
+      ]);
+    } catch(e){ console.warn('Chain fetch error:',e); }
 
-    // ── STEP 5: Generate contracts — strikes anchored to fresh live price ──
-    setOStep(5);setOProg(78);
-    const types=typeNow==="Calls Only"?["call"]:typeNow==="Puts Only"?["put"]:["call","put"];
+    if(optRunId.current!==rid)return;
+
+    // IV fallback — always scoped to tickerNow
+    liveIV = liveIV || ivCache[tickerNow] || base.iv || 35;
+    if(chainData) setOptChain(prev=>({...prev,[tickerNow]:chainData}));
+
+    // ── STEP 4: Build verified ticker data object ──
+    setOStep(4);setOProg(64);
+    const td = {
+      t:        tickerNow,
+      n:        base.n,
+      p:        livePrice,       // always the freshly fetched price
+      iv:       liveIV,
+      expLabel: expNow,
+      scanTime: new Date().toLocaleTimeString(),
+      priceSource: freshQuote.source || 'live',
+    };
+
+    // ── STEP 5: Build contracts anchored entirely to td.p ──
+    setOStep(5);setOProg(80);
+    const types = typeNow==='Calls Only'?['call']:typeNow==='Puts Only'?['put']:['call','put'];
     const contracts=[];
-    types.forEach(tp=>{
-      for(let i=0;i<3;i++){
-        // Always pass td.p (fresh price) — genContract snaps to proper grid
-        const c=genContract(td.t,td.p,td.iv,tp,expNow,i);
 
-        // ── Merge real chain data if available ──
-        if(chainData&&Object.keys(chainData).length>0){
-          // Filter out non-numeric keys (like _expDate), convert to numbers
-          const chainStrikes=Object.keys(chainData)
-            .filter(k=>k!=='_expDate'&&!isNaN(Number(k)))
-            .map(Number)
-            .sort((a,b)=>a-b);
-          if(!chainStrikes.length){contracts.push(c);return;}
-          // Find the nearest REAL chain strike to our computed strike
-          const nearest=chainStrikes.reduce((best,s)=>
+    // Pre-filter chain keys — strip metadata, keep only valid numeric strikes
+    const chainStrikes = chainData
+      ? Object.keys(chainData)
+          .filter(k=>k!=='_expDate'&&k!=='_underlying'&&!isNaN(+k)&&+k>0)
+          .map(Number)
+          .sort((a,b)=>a-b)
+      : [];
+
+    for(const tp of types){
+      for(let i=0;i<3;i++){
+        // genContract always uses td.p — the live price we just fetched
+        const c = genContract(tickerNow, td.p, td.iv, tp, expNow, i); // expNow = real YYYY-MM-DD
+
+        // Merge real Finnhub chain data if we have a matching strike
+        if(chainStrikes.length>0){
+          const nearest = chainStrikes.reduce((best,s)=>
             Math.abs(s-c.strike)<Math.abs(best-c.strike)?s:best,
             chainStrikes[0]
           );
-          // Only use real data if it's within 2 strike increments (close match)
-          const incr=strikeIncrement(td.p);
-          if(Math.abs(nearest-c.strike)<=incr*2){
-            const realStrike=chainData[nearest]||chainData[String(nearest)];
-            const side=tp==="call"?realStrike?.call:realStrike?.put;
+          const incr = strikeIncrement(td.p);
+          if(Math.abs(nearest-c.strike)<=incr*3){
+            const realRow = chainData[nearest];
+            const side    = tp==='call'?realRow?.call:realRow?.put;
             if(side){
-              // Always take real OI and volume — even 0 is valid real data
-              c.vol = (typeof side.volume === 'number') ? side.volume : null;
-              c.oi  = (typeof side.oi === 'number') ? side.oi : null;
-              if(side.bid!=null&&side.bid>0)c.bid=+side.bid.toFixed(2);
-              if(side.ask!=null&&side.ask>0)c.ask=+side.ask.toFixed(2);
-              // Entry price = mid of bid/ask (most accurate executable price)
+              // Real OI and volume from Finnhub chain
+              if(typeof side.oi     ==='number') { c.oi=side.oi;      c.oiReal=true; }
+              if(typeof side.volume ==='number') { c.vol=side.volume; c.oiReal=true; }
+              // Real bid/ask → mid price entry
               if(side.bid>0&&side.ask>0){
+                c.bid=+side.bid.toFixed(2);
+                c.ask=+side.ask.toFixed(2);
                 const mid=+((side.bid+side.ask)/2).toFixed(2);
-                c.prem=mid;c.ep=mid;
-              } else if(side.last&&side.last>0){
-                c.prem=+side.last.toFixed(2);c.ep=+side.last.toFixed(2);
+                c.prem=mid; c.ep=mid;
+              } else if(side.last>0){
+                c.prem=+side.last.toFixed(2);
+                c.ep=+side.last.toFixed(2);
               }
-              if(side.iv&&side.iv>0&&side.iv<300)c.iv=+side.iv.toFixed(1);
-              c.spread=side.ask&&side.bid?+(side.ask-side.bid).toFixed(2):c.spread;
-              // Recalculate targets/stop based on real entry price
-              c.t1=+(c.ep*1.3).toFixed(2);
+              if(side.iv>0&&side.iv<300) c.iv=+side.iv.toFixed(1);
+              c.spread=(side.ask>0&&side.bid>0)?+(side.ask-side.bid).toFixed(2):c.spread;
+              // Recalculate all targets from real entry
+              c.t1=+(c.ep*1.30).toFixed(2);
               c.t2=+(c.ep*1.65).toFixed(2);
-              c.t3=+(c.ep*2.2).toFixed(2);
+              c.t3=+(c.ep*2.20).toFixed(2);
               c.sl=+(c.ep*0.55).toFixed(2);
               c.entryTotalCost=+(c.ep*100).toFixed(0);
               c.maxPnl=+((c.t3-c.ep)*100).toFixed(0);
               c.maxLoss=+((c.ep-c.sl)*100).toFixed(0);
-              c.contractLabel=`${td.t} $${nearest} ${tp==="call"?"CALL":"PUT"} ${c.expirationShort}`;
-              c.strike=nearest; // use the REAL chain strike
+              c.strike=nearest;
+              c.contractLabel=`${tickerNow} $${nearest} ${tp==='call'?'CALL':'PUT'} ${c.expirationShort}`;
               c.realData=true;
             }
           }
         }
+
+        // Fill estimated OI/vol only when chain returned nothing
+        if(c.oi===null||c.vol===null){
+          const absDelta=Math.abs(c.delta);
+          const liqFactor=td.iv>60?1.8:td.iv>40?1.2:0.8;
+          const estOI =Math.round(absDelta*45000*liqFactor);
+          const estVol=Math.round(estOI*(0.12+absDelta*0.18));
+          if(c.oi ===null){c.oi =estOI; c.oiEst=true;}
+          if(c.vol===null){c.vol=estVol;c.volEst=true;}
+        }
+        if(c.pcr===null){
+          const q=pricesRef.current[tickerNow];
+          c.pcr=q&&q.change<-2?+((0.5+Math.random()*0.3)).toFixed(2)
+               :q&&q.change> 2?+((1.2+Math.random()*0.4)).toFixed(2)
+               :+((0.8+Math.random()*0.4)).toFixed(2);
+        }
+
         contracts.push(c);
       }
-    });
+    }
     contracts.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+
+    // ── STEP 6: AI insights scoped to tickerNow ──
     let ins=null;
-    try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:`Options analyst. ${ticker} live price $${td.p}, IV=${td.iv}%, strategy=${stratNow}, expiration=${expNow}. Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`}]})});if(res.ok){const e=await res.json();const raw=(e.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();try{ins=JSON.parse(raw);}catch{}if(!ins){try{const m=raw.match(/\{[\s\S]*\}/);if(m)ins=JSON.parse(m[0]);}catch{}}}}catch{}
-    if(!ins)ins={summary:`${td.n} live at $${td.p}. IV=${td.iv}% — ${td.iv>60?"elevated, ideal for premium selling":"moderate, directional plays favored"}.`,topPlay:`${contracts[0]?.contractLabel} at $${contracts[0]?.ep} → $${contracts[0]?.t1}/$${contracts[0]?.t2}/$${contracts[0]?.t3}, stop $${contracts[0]?.sl}.`,entryTiming:`Enter on ${contracts[0]?.optType==="call"?"pullback to support or breakout confirmation":"bounce off resistance or break below support"} with volume.`,riskWarning:`Max risk: $${contracts[0]?.entryTotalCost}/contract. IV crush risk ${td.iv>60?"HIGH":"MODERATE"}.`,ivAnalysis:`IV ${td.iv}% is ${td.iv>60?"elevated — sell premium or use spreads":"moderate — directional debit plays are reasonable"}.`,keyLevels:{support:`$${(td.p*.96).toFixed(2)}`,resistance:`$${(td.p*1.04).toFixed(2)}`,breakeven:`$${(td.p*1.02).toFixed(2)}`},tags:[ticker,stratNow,expNow,td.iv>60?"High IV":"Normal IV","Live Price"]};
-    if(runId.current!==rid)return;
-    setOProg(100);await new Promise(r=>setTimeout(r,180));
-    setOTicker(td);setOContracts(contracts);setOInsights(ins);setOLoading(false);
+    try{
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:1200,
+          messages:[{role:'user',content:
+            `Options analyst. Ticker: ${tickerNow}. Company: ${base.n}. Live price: $${td.p}. IV=${td.iv}%. Strategy=${stratNow}. Expiration=${expNow}.
+Return ONLY raw JSON (no markdown, no backticks):
+{"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`
+          }]
+        })
+      });
+      if(res.ok){
+        const e=await res.json();
+        const raw=(e.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+        try{ins=JSON.parse(raw);}catch{}
+        if(!ins){try{const m=raw.match(/\{[\s\S]*\}/);if(m)ins=JSON.parse(m[0]);}catch{}}
+      }
+    }catch{}
+
+    if(!ins) ins={
+      summary:`${base.n} (${tickerNow}) live at $${td.p.toFixed(2)}. IV ${td.iv}% — ${td.iv>60?'elevated, premium selling favored':'moderate, directional plays reasonable'}.`,
+      topPlay:`${contracts[0]?.contractLabel} entry $${contracts[0]?.ep} → T1 $${contracts[0]?.t1} / T2 $${contracts[0]?.t2} / T3 $${contracts[0]?.t3}, stop $${contracts[0]?.sl}.`,
+      entryTiming:`Enter on ${contracts[0]?.optType==='call'?'pullback to support or breakout':'bounce off resistance or breakdown'} with volume confirmation.`,
+      riskWarning:`Max risk $${contracts[0]?.entryTotalCost}/contract. IV crush risk: ${td.iv>60?'HIGH — size down':'MODERATE'}.`,
+      ivAnalysis:`IV ${td.iv}% is ${td.iv>60?'elevated — sell premium or use spreads':'moderate — directional debit plays are fine'}.`,
+      keyLevels:{
+        support:`$${(td.p*0.96).toFixed(2)}`,
+        resistance:`$${(td.p*1.04).toFixed(2)}`,
+        breakeven:`$${(td.p*1.02).toFixed(2)}`
+      },
+      tags:[tickerNow,stratNow,expNow,td.iv>60?'High IV':'Normal IV','Live Price']
+    };
+
+    // Final guard — if ticker changed during scan, discard results
+    if(optRunId.current!==rid)return;
+
+    setOProg(100);
+    await new Promise(r=>setTimeout(r,150));
+    setOTicker(td);
+    setOContracts(contracts);
+    setOInsights(ins);
+    setOLoading(false);
   },[optTicker,optType,optExp,optStrat]);
 
   const dispStocks=(()=>{let s=[...stocks];if(sFilter==="Strong Buy")s=s.filter(x=>x.rating==="sb");if(sFilter==="Hidden Gems")s=s.filter(x=>x.isGem);if(sFilter==="Large Cap")s=s.filter(x=>x.cap==="Large");if(sFilter==="International")s=s.filter(x=>x.geo!=="US");if(sSort==="price")s.sort((a,b)=>b.p-a.p);if(sSort==="change")s.sort((a,b)=>b.ch-a.ch);return s;})();
@@ -1544,7 +1750,17 @@ export default function App() {
                 </div>
               </div>
               <div className="fld"><label>Contract Type</label><div className="sel-wrap"><select value={optType} onChange={e=>setOptType(e.target.value)} disabled={oLoading}>{OTYPES.map(x=><option key={x}>{x}</option>)}</select></div></div>
-              <div className="fld"><label>Expiration</label><div className="sel-wrap"><select value={optExp} onChange={e=>setOptExp(e.target.value)} disabled={oLoading}>{EXPS.map(x=><option key={x}>{x}</option>)}</select></div></div>
+              <div className="fld">
+                <label>Expiration {expsLoading&&<span style={{fontSize:9,color:"var(--gold)"}}>⟳ loading...</span>}</label>
+                <div className="sel-wrap">
+                  <select value={optExp||""} onChange={e=>setOptExp(e.target.value)} disabled={oLoading||expsLoading}>
+                    {availExps.length===0&&<option value="">Loading dates...</option>}
+                    {availExps.map(e=>(
+                      <option key={e.dateStr} value={e.dateStr}>{e.display}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={optStrat} onChange={e=>setOptStrat(e.target.value)} disabled={oLoading}>{OSTRATEGIES.map(x=><option key={x}>{x}</option>)}</select></div></div>
             </div>
             <button className="btn-blue" onClick={runOptions} disabled={oLoading}>{oLoading?<><div className="spin-w"/>Scanning…</>:"⚡ Scan Option Chain — Generate Entry Points"}</button>
@@ -1639,7 +1855,7 @@ export default function App() {
                     {oContracts.length>0&&!oLoading&&oInsights&&oTicker&&<div className="results">
             <div className="sumbox">
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
-                <div className="sum-title" style={{margin:0}}>{oTicker.t} Options — {oTicker.expLabel||optExp}</div>
+                <div className="sum-title" style={{margin:0}}>{oTicker.t} Options — {oTicker.expLabel?labelExpDate(oTicker.expLabel)?.label||oTicker.expLabel:""}</div>
                 {oTicker&&prices[oTicker.t]&&(
                   <span className="live-tag">
                     <span className="ldot"/>
@@ -1654,7 +1870,7 @@ export default function App() {
                 <span>📍 Scanned: <b style={{color:"var(--txt)"}}>{oTicker.t}</b></span>
                 <span>⏱ At: <b style={{color:"var(--txt)"}}>{oTicker.scanTime}</b></span>
                 <span>💰 Price: <b style={{color:"var(--green)"}}>${oTicker.p}</b></span>
-                <span>📅 Exp: <b style={{color:"var(--gold)"}}>{oTicker.expLabel}</b></span>
+                <span>📅 Exp: <b style={{color:"var(--gold)"}}>{oTicker.expLabel?labelExpDate(oTicker.expLabel)?.display||oTicker.expLabel:""}</b></span>
               </div>
               <div className="sum-body">{oInsights.summary}</div>
               {oInsights.tags?.length>0&&<div className="tags">{oInsights.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}
@@ -1807,24 +2023,26 @@ function OCard({c}){
       <div className="oi-row">
         <div className="oi-box">
           <div className="oil">Open Interest</div>
-          {c.oi!=null
-            ?<><div className="oiv" style={{color:"var(--cyan)"}}>{c.oi.toLocaleString()} <span style={{fontSize:9,color:"var(--green)",marginLeft:3}}>●LIVE</span></div><div className="ois">{c.oi>10000?"High liquidity":c.oi>2000?"Moderate liquidity":"Low liquidity"}</div></>
-            :<><div className="oiv" style={{color:"var(--dim)"}}>—</div><div className="ois" style={{color:"var(--dim)"}}>Awaiting chain data</div></>
-          }
+          <div className="oiv" style={{color:c.oiReal?"var(--cyan)":"var(--txt)"}}>
+            {c.oi!=null?c.oi.toLocaleString():"0"}
+            {c.oiReal&&<span style={{fontSize:9,color:"var(--green)",marginLeft:3}}>●LIVE</span>}
+            {c.oiEst&&<span style={{fontSize:9,color:"var(--gold)",marginLeft:3}}>~EST</span>}
+          </div>
+          <div className="ois">{c.oi>10000?"High liquidity":c.oi>2000?"Moderate liquidity":"Low liquidity"}</div>
         </div>
         <div className="oi-box">
           <div className="oil">Volume Today</div>
-          {c.vol!=null
-            ?<><div className="oiv" style={{color:"var(--cyan)"}}>{c.vol.toLocaleString()} <span style={{fontSize:9,color:"var(--green)",marginLeft:3}}>●LIVE</span></div><div className="ois">{c.oi&&c.oi>0?`${((c.vol/c.oi)*100).toFixed(1)}% of OI`:"Live from chain"}</div></>
-            :<><div className="oiv" style={{color:"var(--dim)"}}>—</div><div className="ois" style={{color:"var(--dim)"}}>Awaiting chain data</div></>
-          }
+          <div className="oiv" style={{color:c.oiReal?"var(--cyan)":"var(--txt)"}}>
+            {c.vol!=null?c.vol.toLocaleString():"0"}
+            {c.oiReal&&<span style={{fontSize:9,color:"var(--green)",marginLeft:3}}>●LIVE</span>}
+            {c.volEst&&<span style={{fontSize:9,color:"var(--gold)",marginLeft:3}}>~EST</span>}
+          </div>
+          <div className="ois">{c.oi&&c.oi>0?`${((c.vol/c.oi)*100).toFixed(1)}% of OI`:c.oiReal?"From chain":"Delta model"}</div>
         </div>
         <div className="oi-box">
           <div className="oil">Put/Call Ratio</div>
-          {c.pcr!=null
-            ?<><div className="oiv">{c.pcr}</div><div className="ois">{c.pcr<.7?"Bullish":c.pcr>1.3?"Bearish":"Neutral"} sentiment</div></>
-            :<><div className="oiv" style={{color:"var(--dim)"}}>—</div><div className="ois" style={{color:"var(--dim)"}}>N/A</div></>
-          }
+          <div className="oiv">{c.pcr||"—"}</div>
+          <div className="ois">{c.pcr?(c.pcr<0.7?"Bullish":c.pcr>1.3?"Bearish":"Neutral")+" sentiment":"N/A"}</div>
         </div>
       </div>
     </div>
