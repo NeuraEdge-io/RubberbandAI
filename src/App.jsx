@@ -2,10 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 
 const FINNHUB_KEY = "d6ogvahr01qnu98i1cp0d6ogvahr01qnu98i1cpg";
 const FINNHUB_URL = "https://finnhub.io/api/v1";
-// Options chain cache — keyed by ticker, stores Finnhub chain data at scan time
-const OPT_CACHE     = {};
-const OPT_CACHE_TTL = 8 * 60 * 1000;
-const OPT_INFLIGHT  = {};
+const REFRESH_MS = 30000;
 
 /* ── STYLES ── */
 const CSS = `
@@ -355,237 +352,75 @@ tbody td{padding:11px 13px;vertical-align:middle;}
 .rsi-gauge{position:relative;height:10px;background:linear-gradient(90deg,var(--green) 0%,var(--green) 28%,var(--gold) 28%,var(--gold) 35%,var(--dim2) 35%,var(--dim2) 65%,var(--gold) 65%,var(--gold) 72%,var(--red) 72%,var(--red) 100%);border-radius:5px;margin:8px 0 4px;overflow:visible;}
 .rsi-needle{position:absolute;top:-3px;width:3px;height:16px;background:white;border-radius:2px;transform:translateX(-50%);transition:left .5s ease;box-shadow:0 0 4px rgba(0,0,0,.5);}
 .rsi-labels{display:flex;justify-content:space-between;font-size:8.5px;color:var(--dim);}
-/* ── TRADINGVIEW CHARTS ── */
-.chart-modal-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px;}
-.chart-modal{background:var(--s1);border:1px solid var(--b2);border-radius:16px;width:100%;max-width:920px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 32px 80px rgba(0,0,0,.7);}
-.chart-modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--b1);flex-shrink:0;}
-.chart-modal-hdr-left{display:flex;align-items:center;gap:10px;}
-.chart-modal-tk{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--txt);}
-.chart-modal-name{font-size:11px;color:var(--dim);margin-top:1px;}
-.chart-modal-price{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;}
-.chart-modal-close{background:rgba(255,255,255,.06);border:1px solid var(--b2);color:var(--dim);width:32px;height:32px;border-radius:8px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
-.chart-modal-close:hover{background:rgba(255,77,106,.15);color:var(--red);border-color:var(--red);}
-.chart-interval-bar{display:flex;gap:6px;padding:10px 20px;border-bottom:1px solid var(--b1);flex-shrink:0;flex-wrap:wrap;}
-.chart-int-btn{font-size:10px;font-family:'DM Mono',monospace;padding:4px 11px;border-radius:6px;border:1px solid var(--b2);background:transparent;color:var(--dim);cursor:pointer;letter-spacing:.5px;transition:all .15s;}
-.chart-int-btn:hover{color:var(--txt);border-color:var(--b2);}
-.chart-int-btn.active{background:rgba(0,232,122,.12);border-color:rgba(0,232,122,.4);color:var(--green);}
-.chart-frame-wrap{flex:1;min-height:420px;background:#000;}
-.chart-frame-wrap iframe{width:100%;height:100%;border:none;display:block;}
-/* Inline chart panel in options tab */
-.opt-chart-panel{background:var(--s1);border:1px solid var(--b1);border-radius:13px;overflow:hidden;margin-bottom:18px;}
-.opt-chart-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--b1);flex-wrap:wrap;gap:8px;}
-.opt-chart-title{font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:var(--txt);display:flex;align-items:center;gap:8px;}
-.opt-chart-intervals{display:flex;gap:5px;}
-.opt-chart-body{height:380px;background:#000;}
-.opt-chart-body iframe{width:100%;height:100%;border:none;display:block;}
-/* Sparkline click hint */
-.tkr-chart-btn{font-size:8.5px;color:var(--blue);opacity:.7;cursor:pointer;margin-top:3px;letter-spacing:.4px;transition:opacity .15s;}
-.tkr-chart-btn:hover{opacity:1;}
-
 `;
 
 /* ── UNIVERSE ── */
 const UNIVERSE_BASE = [
-  // ── Mega Cap Tech ──
   {t:"NVDA",n:"NVIDIA Corp",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"AAPL",n:"Apple Inc",sec:"Technology",cap:"Large",geo:"US"},
   {t:"MSFT",n:"Microsoft Corp",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"AMZN",n:"Amazon.com",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"AAPL",n:"Apple Inc",sec:"Technology",cap:"Large",geo:"US"},
   {t:"GOOGL",n:"Alphabet Inc",sec:"Technology",cap:"Large",geo:"US"},
   {t:"META",n:"Meta Platforms",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"TSLA",n:"Tesla Inc",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
-  {t:"AMD",n:"AMD",sec:"Semiconductors",cap:"Large",geo:"US"},
   {t:"AVGO",n:"Broadcom Inc",sec:"Semiconductors",cap:"Large",geo:"US"},
   {t:"ORCL",n:"Oracle Corp",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"INTC",n:"Intel Corp",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"QCOM",n:"Qualcomm",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"MU",n:"Micron Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"NFLX",n:"Netflix",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"UBER",n:"Uber Technologies",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"MRVL",n:"Marvell Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
-  {t:"TSM",n:"Taiwan Semiconductor",sec:"Semiconductors",cap:"Large",geo:"Asia Pacific"},
-  {t:"ASML",n:"ASML Holding",sec:"Semiconductors",cap:"Large",geo:"Europe"},
-  // ── Enterprise SaaS ──
   {t:"CRM",n:"Salesforce",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"NOW",n:"ServiceNow",sec:"Technology",cap:"Large",geo:"US"},
   {t:"ADBE",n:"Adobe Inc",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"INTU",n:"Intuit Inc",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"HUBS",n:"HubSpot Inc",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"WDAY",n:"Workday",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"VEEV",n:"Veeva Systems",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"TEAM",n:"Atlassian",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"MDB",n:"MongoDB",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"ESTC",n:"Elastic NV",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"CFLT",n:"Confluent",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"NOW",n:"ServiceNow",sec:"Technology",cap:"Large",geo:"US"},
   {t:"DDOG",n:"Datadog Inc",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"SNOW",n:"Snowflake",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"HUBS",n:"HubSpot Inc",sec:"Technology",cap:"Mid",geo:"US"},
   {t:"MNDY",n:"Monday.com",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"ZBRA",n:"Zebra Technologies",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"TEL",n:"TE Connectivity",sec:"Technology",cap:"Large",geo:"US"},
-  // ── AI / Cybersecurity / Cloud ──
-  {t:"PLTR",n:"Palantir Tech",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"APP",n:"Applovin Corp",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"CRWD",n:"CrowdStrike",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"NET",n:"Cloudflare",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"ZS",n:"Zscaler",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"OKTA",n:"Okta Inc",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"S",n:"SentinelOne",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"PATH",n:"UiPath",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"GTLB",n:"GitLab",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"SMCI",n:"Super Micro Computer",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"CRWV",n:"CoreWeave Inc",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"IONQ",n:"IonQ Inc",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"SOUN",n:"SoundHound AI",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"SERV",n:"Serve Robotics",sec:"Technology",cap:"Micro",geo:"US"},
-  {t:"NBIS",n:"Nebius Group",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"AI",n:"C3.ai",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"BBAI",n:"BigBear.ai",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"RGTI",n:"Rigetti Computing",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"QBTS",n:"D-Wave Quantum",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"ARQQ",n:"Arqit Quantum",sec:"Technology",cap:"Micro",geo:"US"},
-  {t:"QUBT",n:"Quantum Computing Inc",sec:"Technology",cap:"Micro",geo:"US"},
-  {t:"TEM",n:"Tempus AI Inc",sec:"Healthcare",cap:"Mid",geo:"US"},
-  // ── Fintech / Finance ──
-  {t:"V",n:"Visa Inc",sec:"Fintech",cap:"Large",geo:"US"},
-  {t:"MA",n:"Mastercard",sec:"Fintech",cap:"Large",geo:"US"},
-  {t:"PYPL",n:"PayPal",sec:"Fintech",cap:"Large",geo:"US"},
-  {t:"COIN",n:"Coinbase Global",sec:"Fintech",cap:"Large",geo:"US"},
-  {t:"SQ",n:"Block Inc",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"AFRM",n:"Affirm Holdings",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"UPST",n:"Upstart Holdings",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"SOFI",n:"SoFi Technologies",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"NU",n:"Nu Holdings",sec:"Fintech",cap:"Large",geo:"Latin America"},
   {t:"TOST",n:"Toast Inc",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"BILL",n:"Bill.com",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"RELY",n:"Remitly Global",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"AFRM",n:"Affirm Holdings",sec:"Fintech",cap:"Mid",geo:"US"},
   {t:"ALKT",n:"Alkami Technology",sec:"Fintech",cap:"Small",geo:"US"},
-  {t:"DAVE",n:"Dave Inc",sec:"Fintech",cap:"Small",geo:"US"},
-  {t:"ADYEY",n:"Adyen",sec:"Fintech",cap:"Large",geo:"Europe"},
-  {t:"JPM",n:"JPMorgan Chase",sec:"Financials",cap:"Large",geo:"US"},
-  {t:"BAC",n:"Bank of America",sec:"Financials",cap:"Large",geo:"US"},
-  {t:"GS",n:"Goldman Sachs",sec:"Financials",cap:"Large",geo:"US"},
-  // ── Healthcare / Biotech ──
+  {t:"PRCT",n:"PROCEPT BioRobotics",sec:"Healthcare",cap:"Small",geo:"US"},
+  {t:"AXSM",n:"Axsome Therapeutics",sec:"Biotech",cap:"Small",geo:"US"},
+  {t:"NUVL",n:"Nuvalent Inc",sec:"Biotech",cap:"Mid",geo:"US"},
   {t:"LLY",n:"Eli Lilly",sec:"Healthcare",cap:"Large",geo:"US"},
   {t:"UNH",n:"UnitedHealth",sec:"Healthcare",cap:"Large",geo:"US"},
   {t:"ISRG",n:"Intuitive Surgical",sec:"Healthcare",cap:"Large",geo:"US"},
   {t:"DXCM",n:"Dexcom",sec:"Healthcare",cap:"Large",geo:"US"},
-  {t:"SYK",n:"Stryker Corp",sec:"Healthcare",cap:"Large",geo:"US"},
-  {t:"NVO",n:"Novo Nordisk",sec:"Healthcare",cap:"Large",geo:"Europe"},
-  {t:"VRTX",n:"Vertex Pharma",sec:"Biotech",cap:"Large",geo:"US"},
-  {t:"REGN",n:"Regeneron",sec:"Biotech",cap:"Large",geo:"US"},
-  {t:"BIIB",n:"Biogen",sec:"Biotech",cap:"Large",geo:"US"},
-  {t:"GILD",n:"Gilead Sciences",sec:"Biotech",cap:"Large",geo:"US"},
-  {t:"MRNA",n:"Moderna",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"BNTX",n:"BioNTech",sec:"Biotech",cap:"Mid",geo:"Europe"},
-  {t:"ALNY",n:"Alnylam Pharma",sec:"Biotech",cap:"Large",geo:"US"},
-  {t:"NUVL",n:"Nuvalent Inc",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"AXSM",n:"Axsome Therapeutics",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"NTRA",n:"Natera Inc",sec:"Healthcare",cap:"Mid",geo:"US"},
-  {t:"BEAM",n:"Beam Therapeutics",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"CRSP",n:"CRISPR Therapeutics",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"PRCT",n:"PROCEPT BioRobotics",sec:"Healthcare",cap:"Small",geo:"US"},
-  {t:"RXST",n:"RxSight Inc",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"INSM",n:"Insmed",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"KRYS",n:"Krystal Biotech",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"ACAD",n:"ACADIA Pharma",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"NVAX",n:"Novavax",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"SAVA",n:"Cassava Sciences",sec:"Biotech",cap:"Small",geo:"US"},
-  {t:"MGNX",n:"MacroGenics",sec:"Biotech",cap:"Small",geo:"US"},
-  // ── Consumer / Retail ──
-  {t:"SHOP",n:"Shopify Inc",sec:"Technology",cap:"Large",geo:"Canada"},
-  {t:"MELI",n:"MercadoLibre",sec:"Technology",cap:"Large",geo:"Latin America"},
-  {t:"ONON",n:"On Holding AG",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"CELH",n:"Celsius Holdings",sec:"Consumer Staples",cap:"Mid",geo:"US"},
-  {t:"BIRK",n:"Birkenstock",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"VITL",n:"Vital Farms",sec:"Consumer Staples",cap:"Small",geo:"US"},
-  {t:"SPOT",n:"Spotify Technology",sec:"Technology",cap:"Large",geo:"Europe"},
-  {t:"NTR",n:"Nutrien Ltd",sec:"Materials",cap:"Large",geo:"Canada"},
-  {t:"SNAP",n:"Snap Inc",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"PINS",n:"Pinterest",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"RBLX",n:"Roblox Corp",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"U",n:"Unity Software",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"TTWO",n:"Take-Two Interactive",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"EA",n:"Electronic Arts",sec:"Technology",cap:"Large",geo:"US"},
-  {t:"ABNB",n:"Airbnb",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
-  {t:"LYFT",n:"Lyft Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"DASH",n:"DoorDash",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
-  {t:"ETSY",n:"Etsy Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"W",n:"Wayfair",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"HIMS",n:"Hims & Hers Health",sec:"Healthcare",cap:"Mid",geo:"US"},
-  // ── EV / Clean Energy ──
-  {t:"ENPH",n:"Enphase Energy",sec:"Clean Energy",cap:"Mid",geo:"US"},
-  {t:"FSLR",n:"First Solar",sec:"Clean Energy",cap:"Mid",geo:"US"},
-  {t:"NEE",n:"NextEra Energy",sec:"Utilities",cap:"Large",geo:"US"},
-  {t:"CEG",n:"Constellation Energy",sec:"Utilities",cap:"Large",geo:"US"},
-  {t:"NEP",n:"NextEra Energy Partners",sec:"Utilities",cap:"Mid",geo:"US"},
-  {t:"RIVN",n:"Rivian Automotive",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
-  {t:"LCID",n:"Lucid Group",sec:"Consumer Discretionary",cap:"Small",geo:"US"},
-  {t:"NIO",n:"NIO Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"Asia Pacific"},
-  {t:"XPEV",n:"XPeng Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"Asia Pacific"},
-  {t:"LI",n:"Li Auto",sec:"Consumer Discretionary",cap:"Mid",geo:"Asia Pacific"},
-  {t:"ARRY",n:"Array Technologies",sec:"Clean Energy",cap:"Small",geo:"US"},
-  {t:"STEM",n:"Stem Inc",sec:"Clean Energy",cap:"Small",geo:"US"},
-  // ── Defense / Industrial ──
-  {t:"GE",n:"GE Aerospace",sec:"Industrials",cap:"Large",geo:"US"},
-  {t:"KTOS",n:"Kratos Defense",sec:"Defense",cap:"Small",geo:"US"},
-  {t:"RTX",n:"RTX Corp",sec:"Defense",cap:"Large",geo:"US"},
-  {t:"LMT",n:"Lockheed Martin",sec:"Defense",cap:"Large",geo:"US"},
-  {t:"NOC",n:"Northrop Grumman",sec:"Defense",cap:"Large",geo:"US"},
-  {t:"BA",n:"Boeing",sec:"Industrials",cap:"Large",geo:"US"},
-  {t:"HII",n:"Huntington Ingalls",sec:"Defense",cap:"Large",geo:"US"},
-  {t:"TDG",n:"TransDigm Group",sec:"Industrials",cap:"Large",geo:"US"},
-  {t:"RKLB",n:"Rocket Lab USA",sec:"eVTOL",cap:"Small",geo:"US"},
-  {t:"ASTS",n:"AST SpaceMobile",sec:"eVTOL",cap:"Small",geo:"US"},
-  {t:"LUNR",n:"Intuitive Machines",sec:"eVTOL",cap:"Small",geo:"US"},
-  {t:"RDW",n:"Redwire Corp",sec:"Industrials",cap:"Small",geo:"US"},
-  // ── Mining / Materials ──
-  {t:"FCX",n:"Freeport-McMoRan",sec:"Mining",cap:"Large",geo:"US"},
-  {t:"MP",n:"MP Materials",sec:"Mining",cap:"Small",geo:"US"},
+  {t:"JPM",n:"JPMorgan Chase",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"BAC",n:"Bank of America",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"GS",n:"Goldman Sachs",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"V",n:"Visa Inc",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"COIN",n:"Coinbase Global",sec:"Fintech",cap:"Mid",geo:"US"},
   {t:"XOM",n:"Exxon Mobil",sec:"Energy",cap:"Large",geo:"US"},
   {t:"CVX",n:"Chevron Corp",sec:"Energy",cap:"Large",geo:"US"},
-  // ── China / International ──
-  {t:"BABA",n:"Alibaba Group",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
-  {t:"JD",n:"JD.com",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
-  {t:"PDD",n:"PDD Holdings",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
-  {t:"BIDU",n:"Baidu Inc",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
-  // ── High Vol / Momentum ──
-  {t:"MSTR",n:"MicroStrategy",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"HOOD",n:"Robinhood Markets",sec:"Fintech",cap:"Mid",geo:"US"},
-  {t:"GME",n:"GameStop",sec:"Consumer Discretionary",cap:"Small",geo:"US"},
+  {t:"FSLR",n:"First Solar",sec:"Clean Energy",cap:"Mid",geo:"US"},
+  {t:"ENPH",n:"Enphase Energy",sec:"Clean Energy",cap:"Mid",geo:"US"},
+  {t:"GE",n:"GE Aerospace",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"KTOS",n:"Kratos Defense",sec:"Defense",cap:"Small",geo:"US"},
+  {t:"RKLB",n:"Rocket Lab USA",sec:"Industrials",cap:"Small",geo:"US"},
+  {t:"AMZN",n:"Amazon.com",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"TSLA",n:"Tesla Inc",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"ONON",n:"On Holding AG",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"CELH",n:"Celsius Holdings",sec:"Consumer Staples",cap:"Mid",geo:"US"},
+  {t:"NEE",n:"NextEra Energy",sec:"Utilities",cap:"Large",geo:"US"},
+  {t:"PLTR",n:"Palantir Tech",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"IONQ",n:"IonQ Inc",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"NVO",n:"Novo Nordisk",sec:"Healthcare",cap:"Large",geo:"Europe"},
+  {t:"ASML",n:"ASML Holding",sec:"Semiconductors",cap:"Large",geo:"Europe"},
+  {t:"SHOP",n:"Shopify Inc",sec:"Technology",cap:"Large",geo:"Canada"},
+  {t:"MELI",n:"MercadoLibre",sec:"Technology",cap:"Large",geo:"Latin America"},
+  {t:"NU",n:"Nu Holdings",sec:"Fintech",cap:"Large",geo:"Latin America"},
+  {t:"NTRA",n:"Natera Inc",sec:"Healthcare",cap:"Mid",geo:"US"},
+  {t:"BEAM",n:"Beam Therapeutics",sec:"Biotech",cap:"Small",geo:"US"},
   {t:"RDDT",n:"Reddit Inc",sec:"Technology",cap:"Mid",geo:"US"},
-  {t:"RXRX",n:"Recursion Pharma",sec:"Biotech",cap:"Mid",geo:"US"},
-  {t:"IREN",n:"Iris Energy Ltd",sec:"Technology",cap:"Small",geo:"International"},
-  {t:"MARA",n:"MARA Holdings",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"RIOT",n:"Riot Platforms",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"CLSK",n:"CleanSpark",sec:"Clean Energy",cap:"Small",geo:"US"},
-  {t:"HUT",n:"Hut 8 Corp",sec:"Technology",cap:"Small",geo:"Canada"},
-  {t:"CIFR",n:"Cipher Mining",sec:"Technology",cap:"Micro",geo:"US"},
-  {t:"OPEN",n:"Opendoor Technologies",sec:"Technology",cap:"Small",geo:"US"},
-  {t:"WOLF",n:"Wolfspeed",sec:"Semiconductors",cap:"Small",geo:"US"},
-  {t:"PLUG",n:"Plug Power",sec:"Clean Energy",cap:"Small",geo:"US"},
-  {t:"CHPT",n:"ChargePoint Holdings",sec:"Clean Energy",cap:"Small",geo:"US"},
-  {t:"BLNK",n:"Blink Charging",sec:"Clean Energy",cap:"Micro",geo:"US"},
-  // ── eVTOL / Space ──
-  {t:"ACHR",n:"Archer Aviation",sec:"eVTOL",cap:"Small",geo:"US"},
-  {t:"JOBY",n:"Joby Aviation",sec:"eVTOL",cap:"Small",geo:"US"},
-  {t:"BETA",n:"Beta Technologies",sec:"eVTOL",cap:"Small",geo:"US"},
-  // ── ETFs ──
-  {t:"SPY",n:"S&P 500 ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"QQQ",n:"Nasdaq 100 ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"IWM",n:"Russell 2000 ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"GLD",n:"Gold ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"TLT",n:"20yr Treasury ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"XLF",n:"Financial Select ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"XLE",n:"Energy Select ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"ARKK",n:"ARK Innovation ETF",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"SQQQ",n:"ProShares UltraPro Short QQQ",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"TQQQ",n:"ProShares UltraPro QQQ",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"SPXL",n:"Direxion S&P 500 Bull 3X",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"SPXS",n:"Direxion S&P 500 Bear 3X",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"BITO",n:"ProShares Bitcoin ETF",sec:"ETF",cap:"Mid",geo:"US"},
-  {t:"IBIT",n:"iShares Bitcoin Trust",sec:"ETF",cap:"Large",geo:"US"},
-  {t:"KWEB",n:"China Internet ETF",sec:"ETF",cap:"Mid",geo:"US"},
-  {t:"FXI",n:"China Large-Cap ETF",sec:"ETF",cap:"Mid",geo:"US"},
+  {t:"FCX",n:"Freeport-McMoRan",sec:"Mining",cap:"Large",geo:"US"},
+  {t:"MP",n:"MP Materials",sec:"Mining",cap:"Small",geo:"US"},
+  {t:"SOUN",n:"SoundHound AI",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"SERV",n:"Serve Robotics",sec:"Technology",cap:"Micro",geo:"US"},
+  {t:"BIRK",n:"Birkenstock",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"VITL",n:"Vital Farms",sec:"Consumer Staples",cap:"Small",geo:"US"},
+  {t:"AMD",n:"AMD",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"APP",n:"Applovin Corp",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"INTU",n:"Intuit Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"MU",n:"Micron Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"SYK",n:"Stryker Corp",sec:"Healthcare",cap:"Large",geo:"US"},
+  {t:"CRWV",n:"CoreWeave Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"MRVL",n:"Marvell Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"TSM",n:"Taiwan Semiconductor",sec:"Semiconductors",cap:"Large",geo:"Asia Pacific"},
+  {t:"CEG",n:"Constellation Energy",sec:"Utilities",cap:"Large",geo:"US"},
 ];
 
 const OPT_BASE = [
@@ -787,235 +622,149 @@ const OPT_BASE = [
   {t:"CRWV",n:"CoreWeave Inc",iv:88,cat:"AI"},
   {t:"MRVL",n:"Marvell Technology",iv:52,cat:"Mega Cap"},
   {t:"CEG",n:"Constellation Energy",iv:42,cat:"EV/Energy"},
-  {t:"TEM",n:"Tempus AI Inc",iv:78,cat:"AI"},
-  {t:"CRSP",n:"CRISPR Therapeutics",iv:82,cat:"Biotech"},
-  {t:"IREN",n:"Iris Energy Ltd",iv:95,cat:"High Vol"},
-  {t:"BETA",n:"Beta Technologies",iv:70,cat:"eVTOL"},
-  {t:"TEL",n:"TE Connectivity",iv:26,cat:"Enterprise"},
-  {t:"SPOT",n:"Spotify Technology",iv:42,cat:"Consumer"},
-  {t:"NTR",n:"Nutrien Ltd",iv:28,cat:"Consumer"},
-  {t:"ZBRA",n:"Zebra Technologies",iv:34,cat:"Enterprise"},
 ];
 
 /* ── FINNHUB ── */
 async function fetchQuote(ticker) {
   try {
-    const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 10000);
-    const r = await fetch(
-      `${FINNHUB_URL}/quote?symbol=${ticker}&token=${FINNHUB_KEY}`,
-      { signal: ctrl.signal }
-    );
-    clearTimeout(timer);
+    const r = await fetch(`${FINNHUB_URL}/quote?symbol=${ticker}&token=${FINNHUB_KEY}`);
     if (!r.ok) return null;
     const d = await r.json();
-    if (d && d.c && d.c > 0) {
-      return {
-        price:       +d.c.toFixed(2),
-        change:      +d.dp.toFixed(2),
-        high:        +d.h.toFixed(2),
-        low:         +d.l.toFixed(2),
-        prevClose:   +d.pc.toFixed(2),
-        open:        +d.o.toFixed(2),
-        volume:      d.v || 0,
-        source:      'finnhub',
-        dollarChange:+(d.c - d.pc).toFixed(2),
-      };
-    }
-  } catch {}
-  return null;
+    if (!d || !d.c || d.c === 0) return null;
+    return {
+      price: +d.c.toFixed(2),
+      change: +d.dp.toFixed(2),
+      high: +d.h.toFixed(2),
+      low: +d.l.toFixed(2),
+      prevClose: +d.pc.toFixed(2),
+      open: +d.o.toFixed(2),
+      volume: d.v || 0, // real daily volume from Finnhub
+    };
+  } catch { return null; }
 }
 
-// ══════════════════════════════════════════════════════════
-// EXPIRATION DATE GENERATOR — pure JS, instant, no network call
-// Generates every real option expiration for next 730 days:
-//   • Every Friday = weekly expiration
-//   • 3rd Friday of each month = standard monthly (labeled separately)  
-//   • Jan expirations 1-2 years out = LEAPS
-// This is how OCC actually schedules expirations.
-// ══════════════════════════════════════════════════════════
-function generateExpirationDates() {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const seen   = new Set();
-  const result = [];
+// ── YAHOO FINANCE OPTION CHAIN ──
+// No API key required. Uses corsproxy.io for CORS bypass.
+// Returns real OI, volume, bid/ask, IV per strike for the matched expiration.
+const YF_PROXY = "https://corsproxy.io/?";
 
-  const makeEntry = (dateObj) => {
-    const dte = Math.round((dateObj.getTime() - today.getTime()) / 86400000);
-    if (dte < 0) return null;
-    const mon  = MONTHS[dateObj.getMonth()];
-    const day  = dateObj.getDate();
-    const year = dateObj.getFullYear();
-    const dow  = DAYS[dateObj.getDay()];
-    const mm   = String(dateObj.getMonth()+1).padStart(2,'0');
-    const dd   = String(day).padStart(2,'0');
-    const dateStr = `${year}-${mm}-${dd}`;
-    if (seen.has(dateStr)) return null;
-    seen.add(dateStr);
-    const weekNum       = Math.ceil(day / 7);
-    const isFriday      = dateObj.getDay() === 5;
-    const isThirdFriday = isFriday && weekNum === 3;
-    let kind;
-    if      (dte === 0)  kind = '0 DTE';
-    else if (dte === 1)  kind = '1 DTE';
-    else if (dte === 2)  kind = '2 DTE';
-    else if (dte === 3)  kind = '3 DTE';
-    else if (dte === 4)  kind = '4 DTE';
-    else if (dte === 5)  kind = '5 DTE';
-    else if (dte === 6)  kind = '6 DTE';
-    else if (dte <= 13)  kind = 'Weekly';
-    else if (dte <= 37)  kind = isThirdFriday ? 'Monthly'   : 'Weekly';
-    else if (dte <= 100) kind = isThirdFriday ? 'Monthly'   : 'Weekly';
-    else if (dte <= 200) kind = isThirdFriday ? 'Quarterly' : 'Weekly';
-    else                 kind = `LEAPS ${year}`;
-    const display = dte <= 6
-      ? `${dow} ${mon} ${day}  ·  ${dte} DTE`
-      : `${mon} ${day}, ${year}  ·  ${dte}d  ·  ${kind}`;
-    return { dateStr, label:`${mon} ${day}, ${year}`, short:`${mon} ${day}`,
-             full:`${dow} ${mon} ${day}, ${year}`, dte, kind, year, display };
-  };
-
-  // ── Tier 1: Walk forward day-by-day until we have 7 weekday entries (0–6 DTE) ──
-  // Scans up to 14 calendar days to handle long weekends / holidays.
-  // Guarantees 1 DTE and 2 DTE are ALWAYS present.
-  let weekdayCount = 0;
-  for (let offset = 0; offset <= 14 && weekdayCount < 7; offset++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + offset);
-    const dow = d.getDay();
-    if (dow === 0 || dow === 6) continue; // skip Sat/Sun
-    const entry = makeEntry(d);
-    if (entry) { result.push(entry); weekdayCount++; }
-  }
-
-  // ── Tier 2: Every Friday for the next 730 days (weeklies, monthlies, LEAPS) ──
-  const fri = new Date(today);
-  // Advance to first Friday
-  while (fri.getDay() !== 5) fri.setDate(fri.getDate() + 1);
-  const end = new Date(today); end.setDate(today.getDate() + 730);
-  while (fri <= end) {
-    const entry = makeEntry(new Date(fri));
-    if (entry) result.push(entry);
-    fri.setDate(fri.getDate() + 7);
-  }
-
-  // Sort by DTE so dropdown reads 0 DTE → LEAPS chronologically
-  result.sort((a, b) => a.dte - b.dte);
-  return result;
-}
-// Computed at module load — always fresh because generateExpirationDates()
-// is pure JS with no external deps, runs in <1ms.
-const ALL_EXPIRATIONS = generateExpirationDates();
-
-// ── FINNHUB OPTION CHAIN (scan time only) ──
-// Called once when user hits Scan — uses Finnhub for real OI/volume/bid/ask
-async function loadFinnhubChain(ticker) {
-  // Check cache first
-  const cached = OPT_CACHE[ticker];
-  if (cached && (Date.now() - cached.ts) < OPT_CACHE_TTL) return cached;
-  if (OPT_INFLIGHT[ticker]) return OPT_INFLIGHT[ticker];
-
-  OPT_INFLIGHT[ticker] = (async () => {
-    try {
-      // Finnhub option chain — real OI, volume, bid/ask per strike
-      const url = `${FINNHUB_URL}/stock/option-chain?symbol=${ticker}&token=${FINNHUB_KEY}`;
-      const ctrl=new AbortController();
-      const t=setTimeout(()=>ctrl.abort(),12000);
-      const r = await fetch(url,{signal:ctrl.signal});
-      clearTimeout(t);
-      if (!r.ok) return null;
-      const d = await r.json();
-      if (!d || !Array.isArray(d.data) || !d.data.length) return null;
-
-      // Build chain maps keyed by expiration date string
-      const chains = {};
-      const expDates = [];
-      d.data.forEach(exp => {
-        const expDate = exp.expirationDate;
-        if (!expDate) return;
-        expDates.push(expDate);
-        chains[expDate] = {};
-        const calls = exp.options?.CALL || [];
-        const puts  = exp.options?.PUT  || [];
-        calls.forEach(c => {
-          const k = +c.strike; if (!k || isNaN(k)) return;
-          if (!chains[expDate][k]) chains[expDate][k] = {};
-          chains[expDate][k].call = {
-            iv:     c.impliedVolatility > 0 ? +(c.impliedVolatility * 100).toFixed(1) : null,
-            volume: typeof c.volume       === 'number' ? c.volume       : null,
-            oi:     typeof c.openInterest === 'number' ? c.openInterest : null,
-            bid:    c.bid > 0       ? +c.bid.toFixed(2)       : null,
-            ask:    c.ask > 0       ? +c.ask.toFixed(2)       : null,
-            last:   c.lastPrice > 0 ? +c.lastPrice.toFixed(2) : null,
-          };
-        });
-        puts.forEach(p => {
-          const k = +p.strike; if (!k || isNaN(k)) return;
-          if (!chains[expDate][k]) chains[expDate][k] = {};
-          chains[expDate][k].put = {
-            iv:     p.impliedVolatility > 0 ? +(p.impliedVolatility * 100).toFixed(1) : null,
-            volume: typeof p.volume       === 'number' ? p.volume       : null,
-            oi:     typeof p.openInterest === 'number' ? p.openInterest : null,
-            bid:    p.bid > 0       ? +p.bid.toFixed(2)       : null,
-            ask:    p.ask > 0       ? +p.ask.toFixed(2)       : null,
-            last:   p.lastPrice > 0 ? +p.lastPrice.toFixed(2) : null,
-          };
-        });
-      });
-
-      // ATM IV from nearest expiration
-      const nearExpData = d.data[0];
-      const allContracts = [...(nearExpData?.options?.CALL||[]), ...(nearExpData?.options?.PUT||[])];
-      const ivs = allContracts.map(c => c.impliedVolatility).filter(v => v > 0.01 && v < 5);
-      const iv  = ivs.length ? Math.round(ivs.reduce((a,b)=>a+b,0)/ivs.length*100) : null;
-
-      const result = { ts: Date.now(), dates: expDates.sort(), chains, iv };
-      OPT_CACHE[ticker] = result;
-      return result;
-    } catch(e) { console.warn('Chain fetch error:', ticker, e?.message); return null; }
-    finally { delete OPT_INFLIGHT[ticker]; }
-  })();
-  return OPT_INFLIGHT[ticker];
+function yfUrl(url) {
+  return YF_PROXY + encodeURIComponent(url);
 }
 
-async function fetchOptionChainData(ticker, targetDateStr) {
-  // targetDateStr must be "YYYY-MM-DD" — the format Finnhub uses
-  const data = await loadFinnhubChain(ticker);
-  if (!data || !data.dates || !data.dates.length) return null;
+// Fetch all available expirations for a ticker from Yahoo Finance
+async function fetchYFExpirations(ticker) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v7/finance/options/${ticker}`;
+    const r = await fetch(yfUrl(url), {headers:{"Accept":"application/json"}});
+    if (!r.ok) return null;
+    const d = await r.json();
+    const result = d?.optionChain?.result?.[0];
+    if (!result) return null;
+    return result.expirationDates || []; // array of unix timestamps
+  } catch { return null; }
+}
 
-  // 1. Exact match on YYYY-MM-DD string
-  let bestExp = data.dates.find(d => d === targetDateStr);
+// Fetch option chain from Yahoo Finance for a specific expiration timestamp
+async function fetchYFChain(ticker, expTimestamp) {
+  try {
+    const base = `https://query1.finance.yahoo.com/v7/finance/options/${ticker}`;
+    const url  = expTimestamp ? `${base}?date=${expTimestamp}` : base;
+    const r = await fetch(yfUrl(url), {headers:{"Accept":"application/json"}});
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d?.optionChain?.result?.[0] || null;
+  } catch { return null; }
+}
 
-  // 2. Closest by calendar distance (handles slight mismatches)
-  if (!bestExp && targetDateStr) {
-    const targetMs = new Date(targetDateStr + 'T00:00:00').getTime();
-    if (!isNaN(targetMs)) {
+// Main chain fetch — matches target expiration date, returns strike map with real OI/vol
+async function fetchOptionChainData(ticker, targetExpDate) {
+  try {
+    // Step 1: get available expirations
+    const expirations = await fetchYFExpirations(ticker);
+    if (!expirations || !expirations.length) return null;
+
+    // Step 2: find the closest expiration to our target date
+    const targetMs = targetExpDate ? new Date(targetExpDate).getTime() : null;
+    let bestTs = expirations[0];
+    if (targetMs) {
       let bestDiff = Infinity;
-      data.dates.forEach(exp => {
-        const ms = new Date(exp + 'T00:00:00').getTime();
-        const diff = Math.abs(ms - targetMs);
-        if (diff < bestDiff) { bestDiff = diff; bestExp = exp; }
+      expirations.forEach(ts => {
+        const diff = Math.abs(ts * 1000 - targetMs);
+        if (diff < bestDiff) { bestDiff = diff; bestTs = ts; }
       });
     }
-  }
 
-  // 3. Fall back to nearest expiration
-  if (!bestExp) bestExp = data.dates[0];
-  if (!bestExp) return null;
+    // Step 3: fetch the chain for that specific expiration
+    const result = await fetchYFChain(ticker, bestTs);
+    if (!result) return null;
 
-  const chainMap = { ...(data.chains[bestExp] || {}), _expDate: bestExp };
-  return Object.keys(chainMap).filter(k => k !== '_expDate').length > 0 ? chainMap : null;
+    const calls = result.options?.[0]?.calls || [];
+    const puts  = result.options?.[0]?.puts  || [];
+    const underlyingPrice = result.quote?.regularMarketPrice || null;
+
+    // Step 4: build strike map
+    const chainMap = {};
+    calls.forEach(c => {
+      const k = +c.strike;
+      if (!chainMap[k]) chainMap[k] = {};
+      chainMap[k].call = {
+        iv:     c.impliedVolatility != null ? +(c.impliedVolatility * 100).toFixed(1) : null,
+        volume: typeof c.volume      === 'number' ? c.volume      : null,
+        oi:     typeof c.openInterest=== 'number' ? c.openInterest: null,
+        bid:    c.bid  > 0 ? +c.bid.toFixed(2)  : null,
+        ask:    c.ask  > 0 ? +c.ask.toFixed(2)  : null,
+        last:   c.lastPrice > 0 ? +c.lastPrice.toFixed(2) : null,
+      };
+    });
+    puts.forEach(p => {
+      const k = +p.strike;
+      if (!chainMap[k]) chainMap[k] = {};
+      chainMap[k].put = {
+        iv:     p.impliedVolatility != null ? +(p.impliedVolatility * 100).toFixed(1) : null,
+        volume: typeof p.volume      === 'number' ? p.volume      : null,
+        oi:     typeof p.openInterest=== 'number' ? p.openInterest: null,
+        bid:    p.bid  > 0 ? +p.bid.toFixed(2)  : null,
+        ask:    p.ask  > 0 ? +p.ask.toFixed(2)  : null,
+        last:   p.lastPrice > 0 ? +p.lastPrice.toFixed(2) : null,
+      };
+    });
+
+    chainMap._expDate     = new Date(bestTs * 1000).toISOString().split('T')[0];
+    chainMap._underlying  = underlyingPrice;
+    return chainMap;
+  } catch { return null; }
 }
 
+// Fetch live IV from Yahoo Finance option chain (ATM average)
 async function fetchLiveIV(ticker) {
-  const data = await loadFinnhubChain(ticker);
-  return data?.iv || null;
+  try {
+    const result = await fetchYFChain(ticker, null);
+    if (!result) return null;
+    const calls = result.options?.[0]?.calls || [];
+    const puts  = result.options?.[0]?.puts  || [];
+    const price = result.quote?.regularMarketPrice || 0;
+    // Use near-ATM contracts for IV average
+    const all   = [...calls, ...puts].filter(o =>
+      o.impliedVolatility > 0 &&
+      o.impliedVolatility < 5 &&
+      Math.abs(o.strike - price) / price < 0.10 // within 10% of current price
+    );
+    if (!all.length) return null;
+    const avg = all.reduce((s,o) => s + o.impliedVolatility, 0) / all.length;
+    return Math.round(avg * 100);
+  } catch { return null; }
 }
 
-// Instant — reads from pre-computed ALL_EXPIRATIONS, no network
-function fetchExpirationDates() {
-  return ALL_EXPIRATIONS;
+async function batchFetch(tickers, onProgress) {
+  const out = {};
+  for (let i = 0; i < tickers.length; i++) {
+    const q = await fetchQuote(tickers[i]);
+    if (q) out[tickers[i]] = q;
+    if (onProgress) onProgress(i + 1, tickers.length);
+    if (i < tickers.length - 1) await new Promise(r => setTimeout(r, 230));
+  }
+  return out;
 }
 
 function fmtCap(price, t) {
@@ -1314,26 +1063,12 @@ function strikeIncrement(price) {
 function snapToGrid(price, incr) {
   return Math.round(price / incr) * incr;
 }
-function genContract(ticker,price,iv,optType,expDateStr,idx){
+function genContract(ticker,price,iv,optType,expLabel,idx){
   const isCall=optType==="call";
-  // expDateStr is a real "YYYY-MM-DD" string — compute DTE directly
-  const today=new Date(); today.setHours(0,0,0,0);
-  const expDate=new Date((expDateStr||"")+"T00:00:00");
-  const isValidDate=!isNaN(expDate.getTime());
-  const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const realDte=isValidDate?Math.max(Math.round((expDate.getTime()-today.getTime())/86400000),1):30;
-  const mon=MONTHS[expDate.getMonth()];
-  const day=expDate.getDate();
-  const yr=expDate.getFullYear();
-  const dow=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][expDate.getDay()];
-  const expInfo={
-    realDte,
-    label:`${mon} ${day}, ${yr}`,
-    short:`${mon} ${day}`,
-    full:`${dow} ${mon} ${day}, ${yr}`,
-    date:expDate,
-  };
-  const t=Math.max(realDte/365,0.001);
+  const dte=parseInt(expLabel.match(/\d+/)?.[0]||"30");
+  // Compute real calendar expiration date (always based on today's date)
+  const expInfo = calcExpirationDate(dte);
+  const t=Math.max(expInfo.realDte/365,.001);
   // Compute proper strike grid based on live price
   const incr = strikeIncrement(price);
   const atm = snapToGrid(price, incr);
@@ -1368,7 +1103,7 @@ function genContract(ticker,price,iv,optType,expDateStr,idx){
   else if(!isCall&&absDelta>.3)signal="bearish";
   return {
     ticker,name:OPT_BASE.find(x=>x.t===ticker)?.n||ticker,
-    stockPrice:price,strike,optType,expLabel:expDateStr,dte:expInfo.realDte,
+    stockPrice:price,strike,optType,expLabel,dte:expInfo.realDte,
     expirationDate:expInfo.label,
     expirationFull:expInfo.full,
     expirationShort:expInfo.short,
@@ -1398,91 +1133,11 @@ function fallbackCrit(strategy,sector,market){
 const COL=["g","b","r"];
 const cl=i=>COL[i%3];
 const STRATEGIES=["Growth","Dividend","Value","Momentum","Quality","GARP","Deep Value","Small Cap Growth"];
-const SECTORS=["All Sectors","Technology","Semiconductors","Fintech","Financials","Healthcare","Biotech","Consumer Discretionary","Consumer Staples","Industrials","Defense","Clean Energy","Energy","Utilities","Materials","Mining","ETF","eVTOL"];
+const SECTORS=["All Sectors","Technology","Healthcare","Financials","Energy","Consumer Discretionary","Industrials","Utilities","Real Estate","Materials","Communication Services","Consumer Staples","Biotech","Semiconductors","Clean Energy","Fintech","Defense","Mining"];
 const MARKETS=["US Large Cap","US Mid Cap","US Small Cap","US Micro Cap","International Developed","Emerging Markets","Global","Canada","Europe","Asia Pacific","Latin America"];
-// ── Label a real calendar expiration date for display in the dropdown ──
-// Input: "YYYY-MM-DD" string from Finnhub
-// Output: "Mar 21 · 1 DTE · Same-Day" style label — exact DTE always shown
-function labelExpDate(dateStr) {
-  if (!dateStr) return null;
-  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-  const today  = new Date(); today.setHours(0,0,0,0);
-  const exp    = new Date(dateStr + "T00:00:00");
-  if (isNaN(exp.getTime())) return null;
-  const dte  = Math.round((exp.getTime() - today.getTime()) / 86400000);
-  const mon  = MONTHS[exp.getMonth()];
-  const day  = exp.getDate();
-  const year = exp.getFullYear();
-  const dow  = exp.getDay();
-  const dowName = DAYS[dow];
-  // ── Exact kind label — every DTE gets a precise tag ──
-  let kind;
-  if (dte <= 0)        kind = "Same-Day";
-  else if (dte === 1)  kind = "1 DTE";
-  else if (dte === 2)  kind = "2 DTE";
-  else if (dte === 3)  kind = "3 DTE";
-  else if (dte === 4)  kind = "4 DTE";
-  else if (dte === 5)  kind = "5 DTE";
-  else if (dte <= 9)   kind = "Weekly";
-  else if (dte <= 16)  kind = "2-Week";
-  else if (dte <= 23)  kind = "3-Week";
-  else if (dte <= 37)  kind = "Monthly";   // ~30 DTE
-  else if (dte <= 55)  kind = "Monthly";   // ~45 DTE
-  else if (dte <= 75)  kind = "Quarterly";
-  else if (dte <= 105) kind = "Quarterly";
-  else if (dte <= 200) kind = "LEAPS";
-  else                 kind = `LEAPS ${year}`;
-  // Promote to "Monthly" label if it's a standard 3rd Friday (dow===5, right range)
-  if (dte >= 17 && dte <= 55 && dow === 5) kind = "Monthly";
-  // Display: "Mar 21 · 1 DTE · Fri" for short; full label for option element
-  const dteTag = dte <= 0 ? "0 DTE" : `${dte} DTE`;
-  return {
-    label:   `${mon} ${day}, ${year}`,
-    short:   `${mon} ${day}`,
-    full:    `${dowName} ${mon} ${day}, ${year}`,
-    dte, kind, year, dateStr,
-    display: dte<=5 ? `${dowName} ${mon} ${day}  ·  ${dteTag}` : `${mon} ${day}, ${year}  ·  ${dteTag}  ·  ${kind}`,
-  };
-}
+const EXPS=["Weekly (3 DTE)","Weekly (7 DTE)","Bi-Weekly (14 DTE)","Monthly (30 DTE)","Monthly (45 DTE)","Quarterly (60 DTE)","Quarterly (90 DTE)","LEAPS (180 DTE)","LEAPS (365 DTE)"];
 const OSTRATEGIES=["High IV Crush (Sell)","Low IV Buy","Momentum Calls","Protective Puts","Covered Calls","Cash-Secured Puts","Debit Spreads","Iron Condors","Directional (Calls)","Directional (Puts)"];
 const OTYPES=["Calls Only","Puts Only","Both Calls & Puts"];
-
-
-/* ── CHART LINK COMPONENT ──
-   Opens TradingView in new tab — zero iframe overhead, instant.
-   No loading spinner, no CORS, no blocked embeds.
-*/
-function TVChart({ ticker, interval = "D" }) {
-  const tvUrl = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(ticker)}&interval=${interval}`;
-  const intervals = [["1m","1"],["5m","5"],["15m","15"],["1h","60"],["1D","D"],["1W","W"]];
-  return (
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-                 height:"100%",minHeight:180,gap:16,padding:24,background:"rgba(0,0,0,.4)"}}>
-      <div style={{fontSize:28}}>📈</div>
-      <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:18,color:"var(--txt)"}}>{ticker}</div>
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
-        {intervals.map(([label,val])=>(
-          <a key={val}
-            href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(ticker)}&interval=${val}`}
-            target="_blank" rel="noopener noreferrer"
-            style={{padding:"6px 14px",background:"rgba(0,232,122,.1)",border:"1px solid rgba(0,232,122,.3)",
-                    borderRadius:7,color:"var(--green)",fontSize:11,fontFamily:"DM Mono,monospace",
-                    textDecoration:"none",letterSpacing:".5px"}}>
-            {label}
-          </a>
-        ))}
-      </div>
-      <a href={tvUrl} target="_blank" rel="noopener noreferrer"
-        style={{padding:"10px 28px",background:"linear-gradient(135deg,rgba(0,232,122,.18),rgba(0,212,255,.1))",
-                border:"1px solid rgba(0,232,122,.4)",borderRadius:10,color:"var(--green)",
-                fontWeight:700,fontSize:13,textDecoration:"none",marginTop:4}}>
-        Open Full Chart →
-      </a>
-      <div style={{fontSize:10,color:"var(--dim)"}}>Powered by TradingView · Opens in new tab</div>
-    </div>
-  );
-}
 
 /* ══════════════════════════════════════════════
    APP
@@ -1490,6 +1145,8 @@ function TVChart({ ticker, interval = "D" }) {
 export default function App() {
   const [tab,setTab]=useState("stocks");
   const [prices,setPrices]=useState({});
+  const [pLoading,setPLoading]=useState(false);
+  const [fetchProg,setFetchProg]=useState({done:0,total:0});
   const [lastRefresh,setLastRefresh]=useState(null);
   const [ms,setMs]=useState(mktStatus());
   const [strategy,setStrategy]=useState("Growth");
@@ -1504,14 +1161,7 @@ export default function App() {
   const [sSort,setSSort]=useState("score");
   const [optTicker,setOptTicker]=useState("NVDA");
   const [optType,setOptType]=useState("Both Calls & Puts");
-  // Always generate fresh on component mount — pure JS, <1ms, guarantees 1 DTE & 2 DTE
-  const [availExps,setAvailExps]=useState(()=>generateExpirationDates());
-  const [optExp,setOptExp]=useState(()=>{
-    const exps=generateExpirationDates();
-    const preferred=exps.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||exps[0];
-    return preferred?.dateStr||null;
-  });
-  const [expsLoading,setExpsLoading]=useState(false);
+  const [optExp,setOptExp]=useState("Monthly (30 DTE)");
   const [optStrat,setOptStrat]=useState("Directional (Calls)");
   const [optCatFilter,setOptCatFilter]=useState("All");
   const [optSearch,setOptSearch]=useState("");
@@ -1532,7 +1182,6 @@ export default function App() {
   const [eList,setEList]=useState(()=>{try{return JSON.parse(localStorage.getItem("rubberband_emails")||"[]");}catch{return [];}});
   const [eOk,setEOk]=useState(false);
   const runId=useRef(0);
-  const optRunId=useRef(0);
   const [clock,setClock]=useState(new Date().toLocaleTimeString());
 
   useEffect(()=>{
@@ -1540,7 +1189,33 @@ export default function App() {
     return()=>clearInterval(id);
   },[]);
 
-  // NO background fetching — Finnhub only called when user hits Scan or Run Screen
+  // Fetch all prices on mount + every 30s — selected options ticker refreshes instantly
+  useEffect(()=>{
+    const refresh=async()=>{
+      if(pLoading)return;
+      // Always fetch selected options ticker first for instant UI update
+      const priority=[optTicker];
+      const rest=[...new Set([...UNIVERSE_BASE.map(s=>s.t),...OPT_BASE.map(s=>s.t)])].filter(t=>t!==optTicker);
+      const tickers=[...priority,...rest];
+      setPLoading(true);
+      const r=await batchFetch(tickers,(done,total)=>setFetchProg({done,total}));
+      setPrices(prev=>({...prev,...r}));
+      setLastRefresh(new Date());
+      setPLoading(false);
+    };
+    refresh();
+    const id=setInterval(refresh,REFRESH_MS);
+    return()=>clearInterval(id);
+  },[optTicker]);
+
+  // Instant price refresh when user switches ticker (no waiting for interval)
+  useEffect(()=>{
+    const quickFetch=async()=>{
+      const q=await fetchQuote(optTicker);
+      if(q)setPrices(prev=>({...prev,[optTicker]:q}));
+    };
+    quickFetch();
+  },[optTicker]);
 
   useEffect(()=>{try{localStorage.setItem("rubberband_emails",JSON.stringify(eList));}catch{};},[eList]);
 
@@ -1564,237 +1239,191 @@ export default function App() {
   /* STOCK SCREENER */
   const runStocks=useCallback(async()=>{
     const rid=++runId.current;
-    setSLoading(true);setSStep(1);setSProg(10);setSResult(null);setStocks([]);setSFilter("All");
-    // Fetch fresh prices for stock screener tickers — sequential, on demand only
-    const stockTickers=UNIVERSE_BASE.map(s=>s.t);
-    const CHUNK=8;const GAP=150;
-    for(let i=0;i<stockTickers.length;i+=CHUNK){
-      if(runId.current!==rid)return;
-      const chunk=stockTickers.slice(i,i+CHUNK);
-      const results=await Promise.allSettled(chunk.map(t=>fetchQuote(t)));
-      const batch={};
-      results.forEach((r,j)=>{if(r.status==='fulfilled'&&r.value)batch[chunk[j]]=r.value;});
-      setPrices(prev=>({...prev,...batch}));
-      setSProg(10+Math.round(((i+CHUNK)/stockTickers.length)*50));
-      if(i+CHUNK<stockTickers.length)await new Promise(r=>setTimeout(r,GAP));
-    }
-    if(runId.current!==rid)return;
-    setLastRefresh(new Date());
-    setSProg(65);
+    setSLoading(true);setSStep(0);setSProg(0);setSResult(null);setStocks([]);setSFilter("All");
+    const STEPS=["Loading live Finnhub prices","Applying strategy filters",`Scoring ${UNIVERSE_BASE.length}+ stocks`,"Surfacing hidden gems","Generating AI criteria"];
+    for(let i=0;i<STEPS.length;i++){await new Promise(r=>setTimeout(r,400));if(runId.current!==rid)return;setSStep(i+1);setSProg(Math.round(((i+1)/STEPS.length)*85));}
     const universe=liveUniverse();
-    const scored=universe.map(s=>({...s,score:scoreStock(s,strategy,sector,market)})).sort((a,b)=>b.score-a.score).slice(0,25).map(s=>({...s,rating:getRating(s.score),metrics:getMetrics(s,strategy),thesis:buildThesis(s,strategy),isGem:s.cap==="Small"||s.cap==="Micro"}));
-    setSProg(70);
-    // Fire AI and render stocks simultaneously — don't block UI on AI
-    setStocks(scored);setSProg(85);
+    const scored=universe.map(s=>({...s,score:scoreStock(s,strategy,sector,market)})).sort((a,b)=>b.score-a.score).slice(0,18).map(s=>({...s,rating:getRating(s.score),metrics:getMetrics(s,strategy),thesis:buildThesis(s,strategy),isGem:s.cap==="Small"||s.cap==="Micro"}));
     let crit=null;
     try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1600,messages:[{role:"user",content:`Expert equity analyst. ${strategy} stocks in ${sector}, ${market}. Return ONLY raw JSON no markdown: {"title":"str","summary":"str","criteria":[{"metric":"str","threshold":"str","description":"str","importance":80}],"redFlags":["str"],"proTips":["str"],"tags":["str"]} 8 criteria, importance 50-99.`}]})});if(res.ok){const e=await res.json();const raw=(e.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();try{crit=JSON.parse(raw);}catch{}if(!crit){try{const m=raw.match(/\{[\s\S]*\}/);if(m)crit=JSON.parse(m[0]);}catch{}}}}catch{}
     if(!crit||!Array.isArray(crit.criteria)||!crit.criteria.length)crit=fallbackCrit(strategy,sector,market);
     if(runId.current!==rid)return;
-    setSProg(100);
-    setSResult(crit);setSLoading(false);
+    setSProg(100);await new Promise(r=>setTimeout(r,180));
+    setSResult(crit);setStocks(scored);setSLoading(false);
   },[strategy,sector,market,prices]);
 
-  // When ticker changes, refresh expirations (always fresh dates) and reset to ~30 DTE
+  // Auto-fetch live IV when ticker changes
   useEffect(()=>{
-    const exps=generateExpirationDates();
-    setAvailExps(exps);
-    const preferred=exps.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||exps[0];
-    if(preferred)setOptExp(preferred.dateStr);
+    let cancelled=false;
+    const fetchIV=async()=>{
+      if(ivCache[optTicker])return;
+      const iv=await fetchLiveIV(optTicker);
+      if(!cancelled&&iv&&iv>5&&iv<300)setIvCache(prev=>({...prev,[optTicker]:iv}));
+    };
+    fetchIV();
+    return()=>{cancelled=true;};
   },[optTicker]);
 
-
+  // Auto-refresh IV every 5 minutes for current ticker
+  useEffect(()=>{
+    const id=setInterval(async()=>{
+      const iv=await fetchLiveIV(optTicker);
+      if(iv&&iv>5&&iv<300)setIvCache(prev=>({...prev,[optTicker]:iv}));
+    },300000);
+    return()=>clearInterval(id);
+  },[optTicker]);
 
   /* OPTIONS SCREENER */
   const pricesRef=useRef(prices);
   useEffect(()=>{pricesRef.current=prices;},[prices]);
 
   const runOptions=useCallback(async()=>{
-    const rid=++optRunId.current;
-    const tickerNow=optTicker, expNow=optExp, typeNow=optType, stratNow=optStrat;
-    const base=OPT_BASE.find(x=>x.t===tickerNow);
+    const rid=++runId.current;
+    // ── Snapshot all config at call time — immune to state changes mid-scan ──
+    const tickerNow  = optTicker;
+    const expNow     = optExp;
+    const typeNow    = optType;
+    const stratNow   = optStrat;
+    const base       = OPT_BASE.find(x=>x.t===tickerNow)||OPT_BASE[0];
+    const ticker     = base.t;
 
-    // Helper — always clears loading state before any exit
-    const abort=(msg)=>{ setOLoading(false); if(msg) setOInsights({error:true,msg}); };
+    setOLoading(true);setOStep(0);setOProg(0);setOContracts([]);setOInsights(null);
+    setOTicker(null); // clear previous ticker display immediately
 
-    if(!base){ abort(); return; }
+    // ── STEP 1: Always fetch a FRESH live quote right now ──
+    setOStep(1);setOProg(12);
+    const freshQuote = await fetchQuote(ticker);
+    if(runId.current!==rid)return;
+    const livePrice  = freshQuote?.price || pricesRef.current[ticker]?.price || base.p || 100;
+    if(freshQuote) setPrices(prev=>({...prev,[ticker]:freshQuote}));
 
-    setOLoading(true); setOProg(10);
-    setOContracts([]); setOInsights(null); setOTicker(null);
+    // ── STEP 2: Fetch option chain + IV in parallel ──
+    setOStep(2);setOProg(28);
+    let liveIV = null;
+    // Compute the target expiration date for the selected DTE so we fetch
+    // OI/volume for the CORRECT expiration from Finnhub
+    const targetDte = parseInt(optExp.match(/\d+/)?.[0] || "30");
+    const targetExpInfo = calcExpirationDate(targetDte);
 
-    // ── STEP 1: Live price ──
-    setOStep(1); setOProg(20);
-    const freshQuote = await fetchQuote(tickerNow);
-    if(optRunId.current!==rid){ abort(); return; }
-    if(!freshQuote||freshQuote.price<=0){
-      abort(`Could not load live price for ${tickerNow}. Check connection and try again.`);
-      return;
-    }
-    const livePrice=freshQuote.price;
-    setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
-    setLastRefresh(new Date());
+    const [chainData] = await Promise.all([
+      fetchOptionChainData(base.t, targetExpInfo.label),
+      fetchLiveIV(base.t).then(iv=>{
+        if(iv&&iv>5&&iv<300){liveIV=iv;setIvCache(prev=>({...prev,[base.t]:iv}));}
+      })
+    ]);
+    if(runId.current!==rid)return;
+    liveIV = liveIV || ivCache[base.t] || base.iv || 45;
+    if(chainData)setOptChain(prev=>({...prev,[base.t]:chainData}));
 
-    // ── STEP 2: Option chain + IV (10s timeout each) ──
-    setOStep(2); setOProg(40);
-    let chainData=null, liveIV=null;
-    try {
-      const withTimeout=(p,ms)=>Promise.race([p, new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),ms))]);
-      [chainData]=await Promise.all([
-        withTimeout(fetchOptionChainData(tickerNow,expNow),10000).catch(()=>null),
-        withTimeout(fetchLiveIV(tickerNow),10000).catch(()=>null).then(iv=>{if(iv)liveIV=iv;})
-      ]);
-    } catch{}
-    if(optRunId.current!==rid){ abort(); return; }
-    liveIV=liveIV||ivCache[tickerNow]||base.iv||35;
-    if(chainData) setOptChain(prev=>({...prev,[tickerNow]:chainData}));
-    setOProg(55);
+    // td uses the FRESH price, not stale cache
+    const td={...base, p:livePrice, iv:liveIV, expLabel:expNow, scanTime:new Date().toLocaleTimeString()};
 
-    // ── STEP 3: Build contracts ──
-    setOStep(3); setOProg(65);
-    const td = {
-      t:           tickerNow,
-      n:           base.n,
-      p:           livePrice,
-      iv:          liveIV,
-      expLabel:    expNow,
-      scanTime:    new Date().toLocaleTimeString(),
-      priceSource: 'finnhub',
-    };
-    const types = typeNow==='Calls Only'?['call']:typeNow==='Puts Only'?['put']:['call','put'];
+    // ── STEP 3: Build strike grid from fresh live price ──
+    setOStep(3);setOProg(48);
+    await new Promise(r=>setTimeout(r,200));
+    if(runId.current!==rid)return;
+
+    // ── STEP 4: Compute Greeks ──
+    setOStep(4);setOProg(62);
+    await new Promise(r=>setTimeout(r,200));
+    if(runId.current!==rid)return;
+
+    // ── STEP 5: Generate contracts — strikes anchored to fresh live price ──
+    setOStep(5);setOProg(78);
+    const types=typeNow==="Calls Only"?["call"]:typeNow==="Puts Only"?["put"]:["call","put"];
     const contracts=[];
-
-    // Pre-filter chain keys — strip metadata, keep only valid numeric strikes
-    const chainStrikes = chainData
-      ? Object.keys(chainData)
-          .filter(k=>k!=='_expDate'&&k!=='_underlying'&&!isNaN(+k)&&+k>0)
-          .map(Number)
-          .sort((a,b)=>a-b)
-      : [];
-
-    setOStep(4); setOProg(75);
-    for(const tp of types){
+    types.forEach(tp=>{
       for(let i=0;i<3;i++){
-        // genContract always uses td.p — the live price we just fetched
-        const c = genContract(tickerNow, td.p, td.iv, tp, expNow, i); // expNow = real YYYY-MM-DD
+        // Always pass td.p (fresh price) — genContract snaps to proper grid
+        const c=genContract(td.t,td.p,td.iv,tp,expNow,i);
 
-        // Merge real Finnhub chain data if we have a matching strike
-        if(chainStrikes.length>0){
-          const nearest = chainStrikes.reduce((best,s)=>
+        // ── Merge real chain data if available ──
+        if(chainData&&Object.keys(chainData).length>0){
+          // Filter out non-numeric keys (like _expDate), convert to numbers
+          const chainStrikes=Object.keys(chainData)
+            .filter(k=>k!=='_expDate'&&!isNaN(Number(k)))
+            .map(Number)
+            .sort((a,b)=>a-b);
+          if(!chainStrikes.length){contracts.push(c);return;}
+          // Find the nearest REAL chain strike to our computed strike
+          const nearest=chainStrikes.reduce((best,s)=>
             Math.abs(s-c.strike)<Math.abs(best-c.strike)?s:best,
             chainStrikes[0]
           );
-          const incr = strikeIncrement(td.p);
-          if(Math.abs(nearest-c.strike)<=incr*3){
-            const realRow = chainData[nearest];
-            const side    = tp==='call'?realRow?.call:realRow?.put;
+          // Only use real data if it's within 2 strike increments (close match)
+          const incr=strikeIncrement(td.p);
+          if(Math.abs(nearest-c.strike)<=incr*2){
+            const realStrike=chainData[nearest]||chainData[String(nearest)];
+            const side=tp==="call"?realStrike?.call:realStrike?.put;
             if(side){
-              // Real OI and volume from Finnhub chain
-              if(typeof side.oi     ==='number') { c.oi=side.oi;      c.oiReal=true; }
-              if(typeof side.volume ==='number') { c.vol=side.volume; c.oiReal=true; }
-              // Real bid/ask → mid price entry
+              // Real chain data — store whatever we get (0 is valid)
+              c.vol = (typeof side.volume === 'number') ? side.volume : null;
+              c.oi  = (typeof side.oi === 'number') ? side.oi : null;
+              c.oiReal = true; // flag: came from chain
+              if(side.bid!=null&&side.bid>0)c.bid=+side.bid.toFixed(2);
+              if(side.ask!=null&&side.ask>0)c.ask=+side.ask.toFixed(2);
+              // Entry price = mid of bid/ask (most accurate executable price)
               if(side.bid>0&&side.ask>0){
-                c.bid=+side.bid.toFixed(2);
-                c.ask=+side.ask.toFixed(2);
                 const mid=+((side.bid+side.ask)/2).toFixed(2);
-                c.prem=mid; c.ep=mid;
-              } else if(side.last>0){
-                c.prem=+side.last.toFixed(2);
-                c.ep=+side.last.toFixed(2);
+                c.prem=mid;c.ep=mid;
+              } else if(side.last&&side.last>0){
+                c.prem=+side.last.toFixed(2);c.ep=+side.last.toFixed(2);
               }
-              if(side.iv>0&&side.iv<300) c.iv=+side.iv.toFixed(1);
-              c.spread=(side.ask>0&&side.bid>0)?+(side.ask-side.bid).toFixed(2):c.spread;
-              // Recalculate all targets from real entry
-              c.t1=+(c.ep*1.30).toFixed(2);
+              if(side.iv&&side.iv>0&&side.iv<300)c.iv=+side.iv.toFixed(1);
+              c.spread=side.ask&&side.bid?+(side.ask-side.bid).toFixed(2):c.spread;
+              // Recalculate targets/stop based on real entry price
+              c.t1=+(c.ep*1.3).toFixed(2);
               c.t2=+(c.ep*1.65).toFixed(2);
-              c.t3=+(c.ep*2.20).toFixed(2);
+              c.t3=+(c.ep*2.2).toFixed(2);
               c.sl=+(c.ep*0.55).toFixed(2);
               c.entryTotalCost=+(c.ep*100).toFixed(0);
               c.maxPnl=+((c.t3-c.ep)*100).toFixed(0);
               c.maxLoss=+((c.ep-c.sl)*100).toFixed(0);
-              c.strike=nearest;
-              c.contractLabel=`${tickerNow} $${nearest} ${tp==='call'?'CALL':'PUT'} ${c.expirationShort}`;
+              c.contractLabel=`${td.t} $${nearest} ${tp==="call"?"CALL":"PUT"} ${c.expirationShort}`;
+              c.strike=nearest; // use the REAL chain strike
               c.realData=true;
             }
           }
         }
-
-        // Fill estimated OI/vol only when chain returned nothing
-        if(c.oi===null||c.vol===null){
-          const absDelta=Math.abs(c.delta);
-          const liqFactor=td.iv>60?1.8:td.iv>40?1.2:0.8;
-          const estOI =Math.round(absDelta*45000*liqFactor);
-          const estVol=Math.round(estOI*(0.12+absDelta*0.18));
-          if(c.oi ===null){c.oi =estOI; c.oiEst=true;}
-          if(c.vol===null){c.vol=estVol;c.volEst=true;}
-        }
-        if(c.pcr===null){
-          const q=pricesRef.current[tickerNow];
-          c.pcr=q&&q.change<-2?+((0.5+Math.random()*0.3)).toFixed(2)
-               :q&&q.change> 2?+((1.2+Math.random()*0.4)).toFixed(2)
-               :+((0.8+Math.random()*0.4)).toFixed(2);
-        }
-
         contracts.push(c);
       }
-    }
-    contracts.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
-
-    setOStep(5); setOProg(88);
-    // ── AI insights — 12s timeout so scan never hangs here ──
-    let ins=null;
-    try{
-      const ctrl=new AbortController();
-      const aiTimer=setTimeout(()=>ctrl.abort(),12000);
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        signal:ctrl.signal,
-        body:JSON.stringify({
-          model:'claude-sonnet-4-20250514',
-          max_tokens:800,
-          messages:[{role:'user',content:
-            `Options analyst. ${tickerNow} at $${td.p}. IV=${td.iv}%. Strategy=${stratNow}. Exp=${expNow}.
-Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`
-          }]
-        })
-      });
-      clearTimeout(aiTimer);
-      if(res.ok){
-        const e=await res.json();
-        const raw=(e.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
-        try{ins=JSON.parse(raw);}catch{}
-        if(!ins){try{const m=raw.match(/\{[\s\S]*\}/);if(m)ins=JSON.parse(m[0]);}catch{}}
+    });
+    // ── Post-process: fill estimated OI/vol where chain returned null ──
+    // Standard model: ATM options have highest OI, OTM/ITM taper with delta
+    // Volume ~ 15-35% of OI for liquid names, less for illiquid
+    contracts.forEach(c => {
+      if (c.oi === null || c.vol === null) {
+        const absDelta = Math.abs(c.delta);
+        // Base OI estimate scaled by delta (ATM has highest, deep OTM has lowest)
+        // Liquid names (high IV) have higher OI
+        const liquidityFactor = td.iv > 60 ? 1.8 : td.iv > 40 ? 1.2 : 0.8;
+        const estOI  = Math.round(absDelta * 45000 * liquidityFactor);
+        const estVol = Math.round(estOI * (0.12 + absDelta * 0.18));
+        if (c.oi  === null) { c.oi  = estOI;  c.oiEst  = true; }
+        if (c.vol === null) { c.vol = estVol; c.volEst = true; }
+        // P/C ratio estimate based on MR signal from live price
+        if (c.pcr === null) {
+          const q = pricesRef.current[ticker];
+          c.pcr = q && q.change < -2 ? +((0.5 + Math.random()*0.3)).toFixed(2)
+                : q && q.change > 2  ? +((1.2 + Math.random()*0.4)).toFixed(2)
+                : +((0.8 + Math.random()*0.4)).toFixed(2);
+        }
       }
-    }catch{}
-
-    if(!ins) ins={
-      summary:`${base.n} (${tickerNow}) live at $${td.p.toFixed(2)}. IV ${td.iv}% — ${td.iv>60?'elevated, premium selling favored':'moderate, directional plays reasonable'}.`,
-      topPlay:`${contracts[0]?.contractLabel} entry $${contracts[0]?.ep} → T1 $${contracts[0]?.t1} / T2 $${contracts[0]?.t2} / T3 $${contracts[0]?.t3}, stop $${contracts[0]?.sl}.`,
-      entryTiming:`Enter on ${contracts[0]?.optType==='call'?'pullback to support or breakout':'bounce off resistance or breakdown'} with volume confirmation.`,
-      riskWarning:`Max risk $${contracts[0]?.entryTotalCost}/contract. IV crush risk: ${td.iv>60?'HIGH — size down':'MODERATE'}.`,
-      ivAnalysis:`IV ${td.iv}% is ${td.iv>60?'elevated — sell premium or use spreads':'moderate — directional debit plays are fine'}.`,
-      keyLevels:{
-        support:`$${(td.p*0.96).toFixed(2)}`,
-        resistance:`$${(td.p*1.04).toFixed(2)}`,
-        breakeven:`$${(td.p*1.02).toFixed(2)}`
-      },
-      tags:[tickerNow,stratNow,expNow,td.iv>60?'High IV':'Normal IV','Live Price']
-    };
-
-    // Final guard — if ticker changed during scan, discard results
-    if(optRunId.current!==rid){ setOLoading(false); return; }
-
-    setOProg(100);
-    setOTicker(td);
-    setOContracts(contracts);
-    setOInsights(ins);
-    setOLoading(false);
+    });
+    contracts.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+    let ins=null;
+    try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:`Options analyst. ${ticker} live price $${td.p}, IV=${td.iv}%, strategy=${stratNow}, expiration=${expNow}. Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","riskWarning":"str","ivAnalysis":"str","keyLevels":{"support":"str","resistance":"str","breakeven":"str"},"tags":["str"]}`}]})});if(res.ok){const e=await res.json();const raw=(e.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();try{ins=JSON.parse(raw);}catch{}if(!ins){try{const m=raw.match(/\{[\s\S]*\}/);if(m)ins=JSON.parse(m[0]);}catch{}}}}catch{}
+    if(!ins)ins={summary:`${td.n} live at $${td.p}. IV=${td.iv}% — ${td.iv>60?"elevated, ideal for premium selling":"moderate, directional plays favored"}.`,topPlay:`${contracts[0]?.contractLabel} at $${contracts[0]?.ep} → $${contracts[0]?.t1}/$${contracts[0]?.t2}/$${contracts[0]?.t3}, stop $${contracts[0]?.sl}.`,entryTiming:`Enter on ${contracts[0]?.optType==="call"?"pullback to support or breakout confirmation":"bounce off resistance or break below support"} with volume.`,riskWarning:`Max risk: $${contracts[0]?.entryTotalCost}/contract. IV crush risk ${td.iv>60?"HIGH":"MODERATE"}.`,ivAnalysis:`IV ${td.iv}% is ${td.iv>60?"elevated — sell premium or use spreads":"moderate — directional debit plays are reasonable"}.`,keyLevels:{support:`$${(td.p*.96).toFixed(2)}`,resistance:`$${(td.p*1.04).toFixed(2)}`,breakeven:`$${(td.p*1.02).toFixed(2)}`},tags:[ticker,stratNow,expNow,td.iv>60?"High IV":"Normal IV","Live Price"]};
+    if(runId.current!==rid)return;
+    setOProg(100);await new Promise(r=>setTimeout(r,180));
+    setOTicker(td);setOContracts(contracts);setOInsights(ins);setOLoading(false);
   },[optTicker,optType,optExp,optStrat]);
 
   const dispStocks=(()=>{let s=[...stocks];if(sFilter==="Strong Buy")s=s.filter(x=>x.rating==="sb");if(sFilter==="Hidden Gems")s=s.filter(x=>x.isGem);if(sFilter==="Large Cap")s=s.filter(x=>x.cap==="Large");if(sFilter==="International")s=s.filter(x=>x.geo!=="US");if(sSort==="price")s.sort((a,b)=>b.p-a.p);if(sSort==="change")s.sort((a,b)=>b.ch-a.ch);return s;})();
   const sBuys=stocks.filter(s=>s.rating==="sb").length;
   const sGems=stocks.filter(s=>s.isGem).length;
   const sAvg=stocks.length?Math.round(stocks.reduce((a,b)=>a+b.score,0)/stocks.length):0;
-  const SSTEPS=["Loading live Finnhub prices","Applying strategy filters",`Scoring ${UNIVERSE_BASE.length} tickers`,"Surfacing hidden gems","Generating AI criteria"];
+  const SSTEPS=["Loading live Finnhub prices","Applying strategy filters",`Scoring ${UNIVERSE_BASE.length}+ stocks`,"Surfacing hidden gems","Generating AI criteria"];
   const OSTEPS=["Fetching fresh live quote","Fetching option chain + IV","Building strike grid","Computing Greeks (Δ Γ Θ V ρ)","Matching real chain contracts","Generating AI insights"];
   const msLabel=ms==="open"?"● MARKET OPEN":ms==="pre"?"◑ PRE-MARKET":ms==="after"?"◑ AFTER-HOURS":"○ MARKET CLOSED";
   const msClass=ms==="open"?"mopen":"mclosed";
@@ -1811,7 +1440,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           <div className="hdr-right">
             <span className="chip live">● {clock}</span>
             <span className={`chip ${msClass}`}>{msLabel}</span>
-            {false?<span className="chip mloading">⟳ {0}/{0} prices</span>:lastRefresh&&<span className="chip ai">LIVE ✓</span>}
+            {pLoading?<span className="chip mloading">⟳ {fetchProg.done}/{fetchProg.total} prices</span>:lastRefresh&&<span className="chip ai">LIVE ✓</span>}
           </div>
         </header>
 
@@ -1825,7 +1454,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
         {tab==="stocks"&&<div className="page">
           <div className="hero">
             <h1>Find every <span>hidden gem</span><br/>in the market.</h1>
-            <p>RUBBERBAND.AI scans all {UNIVERSE_BASE.length} tickers with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Prices fetched fresh on each scan.</p>
+            <p>RUBBERBAND.AI scans {UNIVERSE_BASE.length}+ stocks with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Auto-refreshes every 30 seconds.</p>
           </div>
 
           <div className="email-banner">
@@ -1833,7 +1462,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             {eOk?<div className="sub-ok">✅ You're in! Watch your inbox Sunday.</div>:<div className="eb-form"><input className="ei wide" placeholder="your@email.com" type="email" value={eEmail} onChange={e=>setEEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><button className="btn-sub" onClick={subscribe} disabled={!eEmail.includes("@")}>Subscribe Free →</button></div>}
           </div>
 
-          {lastRefresh&&<div className="refresh-row"><div className="ldot"/><span>Live via Finnhub · Prices as of {lastRefresh.toLocaleTimeString()}</span>{false}</div>}
+          {lastRefresh&&<div className="refresh-row"><div className="ldot"/><span>Live via Finnhub · Updated {lastRefresh.toLocaleTimeString()} · Auto-refresh every 30s</span>{pLoading&&<div className="spin-s"/>}</div>}
 
           <div className="panel">
             <div className="panel-title">Screen Configuration</div>
@@ -1842,7 +1471,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               <div className="fld"><label>Sector</label><div className="sel-wrap"><select value={sector} onChange={e=>setSector(e.target.value)} disabled={sLoading}>{SECTORS.map(s=><option key={s}>{s}</option>)}</select></div></div>
               <div className="fld"><label>Market / Geography</label><div className="sel-wrap"><select value={market} onChange={e=>setMarket(e.target.value)} disabled={sLoading}>{MARKETS.map(m=><option key={m}>{m}</option>)}</select></div></div>
             </div>
-            <button className="btn-green" onClick={runStocks} disabled={sLoading}>{sLoading?<><div className="spin"/>Scanning…</>:false?<><div className="spin"/>Loading Live Prices…</>:"Run Screen — Find All Matching Stocks"}</button>
+            <button className="btn-green" onClick={runStocks} disabled={sLoading||pLoading}>{sLoading?<><div className="spin"/>Scanning…</>:pLoading?<><div className="spin"/>Loading Live Prices…</>:"Run Screen — Find All Matching Stocks"}</button>
           </div>
 
           {sLoading&&<div className="lbox"><div className="lsteps">{SSTEPS.map((s,i)=><div key={i} className={`lstep ${sStep>i?"done":sStep===i?"active":""}`}><div className="lstep-ico">{sStep>i?"✓":sStep===i?"…":i+1}</div><span>{s}</span></div>)}</div><div className="pbar"><div className="pfill g" style={{width:`${sProg}%`}}/></div></div>}
@@ -1860,16 +1489,15 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             <div className="sec-lbl">Screening Criteria</div>
             <div className="crit-grid">{sResult.criteria.map((c,i)=><div className={`cc ${cl(i)}`} key={i}><div className="cc-top"><div className="cc-nm">{c.metric}</div><span className={`cc-pill ${cl(i)}`}>{c.threshold}</span></div><div className="cc-desc">{c.description}</div><div className="cc-bar"><div className="cc-track"><div className={`cc-fill ${cl(i)}`} style={{width:`${Math.min(100,Math.max(0,Number(c.importance)||70))}%`}}/></div><div className="cc-meta"><span>Importance</span><span>{c.importance}/100</span></div></div></div>)}</div>
             <div className="filter-row">{["All","Strong Buy","Hidden Gems","Large Cap","International"].map(f=><button key={f} className={`btn-sm ${sFilter===f?"active":""}`} onClick={()=>setSFilter(f)}>{f}</button>)}<div className="sp"/>{["score","price","change"].map(s=><button key={s} className={`btn-sm ${sSort===s?"active":""}`} onClick={()=>setSSort(s)}>Sort: {s==="score"?"Score":s==="price"?"Price":"% Chg"}</button>)}</div>
-            <div className="scan-info">Live prices via Finnhub · {new Date().toLocaleTimeString()} · <span>{UNIVERSE_BASE.length} tickers analyzed</span></div>
+            <div className="scan-info">Live prices via Finnhub · {new Date().toLocaleTimeString()} · <span>{UNIVERSE_BASE.length} stocks analyzed</span></div>
             <div className="tbl-wrap"><table>
               <thead><tr><th>#</th><th>Ticker</th><th>Live Price</th><th>Mkt Cap</th><th>Score</th><th>MR Signal</th><th>Key Metrics</th><th>Thesis</th><th>Rating</th></tr></thead>
               <tbody>{dispStocks.map((s,i)=><tr key={s.t+i}>
                 <td style={{color:"var(--dim)",fontSize:10}}>{i+1}</td>
                 <td>
-                  <a className="tkr-cell" href={`https://www.tradingview.com/chart/?symbol=${s.t}`} target="_blank" rel="noopener noreferrer" style={{cursor:"pointer",textDecoration:"none",color:"inherit"}}>
+                  <div className="tkr-cell">
                     <div className="tkr-top"><div className="tk">{s.t}</div>{s.isGem&&<div className="gem">💎</div>}</div>
                     <div className="co">{s.n}</div>
-                    <div className="tkr-chart-btn">📈 View Chart</div>
                     {s.p&&<div className="tkr-price">
                       <span className="ldot-sm"/>
                       <span className="tp-val">{fmt(s.p)}</span>
@@ -1915,40 +1543,12 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           <div className="hero">
             <h1>Options <span className="orange">chain screener</span><br/>with exact entry points.</h1>
             <p>Full Greeks · Live underlying prices · {OPT_BASE.length}+ tickers · Day/Week/Month H&amp;L ranges · Precise entry, targets &amp; stops.</p>
-            {lastRefresh&&<div className="refresh-row" style={{marginTop:10}}><div className="ldot"/><span>Prices fetched fresh on each scan · Last: {lastRefresh.toLocaleTimeString()}</span>{false}</div>}
+            {lastRefresh&&<div className="refresh-row" style={{marginTop:10}}><div className="ldot"/><span>All prices live via Finnhub · Updated {lastRefresh.toLocaleTimeString()} · Auto-refresh 60s</span>{pLoading&&<div className="spin-s"/>}</div>}
           </div>
 
           <div className="email-banner" style={{marginBottom:20}}>
             <div><div className="eb-title">📬 Get Weekly RUBBERBAND.AI Picks</div><div className="eb-sub">Top plays every Sunday. Free.</div></div>
             {eOk?<div className="sub-ok">✅ You're in!</div>:<div className="eb-form"><input className="ei wide" placeholder="your@email.com" type="email" value={eEmail} onChange={e=>setEEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&subscribe()}/><button className="btn-sub" onClick={subscribe} disabled={!eEmail.includes("@")}>Subscribe →</button></div>}
-          </div>
-
-          {/* ── LIVE CHART for selected options ticker ── */}
-          <div className="opt-chart-panel">
-            <div className="opt-chart-hdr">
-              <div className="opt-chart-title">
-                <span style={{color:"var(--cyan)"}}>📈</span>
-                <span>{optTicker}</span>
-                {prices[optTicker]&&<span style={{fontSize:12,fontWeight:400,color:prices[optTicker].change>=0?"var(--green)":"var(--red)"}}>
-                  {fmt(prices[optTicker].price)} <span style={{fontSize:10}}>{prices[optTicker].change>=0?"+":""}{prices[optTicker].change?.toFixed(2)}%</span>
-                </span>}
-                <span style={{fontSize:10,color:"var(--dim)",fontWeight:400}}>{[...UNIVERSE_BASE,...OPT_BASE].find(x=>x.t===optTicker)?.n}</span>
-              </div>
-              <div className="opt-chart-intervals">
-                {[["1m","1"],["5m","5"],["15m","15"],["1h","60"],["1D","D"],["1W","W"]].map(([label,val])=>(
-                  <a key={val} href={`https://www.tradingview.com/chart/?symbol=${optTicker}&interval=${val}`}
-                    target="_blank" rel="noopener noreferrer"
-                    style={{padding:"4px 11px",background:"rgba(0,232,122,.08)",border:"1px solid rgba(0,232,122,.25)",
-                            borderRadius:6,color:"var(--green)",fontSize:10,fontFamily:"DM Mono,monospace",
-                            textDecoration:"none",letterSpacing:".5px"}}>
-                    {label}
-                  </a>
-                ))}
-              </div>
-            </div>
-            <div className="opt-chart-body">
-              <TVChart ticker={optTicker} interval="D"/>
-            </div>
           </div>
 
           {/* ── OPTIONS CONFIG PANEL ── */}
@@ -1997,17 +1597,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                 </div>
               </div>
               <div className="fld"><label>Contract Type</label><div className="sel-wrap"><select value={optType} onChange={e=>setOptType(e.target.value)} disabled={oLoading}>{OTYPES.map(x=><option key={x}>{x}</option>)}</select></div></div>
-              <div className="fld">
-                <label>Expiration {expsLoading&&<span style={{fontSize:9,color:"var(--gold)"}}>⟳ loading...</span>}</label>
-                <div className="sel-wrap">
-                  <select value={optExp||""} onChange={e=>setOptExp(e.target.value)} disabled={oLoading||expsLoading}>
-                    {availExps.length===0&&<option value="">Loading dates...</option>}
-                    {availExps.map(e=>(
-                      <option key={e.dateStr} value={e.dateStr}>{e.display}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <div className="fld"><label>Expiration</label><div className="sel-wrap"><select value={optExp} onChange={e=>setOptExp(e.target.value)} disabled={oLoading}>{EXPS.map(x=><option key={x}>{x}</option>)}</select></div></div>
               <div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={optStrat} onChange={e=>setOptStrat(e.target.value)} disabled={oLoading}>{OSTRATEGIES.map(x=><option key={x}>{x}</option>)}</select></div></div>
             </div>
             <button className="btn-blue" onClick={runOptions} disabled={oLoading}>{oLoading?<><div className="spin-w"/>Scanning…</>:"⚡ Scan Option Chain — Generate Entry Points"}</button>
@@ -2097,20 +1687,12 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
 
           {oLoading&&<div className="lbox"><div className="lsteps">{OSTEPS.map((s,i)=><div key={i} className={`lstep ${oStep>i?"done":oStep===i?"active":""}`}><div className="lstep-ico">{oStep>i?"✓":oStep===i?"…":i+1}</div><span>{s}</span></div>)}</div><div className="pbar"><div className="pfill b" style={{width:`${oProg}%`}}/></div></div>}
 
-          {!oContracts.length&&!oLoading&&oInsights?.error&&(
-            <div style={{background:"rgba(255,59,48,0.1)",border:"1px solid rgba(255,59,48,0.35)",borderRadius:12,padding:"20px 24px",margin:"16px 0",textAlign:"center"}}>
-              <div style={{fontSize:22,marginBottom:8}}>⚠️</div>
-              <div style={{color:"#ff6b6b",fontWeight:700,fontSize:14,marginBottom:6}}>Price Unavailable</div>
-              <div style={{color:"var(--dim)",fontSize:12,lineHeight:1.6}}>{oInsights.msg}</div>
-              <button onClick={runOptions} style={{marginTop:14,padding:"8px 20px",background:"rgba(255,59,48,0.2)",border:"1px solid rgba(255,59,48,0.4)",borderRadius:8,color:"#ff6b6b",cursor:"pointer",fontSize:12,fontWeight:700}}>↺ Retry</button>
-            </div>
-          )}
-          {!oContracts.length&&!oLoading&&!oInsights?.error&&<div className="empty"><div className="ico">⚡</div><h3>Ready to scan options</h3><p>Select a ticker above, then hit Scan.<br/>Prices are live from Finnhub.</p></div>}
+          {!oContracts.length&&!oLoading&&<div className="empty"><div className="ico">⚡</div><h3>Ready to scan options</h3><p>Select a ticker above, then hit Scan.<br/>Prices are live from Finnhub.</p></div>}
 
                     {oContracts.length>0&&!oLoading&&oInsights&&oTicker&&<div className="results">
             <div className="sumbox">
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
-                <div className="sum-title" style={{margin:0}}>{oTicker.t} Options — {oTicker.expLabel?labelExpDate(oTicker.expLabel)?.label||oTicker.expLabel:""}</div>
+                <div className="sum-title" style={{margin:0}}>{oTicker.t} Options — {oTicker.expLabel||optExp}</div>
                 {oTicker&&prices[oTicker.t]&&(
                   <span className="live-tag">
                     <span className="ldot"/>
@@ -2125,7 +1707,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                 <span>📍 Scanned: <b style={{color:"var(--txt)"}}>{oTicker.t}</b></span>
                 <span>⏱ At: <b style={{color:"var(--txt)"}}>{oTicker.scanTime}</b></span>
                 <span>💰 Price: <b style={{color:"var(--green)"}}>${oTicker.p}</b></span>
-                <span>📅 Exp: <b style={{color:"var(--gold)"}}>{oTicker.expLabel?labelExpDate(oTicker.expLabel)?.display||oTicker.expLabel:""}</b></span>
+                <span>📅 Exp: <b style={{color:"var(--gold)"}}>{oTicker.expLabel}</b></span>
               </div>
               <div className="sum-body">{oInsights.summary}</div>
               {oInsights.tags?.length>0&&<div className="tags">{oInsights.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}
@@ -2205,9 +1787,6 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           )}
         </div>}
       </div>
-        {/* ── CHART MODAL (stock screener click-through) ── */}
-
-
     </>
   );
 }
