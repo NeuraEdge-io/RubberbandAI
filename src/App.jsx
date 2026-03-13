@@ -672,27 +672,42 @@ const OPT_BASE = [
 ];
 
 /* ── FINNHUB ── */
-async function fetchQuote(ticker) {
-  // Primary: Finnhub
-  try {
-    const r = await fetch(`${FINNHUB_URL}/quote?symbol=${ticker}&token=${FINNHUB_KEY}`);
-    if (r.ok) {
+async function fetchQuote(ticker, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000); // 8s timeout
+      const r = await fetch(
+        `${FINNHUB_URL}/quote?symbol=${ticker}&token=${FINNHUB_KEY}`,
+        { signal: ctrl.signal }
+      );
+      clearTimeout(timer);
+      if (r.status === 429) {
+        // Rate limited — wait then retry
+        await new Promise(res => setTimeout(res, 1200 * (attempt + 1)));
+        continue;
+      }
+      if (!r.ok) continue;
       const d = await r.json();
       if (d && d.c && d.c > 0) {
         return {
-          price:     +d.c.toFixed(2),
-          change:    +d.dp.toFixed(2),
-          high:      +d.h.toFixed(2),
-          low:       +d.l.toFixed(2),
-          prevClose: +d.pc.toFixed(2),
-          open:      +d.o.toFixed(2),
-          volume:    d.v || 0,
-          source:    'finnhub', dollarChange: +(d.c - d.pc).toFixed(2),
+          price:       +d.c.toFixed(2),
+          change:      +d.dp.toFixed(2),
+          high:        +d.h.toFixed(2),
+          low:         +d.l.toFixed(2),
+          prevClose:   +d.pc.toFixed(2),
+          open:        +d.o.toFixed(2),
+          volume:      d.v || 0,
+          source:      'finnhub',
+          dollarChange:+(d.c - d.pc).toFixed(2),
         };
       }
+    } catch(e) {
+      if (e?.name === 'AbortError') continue; // timeout — retry
+      if (attempt < retries) await new Promise(res => setTimeout(res, 600));
     }
-  } catch {}
-  return null; // Finnhub failed — never return a fake price
+  }
+  return null;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -701,61 +716,75 @@ async function fetchQuote(ticker) {
 //   • Every Friday = weekly expiration
 //   • 3rd Friday of each month = standard monthly (labeled separately)  
 //   • Jan expirations 1-2 years out = LEAPS
-// This is how CBOE/OCC actually schedules expirations.
+// This is how OCC actually schedules expirations.
 // ══════════════════════════════════════════════════════════
 function generateExpirationDates() {
   const today = new Date(); today.setHours(0,0,0,0);
-  const result = [];
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const addedDates = new Set();
+  const result = [];
 
-  // Find all Fridays in the next 730 days
-  const d = new Date(today);
-  // Advance to next Friday if not already Friday
-  while (d.getDay() !== 5) d.setDate(d.getDate() + 1);
+  const makeEntry = (d) => {
+    const dte     = Math.round((d.getTime() - today.getTime()) / 86400000);
+    if (dte < 0) return null;
+    const mon     = MONTHS[d.getMonth()];
+    const day     = d.getDate();
+    const year    = d.getFullYear();
+    const dow     = DAYS[d.getDay()];
+    const dateStr = `${year}-${String(d.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    if (addedDates.has(dateStr)) return null;
+    addedDates.add(dateStr);
 
-  const end = new Date(today); end.setDate(end.getDate() + 730);
+    const weekNum       = Math.ceil(day / 7);
+    const isThirdFriday = d.getDay() === 5 && weekNum === 3;
 
-  while (d <= end) {
-    const dte = Math.round((d.getTime() - today.getTime()) / 86400000);
-    if (dte >= 0) {
-      const mon     = MONTHS[d.getMonth()];
-      const day     = d.getDate();
-      const year    = d.getFullYear();
-      const dow     = DAYS[d.getDay()];
-      const dateStr = `${year}-${String(d.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    let kind;
+    if (dte === 0)       kind = '0 DTE';
+    else if (dte === 1)  kind = '1 DTE';
+    else if (dte === 2)  kind = '2 DTE';
+    else if (dte === 3)  kind = '3 DTE';
+    else if (dte === 4)  kind = '4 DTE';
+    else if (dte === 5)  kind = '5 DTE';
+    else if (dte === 6)  kind = '6 DTE';
+    else if (dte <= 13)  kind = 'Weekly';
+    else if (dte <= 20)  kind = isThirdFriday ? 'Monthly' : 'Weekly';
+    else if (dte <= 37)  kind = isThirdFriday ? 'Monthly' : 'Weekly';
+    else if (dte <= 100) kind = isThirdFriday ? 'Monthly'    : 'Weekly';
+    else if (dte <= 200) kind = isThirdFriday ? 'Quarterly'  : 'Weekly';
+    else                 kind = `LEAPS ${year}`;
 
-      // Is this the 3rd Friday of the month?
-      const weekNum = Math.ceil(day / 7);
-      const isThirdFriday = weekNum === 3;
+    const display = dte <= 6
+      ? `${dow} ${mon} ${day}  ·  ${dte} DTE`
+      : `${mon} ${day}, ${year}  ·  ${dte}d  ·  ${kind}`;
 
-      // Kind label
-      let kind;
-      if (dte === 0)       kind = '0 DTE';
-      else if (dte === 1)  kind = '1 DTE';
-      else if (dte === 2)  kind = '2 DTE';
-      else if (dte === 3)  kind = '3 DTE';
-      else if (dte === 4)  kind = '4 DTE';
-      else if (dte === 5)  kind = '5 DTE';
-      else if (dte <= 9)   kind = 'Weekly';
-      else if (dte <= 16)  kind = isThirdFriday ? 'Monthly' : 'Weekly';
-      else if (dte <= 23)  kind = isThirdFriday ? 'Monthly' : 'Weekly';
-      else if (dte <= 37)  kind = isThirdFriday ? 'Monthly' : 'Weekly';
-      else if (dte <= 100) kind = isThirdFriday ? 'Monthly'    : 'Weekly';
-      else if (dte <= 200) kind = isThirdFriday ? 'Quarterly'  : 'Weekly';
-      else                 kind = `LEAPS ${year}`;
+    return { dateStr, label: `${mon} ${day}, ${year}`, short: `${mon} ${day}`,
+             full: `${dow} ${mon} ${day}, ${year}`, dte, kind, year, display };
+  };
 
-      // Display label
-      const dteTag  = `${dte}d`;
-      const display = dte <= 9
-        ? `${dow} ${mon} ${day}  ·  ${dte} DTE`
-        : `${mon} ${day}, ${year}  ·  ${dteTag}  ·  ${kind}`;
-
-      result.push({ dateStr, label: `${mon} ${day}, ${year}`, short: `${mon} ${day}`,
-                    full: `${dow} ${mon} ${day}, ${year}`, dte, kind, year, display });
-    }
-    d.setDate(d.getDate() + 7);
+  // ── Step 1: Add today + next 6 calendar days (1–6 DTE) ──
+  // These are Mon–Sun near-term expirations (0–6 DTE range)
+  for (let i = 0; i <= 6; i++) {
+    const d = new Date(today); d.setDate(today.getDate() + i);
+    const dow = d.getDay();
+    // Skip weekends — options don't expire Sat/Sun
+    if (dow === 0 || dow === 6) continue;
+    const entry = makeEntry(d);
+    if (entry) result.push(entry);
   }
+
+  // ── Step 2: All Fridays for next 730 days (weekly + monthly + LEAPS) ──
+  const fri = new Date(today);
+  while (fri.getDay() !== 5) fri.setDate(fri.getDate() + 1);
+  const end = new Date(today); end.setDate(today.getDate() + 730);
+  while (fri <= end) {
+    const entry = makeEntry(new Date(fri));
+    if (entry) result.push(entry);
+    fri.setDate(fri.getDate() + 7);
+  }
+
+  // Sort by DTE ascending
+  result.sort((a,b) => a.dte - b.dte);
   return result;
 }
 
@@ -764,7 +793,7 @@ const ALL_EXPIRATIONS = generateExpirationDates();
 
 // ── FINNHUB OPTION CHAIN (scan time only) ──
 // Called once when user hits Scan — uses Finnhub for real OI/volume/bid/ask
-async function loadCBOEData(ticker) {
+async function loadFinnhubChain(ticker) {
   // Check cache first
   const cached = OPT_CACHE[ticker];
   if (cached && (Date.now() - cached.ts) < OPT_CACHE_TTL) return cached;
@@ -831,7 +860,7 @@ async function loadCBOEData(ticker) {
 }
 
 async function fetchOptionChainData(ticker, targetExpDate) {
-  const data = await loadCBOEData(ticker);
+  const data = await loadFinnhubChain(ticker);
   if (!data) return null;
   // Match exact date first, then closest
   let bestExp = data.dates.find(d => d === targetExpDate) || data.dates[0];
@@ -849,7 +878,7 @@ async function fetchOptionChainData(ticker, targetExpDate) {
 }
 
 async function fetchLiveIV(ticker) {
-  const data = await loadCBOEData(ticker);
+  const data = await loadFinnhubChain(ticker);
   return data?.iv || null;
 }
 
@@ -858,12 +887,17 @@ function fetchExpirationDates() {
   return ALL_EXPIRATIONS;
 }
 
+// Set true during options scan so batchFetch backs off the rate limit
+let SCAN_ACTIVE = false;
+
 async function batchFetch(tickers, onProgress) {
   const out = {};
-  const CHUNK = 8;          // parallel requests per chunk
-  const GAP   = 80;         // ms between chunks — safe for Finnhub free tier
+  const CHUNK = 6;          // slightly smaller chunks to stay under rate limit
+  const GAP   = 120;        // slightly more breathing room between chunks
   let done = 0;
   for (let i = 0; i < tickers.length; i += CHUNK) {
+    // Pause background fetch if an options scan is in progress
+    if (SCAN_ACTIVE) await new Promise(r => setTimeout(r, 2000));
     const chunk = tickers.slice(i, i + CHUNK);
     const results = await Promise.allSettled(chunk.map(t => fetchQuote(t)));
     results.forEach((r, j) => {
@@ -1475,7 +1509,7 @@ export default function App() {
   useEffect(()=>{
     const id=setInterval(async()=>{
       delete OPT_CACHE[optTicker]; // force refresh
-      const data = await loadCBOEData(optTicker);
+      const data = await loadFinnhubChain(optTicker);
       if(data?.iv) setIvCache(prev=>({...prev,[optTicker]:data.iv}));
     }, OPT_CACHE_TTL);
     return()=>clearInterval(id);
@@ -1497,6 +1531,8 @@ export default function App() {
     const base      = OPT_BASE.find(x=>x.t===tickerNow);
     if(!base){ console.warn('Unknown ticker:',tickerNow); return; }
 
+    // Pause background price fetching so scan gets full rate limit budget
+    SCAN_ACTIVE = true;
     // Clear previous results immediately so stale data never shows
     setOLoading(true);
     setOProg(10);
@@ -1516,31 +1552,39 @@ export default function App() {
     let liveIV     = null;
     let chainData  = null;
 
+    // Fetch quote + chain in parallel
     try {
-      // fetchOptionChainData and fetchLiveIV both use the unified cache —
-      // if loadExps already ran, this is instant (no network call)
       [freshQuote, chainData] = await Promise.all([
         fetchQuote(tickerNow),
         fetchOptionChainData(tickerNow, targetExpInfo.label),
       ]);
-      // IV from cache (populated by loadExps)
       liveIV = OPT_CACHE[tickerNow]?.iv || null;
-    } catch(e){ console.warn('Parallel fetch error:',e); }
+    } catch(e){ console.warn('Fetch error:',e); }
 
     if(optRunId.current!==rid)return;
 
-    // Retry quote once if it failed (fast retry, no delay)
-    if(!freshQuote||freshQuote.price<=0) freshQuote=await fetchQuote(tickerNow);
-    if(optRunId.current!==rid)return;
+    // ── Price resolution — never hard-block the scan ──
+    // Priority: 1) fresh quote  2) cached price from batchFetch  3) base IV estimate
+    let livePrice = freshQuote?.price > 0 ? freshQuote.price : null;
 
-    if(!freshQuote||freshQuote.price<=0){
+    if (!livePrice) {
+      // Try cached price from background price refresh
+      const cachedQ = pricesRef.current[tickerNow];
+      if (cachedQ?.price > 0) {
+        livePrice = cachedQ.price;
+        freshQuote = cachedQ;
+      }
+    }
+
+    if (!livePrice) {
+      // Last resort: show user-friendly error inline, not a blocking alert
       setOLoading(false);
-      alert(`Could not load live price for ${tickerNow}. Check your connection and try again.`);
+      SCAN_ACTIVE = false;
+      setOInsights({ error: true, msg: `Live price unavailable for ${tickerNow}. Markets may be closed or Finnhub rate limit reached. Try again in a moment.` });
       return;
     }
 
-    const livePrice = freshQuote.price;
-    setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
+    if (freshQuote) setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
     liveIV = liveIV || ivCache[tickerNow] || base.iv || 35;
     if(chainData) setOptChain(prev=>({...prev,[tickerNow]:chainData}));
     setOProg(55);
@@ -1674,6 +1718,7 @@ Return ONLY raw JSON (no markdown, no backticks):
     if(optRunId.current!==rid)return;
 
     setOProg(100);
+    SCAN_ACTIVE = false;
     setOTicker(td);
     setOContracts(contracts);
     setOInsights(ins);
@@ -1981,7 +2026,15 @@ Return ONLY raw JSON (no markdown, no backticks):
 
           {oLoading&&<div className="lbox"><div className="lsteps">{OSTEPS.map((s,i)=><div key={i} className={`lstep ${oStep>i?"done":oStep===i?"active":""}`}><div className="lstep-ico">{oStep>i?"✓":oStep===i?"…":i+1}</div><span>{s}</span></div>)}</div><div className="pbar"><div className="pfill b" style={{width:`${oProg}%`}}/></div></div>}
 
-          {!oContracts.length&&!oLoading&&<div className="empty"><div className="ico">⚡</div><h3>Ready to scan options</h3><p>Select a ticker above, then hit Scan.<br/>Prices are live from Finnhub.</p></div>}
+          {!oContracts.length&&!oLoading&&oInsights?.error&&(
+            <div style={{background:"rgba(255,59,48,0.1)",border:"1px solid rgba(255,59,48,0.35)",borderRadius:12,padding:"20px 24px",margin:"16px 0",textAlign:"center"}}>
+              <div style={{fontSize:22,marginBottom:8}}>⚠️</div>
+              <div style={{color:"#ff6b6b",fontWeight:700,fontSize:14,marginBottom:6}}>Price Unavailable</div>
+              <div style={{color:"var(--dim)",fontSize:12,lineHeight:1.6}}>{oInsights.msg}</div>
+              <button onClick={runOptions} style={{marginTop:14,padding:"8px 20px",background:"rgba(255,59,48,0.2)",border:"1px solid rgba(255,59,48,0.4)",borderRadius:8,color:"#ff6b6b",cursor:"pointer",fontSize:12,fontWeight:700}}>↺ Retry</button>
+            </div>
+          )}
+          {!oContracts.length&&!oLoading&&!oInsights?.error&&<div className="empty"><div className="ico">⚡</div><h3>Ready to scan options</h3><p>Select a ticker above, then hit Scan.<br/>Prices are live from Finnhub.</p></div>}
 
                     {oContracts.length>0&&!oLoading&&oInsights&&oTicker&&<div className="results">
             <div className="sumbox">
