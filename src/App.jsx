@@ -3,12 +3,9 @@ import { useState, useCallback, useRef, useEffect } from "react";
 const FINNHUB_KEY = "d6ogvahr01qnu98i1cp0d6ogvahr01qnu98i1cpg";
 const FINNHUB_URL = "https://finnhub.io/api/v1";
 const REFRESH_MS = 60000;
-// ── UNIFIED OPTIONS CACHE ──
-// One CBOE download per ticker → shared by expirations, IV, and chain data
-// Structure: { [ticker]: { ts, dates, chains, currentPrice, iv } }
+// Options chain cache — keyed by ticker, stores Finnhub chain data at scan time
 const OPT_CACHE     = {};
-const OPT_CACHE_TTL = 8 * 60 * 1000; // 8 min — fresh enough for real-time trading
-// In-flight promise map — prevents duplicate simultaneous fetches for same ticker
+const OPT_CACHE_TTL = 8 * 60 * 1000;
 const OPT_INFLIGHT  = {};
 
 /* ── STYLES ── */
@@ -699,85 +696,168 @@ async function fetchQuote(ticker) {
 }
 
 // ══════════════════════════════════════════════════════════
-// UNIFIED OPTIONS DATA LAYER
-// One CBOE download per ticker → shared by expirations, IV, chain.
-// CBOE: free, no key, no proxy, real OI/volume, 15-min delayed.
+// EXPIRATION DATE GENERATOR — pure JS, instant, no network call
+// Generates every real option expiration for next 730 days:
+//   • Every Friday = weekly expiration
+//   • 3rd Friday of each month = standard monthly (labeled separately)  
+//   • Jan expirations 1-2 years out = LEAPS
+// This is how CBOE/OCC actually schedules expirations.
 // ══════════════════════════════════════════════════════════
+function generateExpirationDates() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const result = [];
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-function cboeSymbol(t) { return '_' + t.toUpperCase(); }
+  // Find all Fridays in the next 730 days
+  const d = new Date(today);
+  // Advance to next Friday if not already Friday
+  while (d.getDay() !== 5) d.setDate(d.getDate() + 1);
 
-// Single core fetch — all options data consumers share this result
+  const end = new Date(today); end.setDate(end.getDate() + 730);
+
+  while (d <= end) {
+    const dte = Math.round((d.getTime() - today.getTime()) / 86400000);
+    if (dte >= 0) {
+      const mon     = MONTHS[d.getMonth()];
+      const day     = d.getDate();
+      const year    = d.getFullYear();
+      const dow     = DAYS[d.getDay()];
+      const dateStr = `${year}-${String(d.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+
+      // Is this the 3rd Friday of the month?
+      const weekNum = Math.ceil(day / 7);
+      const isThirdFriday = weekNum === 3;
+
+      // Kind label
+      let kind;
+      if (dte === 0)       kind = '0 DTE';
+      else if (dte === 1)  kind = '1 DTE';
+      else if (dte === 2)  kind = '2 DTE';
+      else if (dte === 3)  kind = '3 DTE';
+      else if (dte === 4)  kind = '4 DTE';
+      else if (dte === 5)  kind = '5 DTE';
+      else if (dte <= 9)   kind = 'Weekly';
+      else if (dte <= 16)  kind = isThirdFriday ? 'Monthly' : 'Weekly';
+      else if (dte <= 23)  kind = isThirdFriday ? 'Monthly' : 'Weekly';
+      else if (dte <= 37)  kind = isThirdFriday ? 'Monthly' : 'Weekly';
+      else if (dte <= 100) kind = isThirdFriday ? 'Monthly'    : 'Weekly';
+      else if (dte <= 200) kind = isThirdFriday ? 'Quarterly'  : 'Weekly';
+      else                 kind = `LEAPS ${year}`;
+
+      // Display label
+      const dteTag  = `${dte}d`;
+      const display = dte <= 9
+        ? `${dow} ${mon} ${day}  ·  ${dte} DTE`
+        : `${mon} ${day}, ${year}  ·  ${dteTag}  ·  ${kind}`;
+
+      result.push({ dateStr, label: `${mon} ${day}, ${year}`, short: `${mon} ${day}`,
+                    full: `${dow} ${mon} ${day}, ${year}`, dte, kind, year, display });
+    }
+    d.setDate(d.getDate() + 7);
+  }
+  return result;
+}
+
+// Pre-compute once at startup — instant reference for the dropdown
+const ALL_EXPIRATIONS = generateExpirationDates();
+
+// ── FINNHUB OPTION CHAIN (scan time only) ──
+// Called once when user hits Scan — uses Finnhub for real OI/volume/bid/ask
 async function loadCBOEData(ticker) {
+  // Check cache first
   const cached = OPT_CACHE[ticker];
   if (cached && (Date.now() - cached.ts) < OPT_CACHE_TTL) return cached;
-  // Coalesce parallel calls — only one in-flight fetch per ticker
   if (OPT_INFLIGHT[ticker]) return OPT_INFLIGHT[ticker];
+
   OPT_INFLIGHT[ticker] = (async () => {
     try {
-      const url = `https://cdn.cboe.com/api/global/delayed_quotes/options/${cboeSymbol(ticker)}.json`;
-      const r = await fetch(url, { headers: { Accept: 'application/json' } });
+      // Finnhub option chain — real OI, volume, bid/ask per strike
+      const url = `${FINNHUB_URL}/stock/option-chain?symbol=${ticker}&token=${FINNHUB_KEY}`;
+      const r = await fetch(url);
       if (!r.ok) return null;
       const d = await r.json();
-      const rows = Array.isArray(d?.data) ? d.data : [];
-      if (!rows.length) return null;
-      const currentPrice = d?.current_price || 0;
-      const dates = [...new Set(rows.map(r => r.expiration_date).filter(Boolean))].sort();
-      // Build chain maps for ALL expirations in one pass
+      if (!d || !Array.isArray(d.data) || !d.data.length) return null;
+
+      // Build chain maps keyed by expiration date string
       const chains = {};
-      rows.forEach(row => {
-        const exp = row.expiration_date; const k = +row.strike_price;
-        const side = row.option_type === 'C' ? 'call' : 'put';
-        if (!exp || !k || isNaN(k)) return;
-        if (!chains[exp]) chains[exp] = {};
-        if (!chains[exp][k]) chains[exp][k] = {};
-        chains[exp][k][side] = {
-          iv:     (row.iv > 0 && row.iv < 10) ? +(row.iv * 100).toFixed(1) : null,
-          volume: typeof row.volume        === 'number' ? row.volume        : null,
-          oi:     typeof row.open_interest === 'number' ? row.open_interest : null,
-          bid:    row.bid > 0              ? +row.bid.toFixed(2)            : null,
-          ask:    row.ask > 0              ? +row.ask.toFixed(2)            : null,
-          last:   row.last_trade_price > 0 ? +row.last_trade_price.toFixed(2) : null,
-          delta: row.delta||null, gamma: row.gamma||null, theta: row.theta||null, vega: row.vega||null,
-        };
+      const expDates = [];
+      d.data.forEach(exp => {
+        const expDate = exp.expirationDate;
+        if (!expDate) return;
+        expDates.push(expDate);
+        chains[expDate] = {};
+        const calls = exp.options?.CALL || [];
+        const puts  = exp.options?.PUT  || [];
+        calls.forEach(c => {
+          const k = +c.strike; if (!k || isNaN(k)) return;
+          if (!chains[expDate][k]) chains[expDate][k] = {};
+          chains[expDate][k].call = {
+            iv:     c.impliedVolatility > 0 ? +(c.impliedVolatility * 100).toFixed(1) : null,
+            volume: typeof c.volume       === 'number' ? c.volume       : null,
+            oi:     typeof c.openInterest === 'number' ? c.openInterest : null,
+            bid:    c.bid > 0       ? +c.bid.toFixed(2)       : null,
+            ask:    c.ask > 0       ? +c.ask.toFixed(2)       : null,
+            last:   c.lastPrice > 0 ? +c.lastPrice.toFixed(2) : null,
+          };
+        });
+        puts.forEach(p => {
+          const k = +p.strike; if (!k || isNaN(k)) return;
+          if (!chains[expDate][k]) chains[expDate][k] = {};
+          chains[expDate][k].put = {
+            iv:     p.impliedVolatility > 0 ? +(p.impliedVolatility * 100).toFixed(1) : null,
+            volume: typeof p.volume       === 'number' ? p.volume       : null,
+            oi:     typeof p.openInterest === 'number' ? p.openInterest : null,
+            bid:    p.bid > 0       ? +p.bid.toFixed(2)       : null,
+            ask:    p.ask > 0       ? +p.ask.toFixed(2)       : null,
+            last:   p.lastPrice > 0 ? +p.lastPrice.toFixed(2) : null,
+          };
+        });
       });
+
       // ATM IV from nearest expiration
-      const nearExp = dates[0];
-      const atmRows = rows.filter(r => r.expiration_date===nearExp && r.iv>0.01 && r.iv<5 && currentPrice>0 && Math.abs(r.strike_price-currentPrice)/currentPrice<0.08);
-      const iv = atmRows.length ? Math.round(atmRows.reduce((s,r)=>s+r.iv,0)/atmRows.length*100) : null;
-      const result = { ts: Date.now(), dates, chains, currentPrice, iv };
+      const nearExpData = d.data[0];
+      const allContracts = [...(nearExpData?.options?.CALL||[]), ...(nearExpData?.options?.PUT||[])];
+      const ivs = allContracts.map(c => c.impliedVolatility).filter(v => v > 0.01 && v < 5);
+      const iv  = ivs.length ? Math.round(ivs.reduce((a,b)=>a+b,0)/ivs.length*100) : null;
+
+      const result = { ts: Date.now(), dates: expDates.sort(), chains, iv };
       OPT_CACHE[ticker] = result;
       return result;
-    } catch(e) { console.warn('CBOE error:', ticker, e?.message); return null; }
+    } catch(e) { console.warn('Chain fetch error:', ticker, e?.message); return null; }
     finally { delete OPT_INFLIGHT[ticker]; }
   })();
   return OPT_INFLIGHT[ticker];
 }
 
-// Strike map for chosen expiration — uses cache, zero extra fetch
 async function fetchOptionChainData(ticker, targetExpDate) {
   const data = await loadCBOEData(ticker);
-  if (!data || !data.dates.length) return null;
-  const targetMs = targetExpDate ? new Date(targetExpDate+'T00:00:00').getTime() : null;
-  let bestExp = data.dates[0];
-  if (targetMs) {
+  if (!data) return null;
+  // Match exact date first, then closest
+  let bestExp = data.dates.find(d => d === targetExpDate) || data.dates[0];
+  if (!bestExp && targetExpDate) {
+    const targetMs = new Date(targetExpDate+'T00:00:00').getTime();
     let bestDiff = Infinity;
-    data.dates.forEach(exp => { const diff=Math.abs(new Date(exp+'T00:00:00').getTime()-targetMs); if(diff<bestDiff){bestDiff=diff;bestExp=exp;} });
+    data.dates.forEach(exp => {
+      const diff = Math.abs(new Date(exp+'T00:00:00').getTime()-targetMs);
+      if (diff < bestDiff) { bestDiff = diff; bestExp = exp; }
+    });
   }
-  const chainMap = { ...(data.chains[bestExp]||{}), _expDate: bestExp, _underlying: data.currentPrice };
-  return Object.keys(chainMap).filter(k=>k!=='_expDate'&&k!=='_underlying').length > 0 ? chainMap : null;
+  if (!bestExp) return null;
+  const chainMap = { ...(data.chains[bestExp]||{}), _expDate: bestExp };
+  return Object.keys(chainMap).filter(k=>k!=='_expDate').length > 0 ? chainMap : null;
 }
 
-// ATM IV — uses cache, zero extra fetch
 async function fetchLiveIV(ticker) {
   const data = await loadCBOEData(ticker);
   return data?.iv || null;
 }
 
-// Expiration date strings — uses cache, zero extra fetch
-async function fetchExpirationDates(ticker) {
-  const data = await loadCBOEData(ticker);
-  return data?.dates || null;
+// Instant — reads from pre-computed ALL_EXPIRATIONS, no network
+function fetchExpirationDates() {
+  return ALL_EXPIRATIONS;
 }
+
 async function batchFetch(tickers, onProgress) {
   const out = {};
   const CHUNK = 8;          // parallel requests per chunk
@@ -1266,8 +1346,12 @@ export default function App() {
   const [sSort,setSSort]=useState("score");
   const [optTicker,setOptTicker]=useState("NVDA");
   const [optType,setOptType]=useState("Both Calls & Puts");
-  const [optExp,setOptExp]=useState(null); // real "YYYY-MM-DD" from Finnhub
-  const [availExps,setAvailExps]=useState([]); // [{dateStr,label,dte,kind,display}]
+  // Initialize expirations immediately — ALL_EXPIRATIONS is pre-computed at startup
+  const [availExps,setAvailExps]=useState(()=>ALL_EXPIRATIONS);
+  const [optExp,setOptExp]=useState(()=>{
+    const preferred=ALL_EXPIRATIONS.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||ALL_EXPIRATIONS[0];
+    return preferred?.dateStr||null;
+  });
   const [expsLoading,setExpsLoading]=useState(false);
   const [optStrat,setOptStrat]=useState("Directional (Calls)");
   const [optCatFilter,setOptCatFilter]=useState("All");
@@ -1380,40 +1464,20 @@ export default function App() {
     setSResult(crit);setSLoading(false);
   },[strategy,sector,market,prices]);
 
-  // ── Load expirations via unified cache — one CBOE fetch populates everything ──
+  // When ticker changes, reset expiration selection to closest ~30 DTE
+  // availExps never changes (same for all tickers) — only the selection resets
   useEffect(()=>{
-    let cancelled=false;
-    const loadExps=async()=>{
-      setExpsLoading(true);
-      try {
-        const dates=await fetchExpirationDates(optTicker);
-        if(cancelled||!dates||!dates.length){setExpsLoading(false);return;}
-        const labeled=dates.map(labelExpDate).filter(e=>e&&e.dte>=0);
-        if(cancelled){setExpsLoading(false);return;}
-        setAvailExps(labeled);
-        const preferred=labeled.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||labeled[0];
-        if(preferred&&!cancelled)setOptExp(preferred.dateStr);
-        // Pre-populate IV cache from the same CBOE data (no extra fetch)
-        const cached=OPT_CACHE[optTicker];
-        if(cached?.iv&&!cancelled)setIvCache(prev=>({...prev,[optTicker]:cached.iv}));
-      } catch(e){console.warn('loadExps error:',e);}
-      if(!cancelled)setExpsLoading(false);
-    };
-    loadExps();
-    return()=>{cancelled=true;};
+    const preferred=ALL_EXPIRATIONS.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||ALL_EXPIRATIONS[0];
+    if(preferred)setOptExp(preferred.dateStr);
   },[optTicker]);
 
-  // IV is populated by loadExps from the unified CBOE cache — no separate fetch needed
-  // Refresh CBOE cache every 8 min for current ticker (matching OPT_CACHE_TTL)
+  // Refresh IV from Finnhub chain cache every 8 min
   useEffect(()=>{
     const id=setInterval(async()=>{
-      // Force refresh by clearing cache entry then reloading
-      delete OPT_CACHE[optTicker];
-      const dates=await fetchExpirationDates(optTicker);
-      if(!dates)return;
-      const cached=OPT_CACHE[optTicker];
-      if(cached?.iv)setIvCache(prev=>({...prev,[optTicker]:cached.iv}));
-    },OPT_CACHE_TTL);
+      delete OPT_CACHE[optTicker]; // force refresh
+      const data = await loadCBOEData(optTicker);
+      if(data?.iv) setIvCache(prev=>({...prev,[optTicker]:data.iv}));
+    }, OPT_CACHE_TTL);
     return()=>clearInterval(id);
   },[optTicker]);
 
