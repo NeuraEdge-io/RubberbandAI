@@ -876,16 +876,17 @@ function generateExpirationDates() {
              full:`${dow} ${mon} ${day}, ${year}`, dte, kind, year, display };
   };
 
-  // ── Tier 1: ALWAYS include today + next 6 weekdays (0–6 DTE guaranteed) ──
-  // This ensures 1 DTE and 2 DTE are ALWAYS in the list regardless of day of week
-  for (let offset = 0; offset <= 8; offset++) {
+  // ── Tier 1: Walk forward day-by-day until we have 7 weekday entries (0–6 DTE) ──
+  // Scans up to 14 calendar days to handle long weekends / holidays.
+  // Guarantees 1 DTE and 2 DTE are ALWAYS present.
+  let weekdayCount = 0;
+  for (let offset = 0; offset <= 14 && weekdayCount < 7; offset++) {
     const d = new Date(today);
     d.setDate(today.getDate() + offset);
     const dow = d.getDay();
-    if (dow === 0 || dow === 6) continue; // skip weekends
+    if (dow === 0 || dow === 6) continue; // skip Sat/Sun
     const entry = makeEntry(d);
-    if (entry) result.push(entry);
-    if (result.length >= 7) break; // got 0-6 DTE covered
+    if (entry) { result.push(entry); weekdayCount++; }
   }
 
   // ── Tier 2: Every Friday for the next 730 days (weeklies, monthlies, LEAPS) ──
@@ -903,7 +904,8 @@ function generateExpirationDates() {
   result.sort((a, b) => a.dte - b.dte);
   return result;
 }
-// Pre-compute once at startup — instant reference for the dropdown
+// Computed at module load — always fresh because generateExpirationDates()
+// is pure JS with no external deps, runs in <1ms.
 const ALL_EXPIRATIONS = generateExpirationDates();
 
 // ── FINNHUB OPTION CHAIN (scan time only) ──
@@ -1444,20 +1446,38 @@ const OSTRATEGIES=["High IV Crush (Sell)","Low IV Buy","Momentum Calls","Protect
 const OTYPES=["Calls Only","Puts Only","Both Calls & Puts"];
 
 
-/* ── TRADINGVIEW WIDGET COMPONENT ──
-   Uses TradingView's free chart embed. No API key. Real-time data.
-   interval: "1" "5" "15" "60" "D" "W"
+/* ── CHART LINK COMPONENT ──
+   Opens TradingView in new tab — zero iframe overhead, instant.
+   No loading spinner, no CORS, no blocked embeds.
 */
-function TVChart({ ticker, interval = "D", height = "100%", theme = "dark" }) {
-  const src = `https://s.tradingview.com/widgetembed/?frameElementId=tv_chart&symbol=${encodeURIComponent(ticker)}&interval=${interval}&hidesidetoolbar=1&symboledit=0&saveimage=0&toolbarbg=0d1117&studies=[]&hideideas=1&theme=${theme}&style=1&timezone=exchange&withdateranges=1&showpopupbutton=0&studies_overrides={}&overrides={}&enabled_features=[]&disabled_features=["header_symbol_search","header_compare","header_undo_redo","header_screenshot","header_saveload"]&locale=en&utm_source=rubberband.ai&utm_medium=widget`;
+function TVChart({ ticker, interval = "D" }) {
+  const tvUrl = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(ticker)}&interval=${interval}`;
+  const intervals = [["1m","1"],["5m","5"],["15m","15"],["1h","60"],["1D","D"],["1W","W"]];
   return (
-    <iframe
-      key={ticker + interval}
-      src={src}
-      style={{ width: "100%", height: height, border: "none", display: "block", background: "#000" }}
-      allow="autoplay"
-      title={`${ticker} chart`}
-    />
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+                 height:"100%",minHeight:180,gap:16,padding:24,background:"rgba(0,0,0,.4)"}}>
+      <div style={{fontSize:28}}>📈</div>
+      <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:18,color:"var(--txt)"}}>{ticker}</div>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
+        {intervals.map(([label,val])=>(
+          <a key={val}
+            href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(ticker)}&interval=${val}`}
+            target="_blank" rel="noopener noreferrer"
+            style={{padding:"6px 14px",background:"rgba(0,232,122,.1)",border:"1px solid rgba(0,232,122,.3)",
+                    borderRadius:7,color:"var(--green)",fontSize:11,fontFamily:"DM Mono,monospace",
+                    textDecoration:"none",letterSpacing:".5px"}}>
+            {label}
+          </a>
+        ))}
+      </div>
+      <a href={tvUrl} target="_blank" rel="noopener noreferrer"
+        style={{padding:"10px 28px",background:"linear-gradient(135deg,rgba(0,232,122,.18),rgba(0,212,255,.1))",
+                border:"1px solid rgba(0,232,122,.4)",borderRadius:10,color:"var(--green)",
+                fontWeight:700,fontSize:13,textDecoration:"none",marginTop:4}}>
+        Open Full Chart →
+      </a>
+      <div style={{fontSize:10,color:"var(--dim)"}}>Powered by TradingView · Opens in new tab</div>
+    </div>
   );
 }
 
@@ -1481,10 +1501,11 @@ export default function App() {
   const [sSort,setSSort]=useState("score");
   const [optTicker,setOptTicker]=useState("NVDA");
   const [optType,setOptType]=useState("Both Calls & Puts");
-  // Initialize expirations immediately — ALL_EXPIRATIONS is pre-computed at startup
-  const [availExps,setAvailExps]=useState(()=>ALL_EXPIRATIONS);
+  // Always generate fresh on component mount — pure JS, <1ms, guarantees 1 DTE & 2 DTE
+  const [availExps,setAvailExps]=useState(()=>generateExpirationDates());
   const [optExp,setOptExp]=useState(()=>{
-    const preferred=ALL_EXPIRATIONS.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||ALL_EXPIRATIONS[0];
+    const exps=generateExpirationDates();
+    const preferred=exps.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||exps[0];
     return preferred?.dateStr||null;
   });
   const [expsLoading,setExpsLoading]=useState(false);
@@ -1509,9 +1530,6 @@ export default function App() {
   const [eOk,setEOk]=useState(false);
   const runId=useRef(0);
   const optRunId=useRef(0);
-  const [chartTicker,setChartTicker]=useState(null);   // null = modal closed
-  const [chartInterval,setChartInterval]=useState("D");
-  const [optChartInterval,setOptChartInterval]=useState("D"); // separate from stock runId to prevent cross-cancellation
   const [clock,setClock]=useState(new Date().toLocaleTimeString());
 
   useEffect(()=>{
@@ -1573,10 +1591,11 @@ export default function App() {
     setSResult(crit);setSLoading(false);
   },[strategy,sector,market,prices]);
 
-  // When ticker changes, reset expiration selection to closest ~30 DTE
-  // availExps never changes (same for all tickers) — only the selection resets
+  // When ticker changes, refresh expirations (always fresh dates) and reset to ~30 DTE
   useEffect(()=>{
-    const preferred=ALL_EXPIRATIONS.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||ALL_EXPIRATIONS[0];
+    const exps=generateExpirationDates();
+    setAvailExps(exps);
+    const preferred=exps.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||exps[0];
     if(preferred)setOptExp(preferred.dateStr);
   },[optTicker]);
 
@@ -1848,7 +1867,7 @@ Return ONLY raw JSON (no markdown, no backticks):
               <tbody>{dispStocks.map((s,i)=><tr key={s.t+i}>
                 <td style={{color:"var(--dim)",fontSize:10}}>{i+1}</td>
                 <td>
-                  <div className="tkr-cell" style={{cursor:"pointer"}} onClick={()=>{setChartTicker(s.t);setChartInterval("D");}}>
+                  <a className="tkr-cell" href={`https://www.tradingview.com/chart/?symbol=${s.t}`} target="_blank" rel="noopener noreferrer" style={{cursor:"pointer",textDecoration:"none",color:"inherit"}}>
                     <div className="tkr-top"><div className="tk">{s.t}</div>{s.isGem&&<div className="gem">💎</div>}</div>
                     <div className="co">{s.n}</div>
                     <div className="tkr-chart-btn">📈 View Chart</div>
@@ -1918,12 +1937,18 @@ Return ONLY raw JSON (no markdown, no backticks):
               </div>
               <div className="opt-chart-intervals">
                 {[["1m","1"],["5m","5"],["15m","15"],["1h","60"],["1D","D"],["1W","W"]].map(([label,val])=>(
-                  <button key={val} className={`chart-int-btn${optChartInterval===val?" active":""}`} onClick={()=>setOptChartInterval(val)}>{label}</button>
+                  <a key={val} href={`https://www.tradingview.com/chart/?symbol=${optTicker}&interval=${val}`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{padding:"4px 11px",background:"rgba(0,232,122,.08)",border:"1px solid rgba(0,232,122,.25)",
+                            borderRadius:6,color:"var(--green)",fontSize:10,fontFamily:"DM Mono,monospace",
+                            textDecoration:"none",letterSpacing:".5px"}}>
+                    {label}
+                  </a>
                 ))}
               </div>
             </div>
             <div className="opt-chart-body">
-              <TVChart ticker={optTicker} interval={optChartInterval} height="380px"/>
+              <TVChart ticker={optTicker} interval="D"/>
             </div>
           </div>
 
@@ -2182,37 +2207,7 @@ Return ONLY raw JSON (no markdown, no backticks):
         </div>}
       </div>
         {/* ── CHART MODAL (stock screener click-through) ── */}
-        {chartTicker&&(
-          <div className="chart-modal-overlay" onClick={e=>{if(e.target===e.currentTarget)setChartTicker(null);}}>
-            <div className="chart-modal">
-              <div className="chart-modal-hdr">
-                <div className="chart-modal-hdr-left">
-                  <div>
-                    <div className="chart-modal-tk">{chartTicker}</div>
-                    <div className="chart-modal-name">{[...UNIVERSE_BASE,...OPT_BASE].find(x=>x.t===chartTicker)?.n||chartTicker}</div>
-                  </div>
-                  {prices[chartTicker]&&(
-                    <div style={{marginLeft:12}}>
-                      <span className="chart-modal-price" style={{color:prices[chartTicker].change>=0?"var(--green)":"var(--red)"}}>{fmt(prices[chartTicker].price)}</span>
-                      <span style={{fontSize:11,marginLeft:8,color:prices[chartTicker].change>=0?"var(--green)":"var(--red)"}}>
-                        {prices[chartTicker].change>=0?"+":""}{prices[chartTicker].change?.toFixed(2)}%
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <button className="chart-modal-close" onClick={()=>setChartTicker(null)}>✕</button>
-              </div>
-              <div className="chart-interval-bar">
-                {[["1m","1"],["5m","5"],["15m","15"],["1h","60"],["1D","D"],["1W","W"],["1M","M"]].map(([label,val])=>(
-                  <button key={val} className={`chart-int-btn${chartInterval===val?" active":""}`} onClick={()=>setChartInterval(val)}>{label}</button>
-                ))}
-              </div>
-              <div className="chart-frame-wrap">
-                <TVChart ticker={chartTicker} interval={chartInterval} height="460px"/>
-              </div>
-            </div>
-          </div>
-        )}
+
 
     </>
   );
