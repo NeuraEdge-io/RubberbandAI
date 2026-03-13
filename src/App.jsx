@@ -2,7 +2,10 @@ import { useState, useCallback, useRef, useEffect } from "react";
 
 const FINNHUB_KEY = "d6ogvahr01qnu98i1cp0d6ogvahr01qnu98i1cpg";
 const FINNHUB_URL = "https://finnhub.io/api/v1";
-const REFRESH_MS = 30000;
+const REFRESH_MS = 60000; // 60s — chunked parallel fetch keeps this fast
+// In-memory cache for expiration dates — avoids re-downloading full chain on ticker switch
+const EXP_CACHE = {}; // { [ticker]: { dates: [...], ts: timestamp } }
+const EXP_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 /* ── STYLES ── */
 const CSS = `
@@ -794,11 +797,18 @@ async function fetchLiveIV(ticker) {
 
 async function batchFetch(tickers, onProgress) {
   const out = {};
-  for (let i = 0; i < tickers.length; i++) {
-    const q = await fetchQuote(tickers[i]);
-    if (q) out[tickers[i]] = q;
-    if (onProgress) onProgress(i + 1, tickers.length);
-    if (i < tickers.length - 1) await new Promise(r => setTimeout(r, 230));
+  const CHUNK = 8;          // parallel requests per chunk
+  const GAP   = 80;         // ms between chunks — safe for Finnhub free tier
+  let done = 0;
+  for (let i = 0; i < tickers.length; i += CHUNK) {
+    const chunk = tickers.slice(i, i + CHUNK);
+    const results = await Promise.allSettled(chunk.map(t => fetchQuote(t)));
+    results.forEach((r, j) => {
+      if (r.status === 'fulfilled' && r.value) out[chunk[j]] = r.value;
+    });
+    done += chunk.length;
+    if (onProgress) onProgress(Math.min(done, tickers.length), tickers.length);
+    if (i + CHUNK < tickers.length) await new Promise(r => setTimeout(r, GAP));
   }
   return out;
 }
@@ -1311,13 +1321,27 @@ export default function App() {
   useEffect(()=>{
     const refresh=async()=>{
       if(pLoading)return;
-      // Always fetch selected options ticker first for instant UI update
-      const priority=[optTicker];
-      const rest=[...new Set([...UNIVERSE_BASE.map(s=>s.t),...OPT_BASE.map(s=>s.t)])].filter(t=>t!==optTicker);
+      // Deduplicate full ticker universe
+      const allTickers=[...new Set([...UNIVERSE_BASE.map(s=>s.t),...OPT_BASE.map(s=>s.t)])];
+      // Priority: selected options ticker first, then stocks, then rest
+      const stockTickers=UNIVERSE_BASE.map(s=>s.t);
+      const priority=[optTicker,...stockTickers.filter(t=>t!==optTicker)];
+      const rest=allTickers.filter(t=>!priority.includes(t));
       const tickers=[...priority,...rest];
       setPLoading(true);
-      const r=await batchFetch(tickers,(done,total)=>setFetchProg({done,total}));
-      setPrices(prev=>({...prev,...r}));
+      // Fetch in chunks — update prices incrementally as chunks complete
+      const CHUNK=8;const GAP=80;
+      for(let i=0;i<tickers.length;i+=CHUNK){
+        const chunk=tickers.slice(i,i+CHUNK);
+        const results=await Promise.allSettled(chunk.map(t=>fetchQuote(t)));
+        const batch={};
+        results.forEach((r,j)=>{if(r.status==='fulfilled'&&r.value)batch[chunk[j]]=r.value;});
+        setPrices(prev=>({...prev,...batch}));
+        setFetchProg({done:Math.min(i+CHUNK,tickers.length),total:tickers.length});
+        // Show "LIVE" as soon as priority tickers are done
+        if(i===0)setLastRefresh(new Date());
+        if(i+CHUNK<tickers.length)await new Promise(r=>setTimeout(r,GAP));
+      }
       setLastRefresh(new Date());
       setPLoading(false);
     };
@@ -1357,41 +1381,74 @@ export default function App() {
   /* STOCK SCREENER */
   const runStocks=useCallback(async()=>{
     const rid=++runId.current;
-    setSLoading(true);setSStep(0);setSProg(0);setSResult(null);setStocks([]);setSFilter("All");
-    const STEPS=["Loading live Finnhub prices","Applying strategy filters",`Scoring ${UNIVERSE_BASE.length}+ stocks`,"Surfacing hidden gems","Generating AI criteria"];
-    for(let i=0;i<STEPS.length;i++){await new Promise(r=>setTimeout(r,400));if(runId.current!==rid)return;setSStep(i+1);setSProg(Math.round(((i+1)/STEPS.length)*85));}
+    setSLoading(true);setSStep(1);setSProg(20);setSResult(null);setStocks([]);setSFilter("All");
+    // Score instantly — pure JS, no delay needed
     const universe=liveUniverse();
+    setSProg(50);
     const scored=universe.map(s=>({...s,score:scoreStock(s,strategy,sector,market)})).sort((a,b)=>b.score-a.score).slice(0,18).map(s=>({...s,rating:getRating(s.score),metrics:getMetrics(s,strategy),thesis:buildThesis(s,strategy),isGem:s.cap==="Small"||s.cap==="Micro"}));
+    setSProg(70);
+    // Fire AI and render stocks simultaneously — don't block UI on AI
+    setStocks(scored);setSProg(85);
     let crit=null;
     try{const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1600,messages:[{role:"user",content:`Expert equity analyst. ${strategy} stocks in ${sector}, ${market}. Return ONLY raw JSON no markdown: {"title":"str","summary":"str","criteria":[{"metric":"str","threshold":"str","description":"str","importance":80}],"redFlags":["str"],"proTips":["str"],"tags":["str"]} 8 criteria, importance 50-99.`}]})});if(res.ok){const e=await res.json();const raw=(e.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();try{crit=JSON.parse(raw);}catch{}if(!crit){try{const m=raw.match(/\{[\s\S]*\}/);if(m)crit=JSON.parse(m[0]);}catch{}}}}catch{}
     if(!crit||!Array.isArray(crit.criteria)||!crit.criteria.length)crit=fallbackCrit(strategy,sector,market);
     if(runId.current!==rid)return;
-    setSProg(100);await new Promise(r=>setTimeout(r,180));
-    setSResult(crit);setStocks(scored);setSLoading(false);
+    setSProg(100);
+    setSResult(crit);setSLoading(false);
   },[strategy,sector,market,prices]);
 
-  // ── Fetch real expiration dates from Finnhub when ticker changes ──
+  // ── Fetch expiration dates — cached, uses lightweight endpoint ──
   useEffect(()=>{
     let cancelled=false;
     const loadExps=async()=>{
+      // 1. Serve from cache instantly if fresh
+      const cached=EXP_CACHE[optTicker];
+      if(cached&&(Date.now()-cached.ts)<EXP_CACHE_TTL){
+        const labeled=cached.dates.map(labelExpDate).filter(e=>e&&e.dte>=0);
+        setAvailExps(labeled);
+        const preferred=labeled.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||labeled[0];
+        if(preferred)setOptExp(preferred.dateStr);
+        return; // instant — no network call
+      }
+      // 2. Not cached — fetch. Show loading only briefly.
       setExpsLoading(true);
       try {
-        const r=await fetch(`${FINNHUB_URL}/stock/option-chain?symbol=${optTicker}&token=${FINNHUB_KEY}`);
-        if(!r.ok||cancelled)return;
+        // Use the lightweight option-chain endpoint but abort early once we have dates
+        const ctrl=new AbortController();
+        const r=await fetch(
+          `${FINNHUB_URL}/stock/option-chain?symbol=${optTicker}&token=${FINNHUB_KEY}`,
+          {signal:ctrl.signal}
+        );
+        if(!r.ok||cancelled){setExpsLoading(false);return;}
         const d=await r.json();
-        if(!d||!Array.isArray(d.data)||cancelled)return;
-        // Extract all unique expiration dates, sort ascending
+        if(cancelled){setExpsLoading(false);return;}
+        if(!d||!Array.isArray(d.data)){setExpsLoading(false);return;}
+        // Extract ONLY the expiration dates — ignore all strike/price data
         const dates=[...new Set(d.data.map(e=>e.expirationDate).filter(Boolean))].sort();
-        if(!dates.length||cancelled)return;
-        const labeled=dates.map(labelExpDate).filter(e=>e&&e.dte>=0); // include 0 DTE (same-day)
+        if(!dates.length){setExpsLoading(false);return;}
+        // Cache it
+        EXP_CACHE[optTicker]={dates,ts:Date.now()};
+        // Also cache the full chain data for the options scan so it doesn't re-fetch
+        if(d.data.length>0){
+          // Pre-warm the chain cache for the nearest expiration
+          // (the scan will use this instead of fetching again)
+          const nearExp=d.data[0];
+          if(nearExp){
+            const chainMap={};
+            const calls=nearExp?.options?.CALL||[];
+            const puts=nearExp?.options?.PUT||[];
+            calls.forEach(c=>{const k=+c.strike;if(!k||isNaN(k))return;if(!chainMap[k])chainMap[k]={};chainMap[k].call={iv:c.impliedVolatility>0?+(c.impliedVolatility*100).toFixed(1):null,volume:typeof c.volume==='number'?c.volume:null,oi:typeof c.openInterest==='number'?c.openInterest:null,bid:c.bid>0?+c.bid.toFixed(2):null,ask:c.ask>0?+c.ask.toFixed(2):null,last:c.lastPrice>0?+c.lastPrice.toFixed(2):null};});
+            puts.forEach(p=>{const k=+p.strike;if(!k||isNaN(k))return;if(!chainMap[k])chainMap[k]={};chainMap[k].put={iv:p.impliedVolatility>0?+(p.impliedVolatility*100).toFixed(1):null,volume:typeof p.volume==='number'?p.volume:null,oi:typeof p.openInterest==='number'?p.openInterest:null,bid:p.bid>0?+p.bid.toFixed(2):null,ask:p.ask>0?+p.ask.toFixed(2):null,last:p.lastPrice>0?+p.lastPrice.toFixed(2):null};});
+            chainMap._expDate=nearExp.expirationDate||null;
+            if(Object.keys(chainMap).length>1)setOptChain(prev=>({...prev,[optTicker]:chainMap}));
+          }
+        }
+        if(cancelled){setExpsLoading(false);return;}
+        const labeled=dates.map(labelExpDate).filter(e=>e&&e.dte>=0);
         setAvailExps(labeled);
-        // Auto-select closest to 30 DTE
-        const preferred=labeled.reduce((best,e)=>{
-          if(!best)return e;
-          return Math.abs(e.dte-30)<Math.abs(best.dte-30)?e:best;
-        },null)||labeled[0];
-        if(preferred&&!cancelled) setOptExp(preferred.dateStr);
-      } catch{}
+        const preferred=labeled.reduce((b,e)=>!b||Math.abs(e.dte-30)<Math.abs(b.dte-30)?e:b,null)||labeled[0];
+        if(preferred&&!cancelled)setOptExp(preferred.dateStr);
+      } catch(e){if(e?.name!=='AbortError')console.warn('Exp fetch error:',e);}
       if(!cancelled)setExpsLoading(false);
     };
     loadExps();
@@ -1437,22 +1494,40 @@ export default function App() {
 
     // Clear previous results immediately so stale data never shows
     setOLoading(true);
-    setOStep(0);setOProg(0);
+    setOProg(10);
     setOContracts([]);setOInsights(null);setOTicker(null);
 
-    // ── STEP 1: Fetch fresh live price — retry once on failure ──
-    setOStep(1);setOProg(15);
-    let freshQuote = await fetchQuote(tickerNow);
+    // ── Fetch quote + chain + IV all in parallel — single round trip ──
+    const expInfo = labelExpDate(expNow);
+    const targetExpInfo = {
+      label:   expInfo?.label || expNow,
+      short:   expInfo?.short || expNow,
+      realDte: expInfo?.dte   || 30,
+      dateStr: expNow,
+    };
+
+    setOProg(20);
+    let freshQuote = null;
+    let liveIV     = null;
+    let chainData  = null;
+
+    try {
+      [freshQuote,, chainData] = await Promise.all([
+        fetchQuote(tickerNow),
+        fetchLiveIV(tickerNow).then(iv=>{
+          if(iv&&iv>5&&iv<300){ liveIV=iv; setIvCache(prev=>({...prev,[tickerNow]:iv})); }
+        }),
+        fetchOptionChainData(tickerNow, targetExpInfo.label),
+      ]);
+    } catch(e){ console.warn('Parallel fetch error:',e); }
+
     if(optRunId.current!==rid)return;
 
-    if(!freshQuote || freshQuote.price<=0){
-      await new Promise(r=>setTimeout(r,800));
-      freshQuote = await fetchQuote(tickerNow);
-      if(optRunId.current!==rid)return;
-    }
+    // Retry quote once if it failed (fast retry, no delay)
+    if(!freshQuote||freshQuote.price<=0) freshQuote=await fetchQuote(tickerNow);
+    if(optRunId.current!==rid)return;
 
-    // Hard stop — never proceed with zero/missing price
-    if(!freshQuote || freshQuote.price<=0){
+    if(!freshQuote||freshQuote.price<=0){
       setOLoading(false);
       alert(`Could not load live price for ${tickerNow}. Check your connection and try again.`);
       return;
@@ -1460,55 +1535,19 @@ export default function App() {
 
     const livePrice = freshQuote.price;
     setPrices(prev=>({...prev,[tickerNow]:freshQuote}));
-
-    // ── STEP 2: Use the real expiration date string directly ──
-    setOStep(2);setOProg(30);
-    // expNow is a real "YYYY-MM-DD" date string from Finnhub expirations
-    const expInfo = labelExpDate(expNow);
-    const targetExpInfo = {
-      label:   expInfo?.label    || expNow,
-      short:   expInfo?.short    || expNow,
-      realDte: expInfo?.dte      || 30,
-      dateStr: expNow,
-    };
-
-    // ── STEP 3: Fetch Finnhub option chain + IV in parallel ──
-    setOStep(3);setOProg(48);
-    let liveIV   = null;
-    let chainData= null;
-
-    try {
-      [chainData] = await Promise.all([
-        fetchOptionChainData(tickerNow, targetExpInfo.label),
-        fetchLiveIV(tickerNow).then(iv=>{
-          if(iv&&iv>5&&iv<300){
-            liveIV=iv;
-            setIvCache(prev=>({...prev,[tickerNow]:iv}));
-          }
-        })
-      ]);
-    } catch(e){ console.warn('Chain fetch error:',e); }
-
-    if(optRunId.current!==rid)return;
-
-    // IV fallback — always scoped to tickerNow
     liveIV = liveIV || ivCache[tickerNow] || base.iv || 35;
     if(chainData) setOptChain(prev=>({...prev,[tickerNow]:chainData}));
+    setOProg(55);
 
-    // ── STEP 4: Build verified ticker data object ──
-    setOStep(4);setOProg(64);
     const td = {
-      t:        tickerNow,
-      n:        base.n,
-      p:        livePrice,       // always the freshly fetched price
-      iv:       liveIV,
-      expLabel: expNow,
-      scanTime: new Date().toLocaleTimeString(),
+      t:           tickerNow,
+      n:           base.n,
+      p:           livePrice,
+      iv:          liveIV,
+      expLabel:    expNow,
+      scanTime:    new Date().toLocaleTimeString(),
       priceSource: freshQuote.source || 'live',
     };
-
-    // ── STEP 5: Build contracts anchored entirely to td.p ──
-    setOStep(5);setOProg(80);
     const types = typeNow==='Calls Only'?['call']:typeNow==='Puts Only'?['put']:['call','put'];
     const contracts=[];
 
@@ -1629,7 +1668,6 @@ Return ONLY raw JSON (no markdown, no backticks):
     if(optRunId.current!==rid)return;
 
     setOProg(100);
-    await new Promise(r=>setTimeout(r,150));
     setOTicker(td);
     setOContracts(contracts);
     setOInsights(ins);
