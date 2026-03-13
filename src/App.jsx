@@ -448,6 +448,14 @@ const UNIVERSE_BASE = [
   {t:"MRVL",n:"Marvell Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
   {t:"TSM",n:"Taiwan Semiconductor",sec:"Semiconductors",cap:"Large",geo:"Asia Pacific"},
   {t:"CEG",n:"Constellation Energy",sec:"Utilities",cap:"Large",geo:"US"},
+  {t:"TEM",n:"Tempus AI Inc",sec:"Healthcare",cap:"Mid",geo:"US"},
+  {t:"CRSP",n:"CRISPR Therapeutics",sec:"Biotech",cap:"Mid",geo:"US"},
+  {t:"IREN",n:"Iris Energy Ltd",sec:"Technology",cap:"Small",geo:"International"},
+  {t:"BETA",n:"Beta Technologies",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"TEL",n:"TE Connectivity",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"SPOT",n:"Spotify Technology",sec:"Technology",cap:"Large",geo:"International"},
+  {t:"NTR",n:"Nutrien Ltd",sec:"Materials",cap:"Large",geo:"International"},
+  {t:"ZBRA",n:"Zebra Technologies",sec:"Technology",cap:"Large",geo:"US"},
 ];
 
 const OPT_BASE = [
@@ -649,6 +657,14 @@ const OPT_BASE = [
   {t:"CRWV",n:"CoreWeave Inc",iv:88,cat:"AI"},
   {t:"MRVL",n:"Marvell Technology",iv:52,cat:"Mega Cap"},
   {t:"CEG",n:"Constellation Energy",iv:42,cat:"EV/Energy"},
+  {t:"TEM",n:"Tempus AI Inc",iv:78,cat:"AI"},
+  {t:"CRSP",n:"CRISPR Therapeutics",iv:82,cat:"Biotech"},
+  {t:"IREN",n:"Iris Energy Ltd",iv:95,cat:"High Vol"},
+  {t:"BETA",n:"Beta Technologies",iv:70,cat:"eVTOL"},
+  {t:"TEL",n:"TE Connectivity",iv:26,cat:"Enterprise"},
+  {t:"SPOT",n:"Spotify Technology",iv:42,cat:"Consumer"},
+  {t:"NTR",n:"Nutrien Ltd",iv:28,cat:"Consumer"},
+  {t:"ZBRA",n:"Zebra Technologies",iv:34,cat:"Enterprise"},
 ];
 
 /* ── FINNHUB ── */
