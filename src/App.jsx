@@ -1892,7 +1892,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                       <span className={`tp-chg ${(s.ch||0)>0?"up":(s.ch||0)<0?"dn":"flat"}`}>{(s.ch||0)>=0?"+":""}{(s.ch||0).toFixed(2)}% <span style={{opacity:.8}}>{(s.ch||0)>=0?"+":""}{fmt(Math.abs(s.p*((s.ch||0)/100)))}</span></span>
                     </div>}
                     {prices[s.t]?.high&&<div className="tkr-hl">H:{fmt(prices[s.t].high)} L:{fmt(prices[s.t].low)}</div>}
-                  </div>
+                  </a>
                 </td>
                 <td><div className="pv">{fmt(s.p)}{s.live&&<span className="live-tag"><span className="ldot"/>LIVE</span>}</div><span className={`cv ${(s.ch||0)>=0?"up":"dn"}`}>{(s.ch||0)>=0?"+":""}{(s.ch||0).toFixed(2)}% <span style={{fontSize:9}}>{(s.ch||0)>=0?"+":""}{fmt(Math.abs(s.p*((s.ch||0)/100)))}</span></span></td>
                 <td><div className="mcv">{s.mc}</div><div className="capv">{s.cap} · {s.sec}</div></td>
