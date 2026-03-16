@@ -1626,9 +1626,10 @@ export default function App() {
   const runOptions=useCallback(async()=>{
     const rid=++optRunId.current;
     const tickerNow=optTicker, expNow=optExp, typeNow=optType, stratNow=optStrat;
+    const _ubMatch=UNIVERSE_BASE.find(x=>x.t===tickerNow);
     const base=OPT_BASE.find(x=>x.t===tickerNow)
-      || UNIVERSE_BASE.find(x=>x.t===tickerNow)?.t && {t:tickerNow,n:UNIVERSE_BASE.find(x=>x.t===tickerNow).n,iv:45,cat:"Stock"}
-      || {t:tickerNow,n:tickerNow,iv:45,cat:"Stock"};
+      ||(_ubMatch?{t:tickerNow,n:_ubMatch.n,iv:45,cat:"Stock"}:null)
+      ||{t:tickerNow,n:tickerNow,iv:45,cat:"Stock"};
 
     // Helper — always clears loading state before any exit
     const abort=(msg)=>{ setOLoading(false); if(msg) setOInsights({error:true,msg}); };
