@@ -19,6 +19,17 @@ const CSS = `
 }
 body{background:var(--bg);color:var(--txt);font-family:'DM Mono','Courier New',monospace;-webkit-font-smoothing:antialiased;}
 .app{min-height:100vh;background:radial-gradient(ellipse 80% 50% at 80% -5%,rgba(0,232,122,.05) 0%,transparent 55%),radial-gradient(ellipse 60% 40% at 5% 95%,rgba(61,158,255,.04) 0%,transparent 55%),var(--bg);}
+.app-footer{background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.4) 100%);border-top:1px solid var(--b1);padding:28px 24px 32px;margin-top:40px;}
+.footer-inner{max-width:960px;margin:0 auto;}
+.footer-disc{background:rgba(255,59,48,.06);border:1px solid rgba(255,59,48,.18);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-start;}
+.footer-disc-icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+.footer-disc-body{font-size:11px;color:rgba(255,120,120,.9);line-height:1.75;}
+.footer-disc-title{font-family:'Syne',sans-serif;font-weight:800;font-size:12px;color:#ff8080;letter-spacing:.3px;margin-bottom:4px;}
+.footer-links{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.footer-tag{font-size:9.5px;padding:3px 10px;border-radius:5px;background:rgba(255,255,255,.04);border:1px solid var(--b1);color:var(--dim);font-family:'DM Mono',monospace;letter-spacing:.4px;}
+.footer-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-top:14px;border-top:1px solid var(--b1);}
+.footer-brand{font-family:'Syne',sans-serif;font-weight:800;font-size:12px;color:var(--dim);letter-spacing:.5px;}
+.footer-copy{font-size:9.5px;color:var(--dim);opacity:.6;}
 .hdr{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:56px;background:rgba(7,9,13,.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--b1);flex-wrap:wrap;gap:6px;}
 .logo{display:flex;align-items:center;gap:10px;font-family:'Syne',sans-serif;font-weight:800;font-size:18px;letter-spacing:-.5px;}.logo-img{width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;filter:drop-shadow(0 0 6px rgba(0,232,122,.5));}
 .logo b{color:var(--green);}
@@ -2687,8 +2698,33 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           )}
         </div>}
       </div>
-        {/* ── CHART MODAL (stock screener click-through) ── */}
 
+      {/* ── GLOBAL DISCLOSURE FOOTER ── */}
+      <footer className="app-footer">
+        <div className="footer-inner">
+          <div className="footer-disc">
+            <div className="footer-disc-icon">⚠️</div>
+            <div className="footer-disc-body">
+              <div className="footer-disc-title">IMPORTANT DISCLOSURE — NOT FINANCIAL ADVICE</div>
+              RUBBERBAND.AI is a financial data and screening tool provided for <b>informational and educational purposes only</b>. 
+              Nothing on this platform constitutes financial, investment, legal, or tax advice, nor a solicitation or recommendation to buy or sell any security. 
+              All stock screener results, options analytics, dip trigger signals, entry/exit levels, Greeks, and AI-generated insights are <b>algorithmic estimates</b> and do not reflect actual market conditions, guaranteed returns, or professional investment guidance. 
+              Options trading involves <b>substantial risk of loss</b> and is not suitable for all investors. Past performance does not guarantee future results. 
+              Live prices are provided by <b>Finnhub.io</b> and may be delayed or inaccurate. Always conduct your own thorough due diligence and consult a <b>licensed financial advisor</b> before making any investment decision. 
+              <b>You may lose all of your invested capital.</b>
+            </div>
+          </div>
+          <div className="footer-links">
+            {["Not Financial Advice","Educational Use Only","Options Risk: High","Past Performance ≠ Future Results","Always DYOR","Consult a Licensed Advisor","Prices via Finnhub","AI Estimates Only","Trade at Your Own Risk"].map((t,i)=>(
+              <span key={i} className="footer-tag">{t}</span>
+            ))}
+          </div>
+          <div className="footer-bottom">
+            <div className="footer-brand">RUBBERBAND<span style={{color:"var(--green)"}}>.</span>AI</div>
+            <div className="footer-copy">© {new Date().getFullYear()} RUBBERBAND.AI · All content for educational purposes only · Not affiliated with any broker or exchange</div>
+          </div>
+        </div>
+      </footer>
 
     </>
   );
