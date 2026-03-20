@@ -1755,7 +1755,6 @@ function TVChart({ ticker, interval = "D" }) {
 /* ══════════════════════════════════════════════
    APP
 ══════════════════════════════════════════════ */
-export default 
 /* ── DIP TRIGGER BANNER COMPONENT ──
    Shared by both stock screener rows and options screener.
    compact=true → mini version for table cells
@@ -2694,3 +2693,5 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
     </>
   );
 }
+
+export default App;
