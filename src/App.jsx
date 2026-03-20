@@ -1855,6 +1855,115 @@ function DipBanner({ dip, compact = false }) {
   );
 }
 
+/* ── OPTION CARD ── */
+function OCard({c}){
+  // Show real-data indicator for vol/OI sourced from Finnhub option chain
+  const intr=Math.max(0,c.optType==="call"?c.prem-Math.max(0,c.stockPrice-c.strike):c.prem-Math.max(0,c.strike-c.stockPrice));
+  const extr=c.prem-intr;
+  const greeks=[
+    {sym:"Δ",name:"Delta",val:c.delta.toFixed(4),color:c.optType==="call"?"green":"red",pct:Math.abs(c.delta)*100},
+    {sym:"Γ",name:"Gamma",val:c.gamma.toFixed(5),color:"blue",pct:Math.min(100,c.gamma*50000)},
+    {sym:"Θ",name:"Theta",val:c.theta.toFixed(4),color:"red",pct:Math.min(100,Math.abs(c.theta)*200)},
+    {sym:"V",name:"Vega",val:c.vega.toFixed(4),color:"purple",pct:Math.min(100,c.vega*80)},
+    {sym:"ρ",name:"Rho",val:c.rho.toFixed(4),color:"cyan",pct:Math.min(100,Math.abs(c.rho)*400)},
+  ];
+  return(
+    <div className={`ocard ${c.optType==="call"?"call-card":"put-card"}`}>
+      <div className="ocard-hdr">
+        <div className="ohdr-l">
+          <span className={`otype ${c.optType}`}>{c.optType.toUpperCase()}</span>
+          <div>
+              <div className="otick">{c.ticker} ${c.strike} {c.optType.toUpperCase()}</div>
+              <div className="oname">{c.name} · {c.moneyLabel} · {c.dte} DTE</div>
+            </div>
+        </div>
+        <div className="ohdr-r">
+          <span className="oexp" title={c.expirationFull}>
+            📅 {c.expirationDate}
+          </span>
+          <span className={`sig ${c.signal}`}>{c.signal==="bullish"?"⬆ Bullish":c.signal==="bearish"?"⬇ Bearish":"◎ Neutral"}</span>
+        </div>
+      </div>
+      <div className={`entry-b ${c.optType==="put"?"put-b":""}`}>
+        <div><div className="elbl">Optimal Entry Point</div><div className={`eprice ${c.optType==="put"?"put":""}`}>${c.ep}</div><div className="esub">Bid ${c.bid} / Ask ${c.ask} · Spread ${c.spread} · Cost ${c.entryTotalCost}/contract</div></div>
+        <div className="etgts">
+          <div className="tgt"><div className="tgt-lbl">Target 1</div><div className="tgt-v t1">${c.t1}</div></div>
+          <div className="tgt"><div className="tgt-lbl">Target 2</div><div className="tgt-v t2">${c.t2}</div></div>
+          <div className="tgt"><div className="tgt-lbl">Target 3</div><div className="tgt-v t3">${c.t3}</div></div>
+          <div className="tgt"><div className="tgt-lbl">Stop Loss</div><div className="tgt-v stop">${c.sl}</div></div>
+          <div className="tgt"><div className="tgt-lbl">Max P&amp;L</div><div className="tgt-v pnl">+${c.maxPnl} / -${c.maxLoss}</div></div>
+        </div>
+      </div>
+      <div className="ometrics">
+        <div className="ometric"><div className="oml">Premium</div><div className="omv">${c.prem}</div><div className="oms">Mid price</div></div>
+        <div className="ometric"><div className="oml">Strike</div><div className="omv blue">${c.strike}</div><div className="oms">{c.moneyLabel}</div></div>
+        <div className="ometric"><div className="oml">Impl. Vol</div><div className="omv gold">{c.iv}%</div><div className="oms">IV Rank {c.ivRank}</div></div>
+        <div className="ometric"><div className="oml">IV Percentile</div><div className="omv purple">{c.ivPct}%</div><div className="oms">30-day pct</div></div>
+        <div className="ometric"><div className="oml">Intrinsic</div><div className="omv">${intr.toFixed(2)}</div><div className="oms">Extrinsic: ${extr.toFixed(2)}</div></div>
+        <div className="ometric"><div className="oml">Break-even</div><div className="omv cyan">${c.optType==="call"?(c.strike+c.prem).toFixed(2):(c.strike-c.prem).toFixed(2)}</div><div className="oms">At expiry</div></div>
+        <div className="ometric"><div className="oml">Multiplier</div><div className="omv">100x</div><div className="oms">Per contract</div></div>
+        <div className="ometric"><div className="oml">Expires</div><div className="omv" style={{fontSize:12,color:"var(--gold)"}}>{c.expirationDate}</div><div className="oms">{c.expirationFull}</div></div>
+        <div className="ometric"><div className="oml">P/C Ratio</div><div className="omv">{c.pcr}</div><div className="oms">{c.pcr<.7?"Bullish":c.pcr>1.3?"Bearish":"Neutral"}</div></div>
+      </div>
+      <div className="hl-sec">
+        <div className="hl-ttl">Price Range Analysis — Option H&amp;L</div>
+        <div className="hl-rows">
+          <HLRow label="DAY" r={c.dayR} cur={c.prem} ot={c.optType}/>
+          <HLRow label="WEEK" r={c.weekR} cur={c.prem} ot={c.optType}/>
+          {c.monthR&&<HLRow label="MONTH" r={c.monthR} cur={c.prem} ot={c.optType}/>}
+        </div>
+      </div>
+      <div className="greeks-row">
+        {greeks.map(g=><div className="gbox" key={g.sym}>
+          <div className="gsym" style={{color:`var(--${g.color})`}}>{g.sym}</div>
+          <div className="gname">{g.name}</div>
+          <div className="gval">{g.val}</div>
+          <div className="gbw"><div className="gbf" style={{width:`${g.pct}%`,background:`var(--${g.color})`}}/></div>
+        </div>)}
+      </div>
+      <div className="oi-row">
+        <div className="oi-box">
+          <div className="oil">Open Interest</div>
+          <div className="oiv" style={{color:c.oiReal?"var(--cyan)":"var(--txt)"}}>
+            {c.oi!=null?c.oi.toLocaleString():"0"}
+            {c.oiReal&&<span style={{fontSize:9,color:"var(--green)",marginLeft:3}}>●LIVE</span>}
+            {c.oiEst&&<span style={{fontSize:9,color:"var(--gold)",marginLeft:3}}>~EST</span>}
+          </div>
+          <div className="ois">{c.oi>10000?"High liquidity":c.oi>2000?"Moderate liquidity":"Low liquidity"}</div>
+        </div>
+        <div className="oi-box">
+          <div className="oil">Volume Today</div>
+          <div className="oiv" style={{color:c.oiReal?"var(--cyan)":"var(--txt)"}}>
+            {c.vol!=null?c.vol.toLocaleString():"0"}
+            {c.oiReal&&<span style={{fontSize:9,color:"var(--green)",marginLeft:3}}>●LIVE</span>}
+            {c.volEst&&<span style={{fontSize:9,color:"var(--gold)",marginLeft:3}}>~EST</span>}
+          </div>
+          <div className="ois">{c.oi&&c.oi>0?`${((c.vol/c.oi)*100).toFixed(1)}% of OI`:c.oiReal?"From chain":"Delta model"}</div>
+        </div>
+        <div className="oi-box">
+          <div className="oil">Put/Call Ratio</div>
+          <div className="oiv">{c.pcr||"—"}</div>
+          <div className="ois">{c.pcr?(c.pcr<0.7?"Bullish":c.pcr>1.3?"Bearish":"Neutral")+" sentiment":"N/A"}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HLRow({label,r,cur,ot}){
+  const pct=r.hi>r.lo?((cur-r.lo)/(r.hi-r.lo))*100:50;
+  return(
+    <div className="hl-row">
+      <span className="hl-per">{label}</span>
+      <div className="hl-bw">
+        <div className={`hl-bf ${ot==="call"?"cf":"pf"}`} style={{left:`${(r.lo/(r.hi||1))*50}%`,width:`${((r.hi-r.lo)/(r.hi||1))*85}%`}}/>
+        <div className="hl-cm" style={{left:`${Math.max(2,Math.min(95,pct))}%`}}/>
+      </div>
+      <div className="hl-vals"><span className="hl-lo">L ${r.lo.toFixed(2)}</span><span className="hl-cu">C ${cur.toFixed(2)}</span><span className="hl-hi">H ${r.hi.toFixed(2)}</span></div>
+    </div>
+  );
+}
+
 function App() {
   const [tab,setTab]=useState("stocks");
   const [prices,setPrices]=useState({});
@@ -2583,114 +2692,5 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
 
 
     </>
-  );
-}
-
-/* ── OPTION CARD ── */
-function OCard({c}){
-  // Show real-data indicator for vol/OI sourced from Finnhub option chain
-  const intr=Math.max(0,c.optType==="call"?c.prem-Math.max(0,c.stockPrice-c.strike):c.prem-Math.max(0,c.strike-c.stockPrice));
-  const extr=c.prem-intr;
-  const greeks=[
-    {sym:"Δ",name:"Delta",val:c.delta.toFixed(4),color:c.optType==="call"?"green":"red",pct:Math.abs(c.delta)*100},
-    {sym:"Γ",name:"Gamma",val:c.gamma.toFixed(5),color:"blue",pct:Math.min(100,c.gamma*50000)},
-    {sym:"Θ",name:"Theta",val:c.theta.toFixed(4),color:"red",pct:Math.min(100,Math.abs(c.theta)*200)},
-    {sym:"V",name:"Vega",val:c.vega.toFixed(4),color:"purple",pct:Math.min(100,c.vega*80)},
-    {sym:"ρ",name:"Rho",val:c.rho.toFixed(4),color:"cyan",pct:Math.min(100,Math.abs(c.rho)*400)},
-  ];
-  return(
-    <div className={`ocard ${c.optType==="call"?"call-card":"put-card"}`}>
-      <div className="ocard-hdr">
-        <div className="ohdr-l">
-          <span className={`otype ${c.optType}`}>{c.optType.toUpperCase()}</span>
-          <div>
-              <div className="otick">{c.ticker} ${c.strike} {c.optType.toUpperCase()}</div>
-              <div className="oname">{c.name} · {c.moneyLabel} · {c.dte} DTE</div>
-            </div>
-        </div>
-        <div className="ohdr-r">
-          <span className="oexp" title={c.expirationFull}>
-            📅 {c.expirationDate}
-          </span>
-          <span className={`sig ${c.signal}`}>{c.signal==="bullish"?"⬆ Bullish":c.signal==="bearish"?"⬇ Bearish":"◎ Neutral"}</span>
-        </div>
-      </div>
-      <div className={`entry-b ${c.optType==="put"?"put-b":""}`}>
-        <div><div className="elbl">Optimal Entry Point</div><div className={`eprice ${c.optType==="put"?"put":""}`}>${c.ep}</div><div className="esub">Bid ${c.bid} / Ask ${c.ask} · Spread ${c.spread} · Cost ${c.entryTotalCost}/contract</div></div>
-        <div className="etgts">
-          <div className="tgt"><div className="tgt-lbl">Target 1</div><div className="tgt-v t1">${c.t1}</div></div>
-          <div className="tgt"><div className="tgt-lbl">Target 2</div><div className="tgt-v t2">${c.t2}</div></div>
-          <div className="tgt"><div className="tgt-lbl">Target 3</div><div className="tgt-v t3">${c.t3}</div></div>
-          <div className="tgt"><div className="tgt-lbl">Stop Loss</div><div className="tgt-v stop">${c.sl}</div></div>
-          <div className="tgt"><div className="tgt-lbl">Max P&amp;L</div><div className="tgt-v pnl">+${c.maxPnl} / -${c.maxLoss}</div></div>
-        </div>
-      </div>
-      <div className="ometrics">
-        <div className="ometric"><div className="oml">Premium</div><div className="omv">${c.prem}</div><div className="oms">Mid price</div></div>
-        <div className="ometric"><div className="oml">Strike</div><div className="omv blue">${c.strike}</div><div className="oms">{c.moneyLabel}</div></div>
-        <div className="ometric"><div className="oml">Impl. Vol</div><div className="omv gold">{c.iv}%</div><div className="oms">IV Rank {c.ivRank}</div></div>
-        <div className="ometric"><div className="oml">IV Percentile</div><div className="omv purple">{c.ivPct}%</div><div className="oms">30-day pct</div></div>
-        <div className="ometric"><div className="oml">Intrinsic</div><div className="omv">${intr.toFixed(2)}</div><div className="oms">Extrinsic: ${extr.toFixed(2)}</div></div>
-        <div className="ometric"><div className="oml">Break-even</div><div className="omv cyan">${c.optType==="call"?(c.strike+c.prem).toFixed(2):(c.strike-c.prem).toFixed(2)}</div><div className="oms">At expiry</div></div>
-        <div className="ometric"><div className="oml">Multiplier</div><div className="omv">100x</div><div className="oms">Per contract</div></div>
-        <div className="ometric"><div className="oml">Expires</div><div className="omv" style={{fontSize:12,color:"var(--gold)"}}>{c.expirationDate}</div><div className="oms">{c.expirationFull}</div></div>
-        <div className="ometric"><div className="oml">P/C Ratio</div><div className="omv">{c.pcr}</div><div className="oms">{c.pcr<.7?"Bullish":c.pcr>1.3?"Bearish":"Neutral"}</div></div>
-      </div>
-      <div className="hl-sec">
-        <div className="hl-ttl">Price Range Analysis — Option H&amp;L</div>
-        <div className="hl-rows">
-          <HLRow label="DAY" r={c.dayR} cur={c.prem} ot={c.optType}/>
-          <HLRow label="WEEK" r={c.weekR} cur={c.prem} ot={c.optType}/>
-          {c.monthR&&<HLRow label="MONTH" r={c.monthR} cur={c.prem} ot={c.optType}/>}
-        </div>
-      </div>
-      <div className="greeks-row">
-        {greeks.map(g=><div className="gbox" key={g.sym}>
-          <div className="gsym" style={{color:`var(--${g.color})`}}>{g.sym}</div>
-          <div className="gname">{g.name}</div>
-          <div className="gval">{g.val}</div>
-          <div className="gbw"><div className="gbf" style={{width:`${g.pct}%`,background:`var(--${g.color})`}}/></div>
-        </div>)}
-      </div>
-      <div className="oi-row">
-        <div className="oi-box">
-          <div className="oil">Open Interest</div>
-          <div className="oiv" style={{color:c.oiReal?"var(--cyan)":"var(--txt)"}}>
-            {c.oi!=null?c.oi.toLocaleString():"0"}
-            {c.oiReal&&<span style={{fontSize:9,color:"var(--green)",marginLeft:3}}>●LIVE</span>}
-            {c.oiEst&&<span style={{fontSize:9,color:"var(--gold)",marginLeft:3}}>~EST</span>}
-          </div>
-          <div className="ois">{c.oi>10000?"High liquidity":c.oi>2000?"Moderate liquidity":"Low liquidity"}</div>
-        </div>
-        <div className="oi-box">
-          <div className="oil">Volume Today</div>
-          <div className="oiv" style={{color:c.oiReal?"var(--cyan)":"var(--txt)"}}>
-            {c.vol!=null?c.vol.toLocaleString():"0"}
-            {c.oiReal&&<span style={{fontSize:9,color:"var(--green)",marginLeft:3}}>●LIVE</span>}
-            {c.volEst&&<span style={{fontSize:9,color:"var(--gold)",marginLeft:3}}>~EST</span>}
-          </div>
-          <div className="ois">{c.oi&&c.oi>0?`${((c.vol/c.oi)*100).toFixed(1)}% of OI`:c.oiReal?"From chain":"Delta model"}</div>
-        </div>
-        <div className="oi-box">
-          <div className="oil">Put/Call Ratio</div>
-          <div className="oiv">{c.pcr||"—"}</div>
-          <div className="ois">{c.pcr?(c.pcr<0.7?"Bullish":c.pcr>1.3?"Bearish":"Neutral")+" sentiment":"N/A"}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HLRow({label,r,cur,ot}){
-  const pct=r.hi>r.lo?((cur-r.lo)/(r.hi-r.lo))*100:50;
-  return(
-    <div className="hl-row">
-      <span className="hl-per">{label}</span>
-      <div className="hl-bw">
-        <div className={`hl-bf ${ot==="call"?"cf":"pf"}`} style={{left:`${(r.lo/(r.hi||1))*50}%`,width:`${((r.hi-r.lo)/(r.hi||1))*85}%`}}/>
-        <div className="hl-cm" style={{left:`${Math.max(2,Math.min(95,pct))}%`}}/>
-      </div>
-      <div className="hl-vals"><span className="hl-lo">L ${r.lo.toFixed(2)}</span><span className="hl-cu">C ${cur.toFixed(2)}</span><span className="hl-hi">H ${r.hi.toFixed(2)}</span></div>
-    </div>
   );
 }
