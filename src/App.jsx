@@ -2710,12 +2710,12 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               Nothing on this platform constitutes financial, investment, legal, or tax advice, nor a solicitation or recommendation to buy or sell any security. 
               All stock screener results, options analytics, dip trigger signals, entry/exit levels, Greeks, and AI-generated insights are <b>algorithmic estimates</b> and do not reflect actual market conditions, guaranteed returns, or professional investment guidance. 
               Options trading involves <b>substantial risk of loss</b> and is not suitable for all investors. Past performance does not guarantee future results. 
-              Live prices are provided by <b>Finnhub.io</b> and may be delayed or inaccurate. Always conduct your own thorough due diligence and consult a <b>licensed financial advisor</b> before making any investment decision. 
+              Always conduct your own thorough due diligence and consult a <b>licensed financial advisor</b> before making any investment decision. 
               <b>You may lose all of your invested capital.</b>
             </div>
           </div>
           <div className="footer-links">
-            {["Not Financial Advice","Educational Use Only","Options Risk: High","Past Performance ≠ Future Results","Always DYOR","Consult a Licensed Advisor","Prices via Finnhub","AI Estimates Only","Trade at Your Own Risk"].map((t,i)=>(
+            {["Not Financial Advice","Educational Use Only","Options Risk: High","Past Performance ≠ Future Results","Always DYOR","Consult a Licensed Advisor","AI Estimates Only","Trade at Your Own Risk"].map((t,i)=>(
               <span key={i} className="footer-tag">{t}</span>
             ))}
           </div>
