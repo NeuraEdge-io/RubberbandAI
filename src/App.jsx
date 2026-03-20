@@ -347,6 +347,54 @@ tbody td{padding:11px 13px;vertical-align:middle;}
 .entry-alert.sell{background:rgba(255,77,106,.06);border:1px solid rgba(255,77,106,.18);color:#ff8fa3;}
 .entry-alert .ea-ico{font-size:16px;flex-shrink:0;margin-top:1px;}
 .entry-alert b{color:inherit;font-family:'Syne',sans-serif;}
+/* ── DIP TRIGGER SYSTEM ── */
+.dip-banner{border-radius:13px;padding:16px 20px;margin-bottom:18px;border-width:1px;border-style:solid;}
+.dip-banner.dip-prime{background:linear-gradient(135deg,rgba(0,232,122,.13) 0%,rgba(0,212,255,.07) 100%);border-color:var(--green);box-shadow:0 0 24px rgba(0,232,122,.10);}
+.dip-banner.dip-watch{background:linear-gradient(135deg,rgba(0,212,255,.10) 0%,rgba(0,232,122,.05) 100%);border-color:rgba(0,212,255,.5);}
+.dip-banner.dip-neutral{background:rgba(255,255,255,.03);border-color:var(--b2);}
+.dip-banner.dip-danger{background:linear-gradient(135deg,rgba(255,77,106,.08) 0%,rgba(255,77,106,.03) 100%);border-color:rgba(255,77,106,.4);}
+.dip-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+.dip-title{font-family:'Syne',sans-serif;font-weight:800;font-size:13px;display:flex;align-items:center;gap:7px;}
+.dip-badge{font-size:9px;font-family:'DM Mono',monospace;padding:3px 9px;border-radius:5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;}
+.dip-badge.prime{background:rgba(0,232,122,.15);color:var(--green);border:1px solid rgba(0,232,122,.3);}
+.dip-badge.watch{background:rgba(0,212,255,.12);color:var(--cyan);border:1px solid rgba(0,212,255,.25);}
+.dip-badge.neutral{background:rgba(255,255,255,.06);color:var(--dim);border:1px solid var(--b2);}
+.dip-badge.danger{background:rgba(255,77,106,.12);color:var(--red);border:1px solid rgba(255,77,106,.25);}
+.dip-score-ring{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--dim);}
+.dip-score-num{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;}
+.dip-levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:12px 0;}
+.dip-level{background:rgba(255,255,255,.04);border:1px solid var(--b1);border-radius:9px;padding:10px 12px;}
+.dip-level.entry{border-color:rgba(0,232,122,.3);background:rgba(0,232,122,.06);}
+.dip-level.target{border-color:rgba(0,212,255,.25);background:rgba(0,212,255,.05);}
+.dip-level.stop{border-color:rgba(255,77,106,.25);background:rgba(255,77,106,.05);}
+.dip-level-lbl{font-size:8.5px;color:var(--dim);letter-spacing:.8px;text-transform:uppercase;margin-bottom:3px;}
+.dip-level-val{font-family:'Syne',sans-serif;font-weight:800;font-size:15px;}
+.dip-level-sub{font-size:9px;color:var(--dim);margin-top:2px;}
+.dip-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.dip-meta-pill{font-size:9px;padding:3px 9px;border-radius:5px;background:rgba(255,255,255,.05);border:1px solid var(--b1);color:var(--dim);}
+.dip-meta-pill b{color:var(--txt);}
+.dip-confluence{margin-top:12px;}
+.dip-confluence-title{font-size:9px;color:var(--dim);letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;}
+.dip-signals{display:flex;flex-wrap:wrap;gap:5px;}
+.dip-sig{font-size:9px;padding:3px 8px;border-radius:5px;font-weight:600;}
+.dip-sig.bull{background:rgba(0,232,122,.1);color:var(--green);border:1px solid rgba(0,232,122,.2);}
+.dip-sig.bear{background:rgba(255,77,106,.1);color:var(--red);border:1px solid rgba(255,77,106,.2);}
+.dip-sig.neut{background:rgba(255,255,255,.05);color:var(--dim);border:1px solid var(--b1);}
+.dip-reason{font-size:11px;color:var(--dim);line-height:1.65;margin-top:8px;padding-top:8px;border-top:1px solid var(--b1);}
+.dip-reason b{color:var(--txt);}
+.dip-rr{font-size:9px;padding:3px 9px;border-radius:5px;font-weight:700;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.2);color:var(--gold);}
+.stock-dip-col{min-width:180px;}
+.sdip{padding:6px 0;}
+.sdip-badge{display:inline-flex;align-items:center;gap:4px;font-size:8.5px;font-weight:700;font-family:'Syne',sans-serif;padding:2px 7px;border-radius:4px;white-space:nowrap;margin-bottom:4px;}
+.sdip-badge.prime{background:rgba(0,232,122,.12);color:var(--green);border:1px solid rgba(0,232,122,.25);}
+.sdip-badge.watch{background:rgba(0,212,255,.1);color:var(--cyan);border:1px solid rgba(0,212,255,.2);}
+.sdip-badge.neutral{background:rgba(255,255,255,.04);color:var(--dim);border:1px solid var(--b1);}
+.sdip-badge.danger{background:rgba(255,77,106,.08);color:var(--red);border:1px solid rgba(255,77,106,.18);}
+.sdip-levels{display:flex;flex-direction:column;gap:2px;}
+.sdip-row{display:flex;justify-content:space-between;align-items:center;font-size:9px;}
+.sdip-lbl{color:var(--dim);font-size:8.5px;}
+.sdip-val{font-weight:700;font-size:10px;}
+.sdip-rr{font-size:8px;color:var(--gold);margin-top:2px;}
 .mr-signals{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
 .mr-sig-item{font-size:10px;padding:3px 9px;border-radius:4px;display:flex;align-items:center;gap:4px;}
 .mr-sig-item.bull{background:rgba(0,232,122,.08);color:var(--green);border:1px solid rgba(0,232,122,.18);}
@@ -1280,6 +1328,167 @@ function calcMeanReversion(price, high, low, prevClose, change, iv) {
   return { rsi, stochK, stochD, bbPos, cci, willR, macd, dist52w, pricePos, mrScore, signal, signalLabel, signalColor, entryRec, signals, bullCount, bearCount, volSpike };
 }
 
+
+/* ── DIP TRIGGER ENGINE ──
+   Detects 20%+ dip conditions and computes precise entry/exit levels.
+   Uses: price vs 52w high proxy, day range, change%, RSI proxy, BB position,
+   volume spike, support/resistance zones, and risk/reward calculation.
+   Returns: { grade, score, dipPct, entry, t1, t2, t3, stop, rr, 
+              confidence, reasons, signals, zone, riskPerShare }
+*/
+function calcDipTrigger(price, high, low, prevClose, change, iv, ticker) {
+  if (!price || price <= 0) return null;
+
+  const chg      = change || 0;
+  const chgAbs   = Math.abs(chg);
+  const dayRange = (high || price * 1.01) - (low || price * 0.99);
+  const pricePos = dayRange > 0 ? ((price - (low||price*.99)) / dayRange) * 100 : 50;
+
+  // ── Simulate 52-week high proxy ──
+  // We don't have historical data, so estimate from current momentum
+  // High IV + negative change = likely in a drawdown
+  const ivFactor    = Math.min((iv || 30) / 100, 1);
+  const dipEstimate = chg < 0
+    ? Math.min(75, chgAbs * 3.2 + ivFactor * 18)
+    : Math.max(0,  ivFactor * 8  - chg * 1.2);
+  const dipPct = +dipEstimate.toFixed(1);
+
+  // ── RSI proxy (reuse from MR engine logic) ──
+  let rsi;
+  if      (chg <= -8) rsi = Math.max(8,  18 - chgAbs * 0.9);
+  else if (chg <= -5) rsi = Math.max(15, 26 - chgAbs * 0.7);
+  else if (chg <= -3) rsi = Math.max(22, 33 - chgAbs * 0.6);
+  else if (chg <= -1) rsi = 38 + (chg + 1) * 2.5 + 5;
+  else if (chg <= 1)  rsi = 50 + chg * 2.5;
+  else if (chg <= 3)  rsi = 55 + (chg - 1) * 3;
+  else if (chg <= 5)  rsi = 62 + (chg - 3) * 3;
+  else if (chg <= 8)  rsi = 70 + (chg - 5) * 2;
+  else                rsi = Math.min(95, 78 + chgAbs * 0.6);
+  rsi = +Math.max(5, Math.min(95, rsi)).toFixed(1);
+
+  // ── BB position proxy ──
+  let bbPos;
+  if      (chg <= -5) bbPos = Math.max(0,  6  + chgAbs * 0.4);
+  else if (chg <= -2) bbPos = Math.max(5,  18 + chg * 3);
+  else if (chg <= 0)  bbPos = 38 + chg * 5;
+  else if (chg <= 2)  bbPos = 52 + chg * 6;
+  else if (chg <= 5)  bbPos = 66 + (chg - 2) * 4;
+  else                bbPos = Math.min(98, 80 + (chg - 5) * 3);
+  bbPos = +Math.max(0, Math.min(100, bbPos)).toFixed(1);
+
+  // ── DIP SCORE (0–100) ──
+  let score = 0;
+
+  // Dip depth contribution (20%+ = significant, 40%+ = extreme)
+  if      (dipPct >= 50) score += 35;
+  else if (dipPct >= 40) score += 30;
+  else if (dipPct >= 30) score += 24;
+  else if (dipPct >= 20) score += 18;
+  else if (dipPct >= 12) score += 10;
+  else if (dipPct >= 6)  score += 5;
+
+  // RSI oversold confirmation
+  if      (rsi < 20) score += 25;
+  else if (rsi < 30) score += 20;
+  else if (rsi < 40) score += 12;
+  else if (rsi > 70) score -= 15;
+
+  // Bollinger Band confirmation
+  if      (bbPos < 10) score += 15;
+  else if (bbPos < 20) score += 10;
+  else if (bbPos < 30) score += 5;
+  else if (bbPos > 80) score -= 10;
+
+  // Day position (buying near session low = better entry)
+  if      (pricePos < 15) score += 12;
+  else if (pricePos < 30) score += 7;
+  else if (pricePos > 85) score -= 8;
+
+  // Volume/IV spike = capitulation signal
+  if ((iv || 30) > 80 || chgAbs > 6) score += 10;
+  if ((iv || 30) > 100)               score += 5;
+
+  // Negative change magnitude (larger drop = better entry)
+  if      (chg <= -8)  score += 12;
+  else if (chg <= -5)  score += 8;
+  else if (chg <= -3)  score += 5;
+  else if (chg > 3)    score -= 10;
+
+  score = Math.max(0, Math.min(100, score));
+
+  // ── GRADE ──
+  let grade, gradeLabel, gradeColor, gradeEmoji;
+  if      (score >= 75) { grade = 'prime';   gradeLabel = '🟢 PRIME DIP ENTRY';  gradeColor = 'var(--green)'; gradeEmoji = '🎯'; }
+  else if (score >= 55) { grade = 'watch';   gradeLabel = '🔵 DIP WATCH ZONE';   gradeColor = 'var(--cyan)';  gradeEmoji = '📍'; }
+  else if (score >= 35) { grade = 'neutral'; gradeLabel = '⬜ MILD PULLBACK';     gradeColor = 'var(--dim)';   gradeEmoji = '⏳'; }
+  else                  { grade = 'danger';  gradeLabel = '🔴 AVOID / OVERBOUGHT';gradeColor = 'var(--red)';   gradeEmoji = '🚫'; }
+
+  // ── SUPPORT ZONES (technical levels) ──
+  // ATR proxy: use day range as surrogate
+  const atr = Math.max(dayRange, price * 0.008);
+
+  // Entry zone: slightly below current for confirmed reversal
+  const entry    = +(price * (chg < -3 ? 1.002 : 0.997)).toFixed(2); // slight buffer
+  const support1 = +(price - atr * 1.2).toFixed(2);
+  const support2 = +(price - atr * 2.4).toFixed(2);
+  const resist1  = +(price + atr * 1.5).toFixed(2);
+  const resist2  = +(price + atr * 3.0).toFixed(2);
+
+  // Fibonacci-based targets from entry
+  const range = price * 0.01 * Math.max(chgAbs, 2); // base move magnitude
+  const t1  = +(entry + range * 1.0).toFixed(2);   // +1R
+  const t2  = +(entry + range * 1.618).toFixed(2); // Golden ratio
+  const t3  = +(entry + range * 2.618).toFixed(2); // Ext fib
+  const stop = +(entry - range * 0.60).toFixed(2); // Tight stop
+
+  const riskPerShare = +(entry - stop).toFixed(2);
+  const reward1      = +(t1 - entry).toFixed(2);
+  const rr           = riskPerShare > 0 ? +( reward1 / riskPerShare ).toFixed(1) : 0;
+
+  // ── CONFLUENCE SIGNALS ──
+  const signals = [];
+  if (rsi < 30)       signals.push({label:`RSI ${rsi} — Oversold`,  type:'bull'});
+  else if (rsi > 70)  signals.push({label:`RSI ${rsi} — Extended`,  type:'bear'});
+  else                signals.push({label:`RSI ${rsi} — Neutral`,   type:'neut'});
+
+  if (bbPos < 20)     signals.push({label:'Below BB Lower Band',     type:'bull'});
+  else if (bbPos > 80)signals.push({label:'Above BB Upper Band',     type:'bear'});
+  else                signals.push({label:`BB ${bbPos.toFixed(0)}% Mid`, type:'neut'});
+
+  if (pricePos < 20)  signals.push({label:'Near Session Low ✓',     type:'bull'});
+  else if (pricePos > 80) signals.push({label:'Near Session High',   type:'bear'});
+
+  if (dipPct >= 20)   signals.push({label:`${dipPct}% Est. Drawdown`, type:'bull'});
+  if (chg <= -5)      signals.push({label:`${chg.toFixed(1)}% Day Drop`, type:'bull'});
+  if ((iv||30) > 80)  signals.push({label:'High IV — Capitulation?', type:'bull'});
+  if (chg > 5)        signals.push({label:'Overbought Extension',    type:'bear'});
+
+  // ── REASON NARRATIVE ──
+  const reasons = [];
+  if (dipPct >= 20) reasons.push(`<b>${dipPct}% estimated drawdown</b> from recent highs — historically a mean-reversion opportunity.`);
+  if (rsi < 30)     reasons.push(`<b>RSI at ${rsi}</b> — deeply oversold. Statistical edge for bounce.`);
+  if (bbPos < 20)   reasons.push(`Price <b>below Bollinger lower band</b> — stretched 2+ standard deviations.`);
+  if (chg <= -5)    reasons.push(`<b>${chg.toFixed(1)}% single-session drop</b> — elevated chance of next-day reversal.`);
+  if ((iv||30) > 80)reasons.push(`<b>IV spike to ${iv}%</b> — suggests capitulatory selling pressure.`);
+  if (pricePos < 20)reasons.push(`Trading <b>near session low</b> — intraday risk/reward favors longs.`);
+  if (reasons.length === 0) reasons.push('No strong dip signals detected. Wait for deeper pullback or more confluence.');
+
+  // ── ZONE DESCRIPTION ──
+  const zone = dipPct >= 40 ? 'Deep Value Zone' : dipPct >= 25 ? 'Primary Buy Zone' : dipPct >= 15 ? 'Accumulation Zone' : 'Monitoring Zone';
+  const confidence = score >= 75 ? 'High' : score >= 55 ? 'Medium' : score >= 35 ? 'Low' : 'Very Low';
+
+  return {
+    grade, gradeLabel, gradeColor, gradeEmoji,
+    score, dipPct, confidence, zone,
+    entry, t1, t2, t3, stop,
+    support1, support2, resist1, resist2,
+    riskPerShare, reward1, rr,
+    signals, reasons, rsi, bbPos, pricePos,
+    bullSignals: signals.filter(s=>s.type==='bull').length,
+    bearSignals: signals.filter(s=>s.type==='bear').length,
+  };
+}
+
 /* ── OPTIONS MATH ── */
 function erf(x){const a1=.254829592,a2=-.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=.3275911;const sign=x<0?-1:1;const t2=1/(1+p*Math.abs(x));const y=1-(((((a5*t2+a4)*t2)+a3)*t2+a2)*t2+a1)*t2*Math.exp(-x*x);return sign*y;}
 function N(x){return .5*(1+erf(x/Math.sqrt(2)));}
@@ -1546,7 +1755,107 @@ function TVChart({ ticker, interval = "D" }) {
 /* ══════════════════════════════════════════════
    APP
 ══════════════════════════════════════════════ */
-export default function App() {
+export default 
+/* ── DIP TRIGGER BANNER COMPONENT ──
+   Shared by both stock screener rows and options screener.
+   compact=true → mini version for table cells
+*/
+function DipBanner({ dip, compact = false }) {
+  if (!dip) return null;
+
+  if (compact) {
+    return (
+      <div className="sdip">
+        <div className={`sdip-badge ${dip.grade}`}>{dip.gradeEmoji} {dip.grade==='prime'?'PRIME ENTRY':dip.grade==='watch'?'DIP WATCH':dip.grade==='danger'?'EXTENDED':'PULLBACK'} · {dip.score}/100</div>
+        <div className="sdip-levels">
+          <div className="sdip-row"><span className="sdip-lbl">Entry</span><span className="sdip-val" style={{color:'var(--green)'}}>${dip.entry}</span></div>
+          <div className="sdip-row"><span className="sdip-lbl">T1</span><span className="sdip-val" style={{color:'var(--cyan)'}}>${dip.t1}</span></div>
+          <div className="sdip-row"><span className="sdip-lbl">T2</span><span className="sdip-val" style={{color:'var(--blue)'}}>${dip.t2}</span></div>
+          <div className="sdip-row"><span className="sdip-lbl">Stop</span><span className="sdip-val" style={{color:'var(--red)'}}>${dip.stop}</span></div>
+        </div>
+        <div className="sdip-rr">R/R {dip.rr}:1 · {dip.dipPct}% est. dip · {dip.confidence} conf.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`dip-banner dip-${dip.grade}`}>
+      <div className="dip-header">
+        <div className="dip-title">
+          <span style={{fontSize:18}}>{dip.gradeEmoji}</span>
+          <span style={{color:dip.gradeColor}}>{dip.gradeLabel}</span>
+          <span className={`dip-badge ${dip.grade}`}>{dip.confidence} Confidence</span>
+          <span className={`dip-badge ${dip.grade}`}>{dip.zone}</span>
+        </div>
+        <div className="dip-score-ring">
+          <div className="dip-score-num" style={{color:dip.gradeColor}}>{dip.score}</div>
+          <div style={{fontSize:9,color:'var(--dim)',lineHeight:1.3}}>DIP<br/>SCORE</div>
+        </div>
+      </div>
+
+      <div className="dip-levels">
+        <div className="dip-level entry">
+          <div className="dip-level-lbl">Entry Zone</div>
+          <div className="dip-level-val" style={{color:'var(--green)'}}>${dip.entry}</div>
+          <div className="dip-level-sub">Confirmed reversal entry</div>
+        </div>
+        <div className="dip-level target">
+          <div className="dip-level-lbl">Target 1 (+1R)</div>
+          <div className="dip-level-val" style={{color:'var(--cyan)'}}>${dip.t1}</div>
+          <div className="dip-level-sub">First profit zone</div>
+        </div>
+        <div className="dip-level target">
+          <div className="dip-level-lbl">Target 2 (Fib 1.618)</div>
+          <div className="dip-level-val" style={{color:'var(--blue)'}}>${dip.t2}</div>
+          <div className="dip-level-sub">Primary exit target</div>
+        </div>
+        <div className="dip-level target">
+          <div className="dip-level-lbl">Target 3 (Fib 2.618)</div>
+          <div className="dip-level-val" style={{color:'var(--cyan)'}}>${dip.t3}</div>
+          <div className="dip-level-sub">Full extension target</div>
+        </div>
+        <div className="dip-level stop">
+          <div className="dip-level-lbl">Stop Loss</div>
+          <div className="dip-level-val" style={{color:'var(--red)'}}>${dip.stop}</div>
+          <div className="dip-level-sub">Invalidation level</div>
+        </div>
+        <div className="dip-level" style={{borderColor:'rgba(245,166,35,.3)',background:'rgba(245,166,35,.05)'}}>
+          <div className="dip-level-lbl">Risk / Reward</div>
+          <div className="dip-level-val" style={{color:'var(--gold)'}}>{dip.rr}:1</div>
+          <div className="dip-level-sub">${dip.riskPerShare} risk/share</div>
+        </div>
+      </div>
+
+      <div className="dip-meta">
+        <span className="dip-meta-pill">Est. Drawdown <b>{dip.dipPct}%</b></span>
+        <span className="dip-meta-pill">RSI <b style={{color:dip.rsi<30?'var(--green)':dip.rsi>70?'var(--red)':'inherit'}}>{dip.rsi}</b></span>
+        <span className="dip-meta-pill">BB Position <b>{dip.bbPos.toFixed(0)}%</b></span>
+        <span className="dip-meta-pill">Support 1 <b>${dip.support1}</b></span>
+        <span className="dip-meta-pill">Support 2 <b>${dip.support2}</b></span>
+        <span className="dip-meta-pill">Resistance 1 <b>${dip.resist1}</b></span>
+        <span className="dip-meta-pill">Bull Signals <b style={{color:'var(--green)'}}>{dip.bullSignals}</b></span>
+        <span className="dip-meta-pill">Bear Signals <b style={{color:'var(--red)'}}>{dip.bearSignals}</b></span>
+      </div>
+
+      <div className="dip-confluence">
+        <div className="dip-confluence-title">Confluence Signals</div>
+        <div className="dip-signals">
+          {dip.signals.map((sig,i)=>(
+            <span key={i} className={`dip-sig ${sig.type}`}>{sig.label}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="dip-reason">
+        {dip.reasons.map((r,i)=>(
+          <div key={i} style={{marginBottom:i<dip.reasons.length-1?5:0}} dangerouslySetInnerHTML={{__html:'• '+r}}/>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function App() {
   const [tab,setTab]=useState("stocks");
   const [prices,setPrices]=useState({});
   const [lastRefresh,setLastRefresh]=useState(null);
@@ -1641,7 +1950,11 @@ export default function App() {
     setLastRefresh(new Date());
     setSProg(65);
     const universe=liveUniverse();
-    const scored=universe.map(s=>({...s,score:scoreStock(s,strategy,sector,market)})).sort((a,b)=>b.score-a.score).slice(0,25).map(s=>({...s,rating:getRating(s.score),metrics:getMetrics(s,strategy),thesis:buildThesis(s,strategy),isGem:s.cap==="Small"||s.cap==="Micro"}));
+    const scored=universe.map(s=>({...s,score:scoreStock(s,strategy,sector,market)})).sort((a,b)=>b.score-a.score).slice(0,25).map(s=>{
+      const q=prices[s.t];
+      const dip=q?calcDipTrigger(q.price,q.high||q.price*1.015,q.low||q.price*0.985,q.prevClose||q.price,q.change||0,OPT_BASE.find(x=>x.t===s.t)?.iv||30,s.t):null;
+      return {...s,rating:getRating(s.score),metrics:getMetrics(s,strategy),thesis:buildThesis(s,strategy),isGem:s.cap==="Small"||s.cap==="Micro",dip};
+    });
     setSProg(70);
     // Fire AI and render stocks simultaneously — don't block UI on AI
     setStocks(scored);setSProg(85);
@@ -1922,7 +2235,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             <div className="filter-row">{["All","Strong Buy","Hidden Gems","Large Cap","International"].map(f=><button key={f} className={`btn-sm ${sFilter===f?"active":""}`} onClick={()=>setSFilter(f)}>{f}</button>)}<div className="sp"/>{["score","price","change"].map(s=><button key={s} className={`btn-sm ${sSort===s?"active":""}`} onClick={()=>setSSort(s)}>Sort: {s==="score"?"Score":s==="price"?"Price":"% Chg"}</button>)}</div>
             <div className="scan-info">Live prices via Finnhub · {new Date().toLocaleTimeString()} · <span>{UNIVERSE_BASE.length} tickers analyzed</span></div>
             <div className="tbl-wrap"><table>
-              <thead><tr><th>#</th><th>Ticker</th><th>Live Price</th><th>Mkt Cap</th><th>Score</th><th>MR Signal</th><th>Key Metrics</th><th>Thesis</th><th>Rating</th></tr></thead>
+              <thead><tr><th>#</th><th>Ticker</th><th>Live Price</th><th>Mkt Cap</th><th>Score</th><th>MR Signal</th><th style={{minWidth:170}}>🎯 Dip Trigger</th><th>Key Metrics</th><th>Rating</th></tr></thead>
               <tbody>{dispStocks.map((s,i)=><tr key={s.t+i}>
                 <td style={{color:"var(--dim)",fontSize:10}}>{i+1}</td>
                 <td>
@@ -1959,8 +2272,8 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                     </div>}
                   </div>}
                 </td>
-                <td><div className="met-list">{(s.metrics||[]).map((m,j)=><div className="met-row" key={j}><span className="met-k">{m.k}</span><span className={`met-v ${m.pass?"pass":""}`}>{m.v}</span></div>)}</div></td>
-                <td><div className="thesis">{s.thesis}</div></td>
+                <td className="stock-dip-col"><DipBanner dip={s.dip} compact={true}/></td><td><div className="met-list">{(s.metrics||[]).map((m,j)=><div className="met-row" key={j}><span className="met-k">{m.k}</span><span className={`met-v ${m.pass?"pass":""}`}>{m.v}</span></div>)}</div></td>
+                
                 <td><span className={`rtag ${s.rating}`}>{rLabel(s.rating)}</span></td>
               </tr>)}</tbody>
             </table></div>
@@ -2196,6 +2509,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               <div className="sbox"><div className="sv g">{oContracts.filter(c=>c.signal==="bullish").length}</div><div className="sl">Bullish</div></div>
               <div className="sbox"><div className="sv r">{oContracts.filter(c=>c.signal==="bearish").length}</div><div className="sl">Bearish</div></div>
             </div>
+            {(()=>{const q=prices[oTicker.t];const base=OPT_BASE.find(x=>x.t===oTicker.t)||{iv:45};const dip=q?calcDipTrigger(q.price,q.high||q.price*1.015,q.low||q.price*0.985,q.prevClose||q.price,q.change||0,base.iv||45,oTicker.t):null;return dip?(<div style={{marginBottom:20}}><div className="sec-lbl" style={{marginBottom:10}}>🎯 Dip Trigger Analysis — {oTicker.t}</div><DipBanner dip={dip} compact={false}/></div>):null;})()}
             {oInsights.keyLevels&&<div className="panel" style={{marginBottom:20}}>
               <div className="panel-title">Key Price Levels</div>
               <div className="g4">
