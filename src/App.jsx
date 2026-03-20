@@ -2,6 +2,16 @@ import { useState, useCallback, useRef, useEffect } from "react";
 
 const FINNHUB_KEY = "d6ogvahr01qnu98i1cp0d6ogvahr01qnu98i1cpg";
 const FINNHUB_URL = "https://finnhub.io/api/v1";
+
+// ── STRIPE PAYMENT LINKS ──
+// Replace these with your actual Stripe Payment Link URLs.
+// Create them at: dashboard.stripe.com → Payment Links → Create
+// Set "After payment" redirect URL to: https://rubberband-ai.vercel.app/?rb_success=pro
+// or: https://rubberband-ai.vercel.app/?rb_success=edge
+const STRIPE_PRO_LINK  = "https://buy.stripe.com/dRm14o4XyaTbeda58Eds402"; // $19/mo LIVE
+const STRIPE_EDGE_LINK = "https://buy.stripe.com/9B6cN61Lm7GZ2us0Sods403"; // $29/mo LIVE
+// After payment Stripe redirects back with ?rb_success=pro or ?rb_success=edge
+// The app reads this on load and permanently unlocks the tier in localStorage
 // Options chain cache — keyed by ticker, stores Finnhub chain data at scan time
 const OPT_CACHE     = {};
 const OPT_CACHE_TTL = 8 * 60 * 1000;
@@ -19,6 +29,73 @@ const CSS = `
 }
 body{background:var(--bg);color:var(--txt);font-family:'DM Mono','Courier New',monospace;-webkit-font-smoothing:antialiased;}
 .app{min-height:100vh;background:radial-gradient(ellipse 80% 50% at 80% -5%,rgba(0,232,122,.05) 0%,transparent 55%),radial-gradient(ellipse 60% 40% at 5% 95%,rgba(61,158,255,.04) 0%,transparent 55%),var(--bg);}
+/* ── FREEMIUM / MONETIZATION ── */
+.paywall-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.85);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:20px;}
+.paywall-card{background:linear-gradient(135deg,var(--s1) 0%,var(--s2) 100%);border:1px solid rgba(0,232,122,.3);border-radius:20px;padding:40px 36px;max-width:480px;width:100%;text-align:center;box-shadow:0 40px 120px rgba(0,0,0,.6),0 0 60px rgba(0,232,122,.08);}
+.paywall-icon{font-size:48px;margin-bottom:16px;}
+.paywall-title{font-family:'Syne',sans-serif;font-weight:800;font-size:26px;color:var(--txt);margin-bottom:8px;}
+.paywall-sub{font-size:13px;color:var(--dim);line-height:1.7;margin-bottom:28px;}
+.paywall-features{text-align:left;margin-bottom:28px;display:flex;flex-direction:column;gap:8px;}
+.paywall-feat{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--txt);}
+.paywall-feat-icon{color:var(--green);font-size:14px;flex-shrink:0;}
+.paywall-btns{display:flex;flex-direction:column;gap:10px;}
+.btn-upgrade{background:linear-gradient(135deg,var(--green),#00d4ff);color:#000;border:none;border-radius:10px;padding:14px 28px;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;cursor:pointer;letter-spacing:.3px;}
+.btn-upgrade:hover{opacity:.9;}
+.btn-dismiss{background:transparent;border:1px solid var(--b2);color:var(--dim);border-radius:10px;padding:10px 20px;font-size:12px;cursor:pointer;font-family:'DM Mono',monospace;}
+.scan-counter{font-size:9px;color:var(--dim);text-align:center;margin-top:8px;font-family:'DM Mono',monospace;}
+.scan-counter b{color:var(--gold);}
+.pro-badge{background:linear-gradient(135deg,var(--green),#00d4ff);color:#000;font-size:8px;font-weight:800;padding:2px 7px;border-radius:4px;font-family:'Syne',sans-serif;letter-spacing:.5px;margin-left:6px;vertical-align:middle;}
+/* ── PRICING PAGE ── */
+.pricing-hero{text-align:center;padding:40px 0 32px;}
+.pricing-hero h1{font-size:36px;margin-bottom:12px;}
+.pricing-sub{font-size:15px;color:var(--dim);max-width:480px;margin:0 auto;}
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;margin-bottom:32px;}
+.pricing-card{background:var(--s1);border:1px solid var(--b2);border-radius:16px;padding:28px 24px;position:relative;}
+.pricing-card.featured{border-color:var(--green);background:linear-gradient(135deg,rgba(0,232,122,.08),rgba(0,212,255,.04));box-shadow:0 0 40px rgba(0,232,122,.08);}
+.pricing-card-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;font-size:9px;font-weight:800;padding:3px 14px;border-radius:20px;font-family:'Syne',sans-serif;letter-spacing:.5px;white-space:nowrap;}
+.pricing-tier{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;margin-bottom:6px;}
+.pricing-price{font-family:'Syne',sans-serif;font-weight:800;font-size:36px;color:var(--green);margin-bottom:4px;}
+.pricing-price span{font-size:14px;color:var(--dim);font-weight:400;}
+.pricing-desc{font-size:11px;color:var(--dim);margin-bottom:20px;line-height:1.6;}
+.pricing-feats{list-style:none;padding:0;margin:0 0 24px;display:flex;flex-direction:column;gap:9px;}
+.pricing-feat{font-size:11.5px;color:var(--txt);display:flex;gap:8px;align-items:flex-start;line-height:1.5;}
+.pricing-feat-check{color:var(--green);flex-shrink:0;margin-top:1px;}
+.pricing-feat-x{color:var(--dim);flex-shrink:0;margin-top:1px;opacity:.5;}
+.pricing-cta{width:100%;padding:12px;border-radius:9px;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;cursor:pointer;border:none;letter-spacing:.3px;}
+.pricing-cta.primary{background:linear-gradient(135deg,var(--green),#00d4ff);color:#000;}
+.pricing-cta.secondary{background:var(--s2);color:var(--txt);border:1px solid var(--b2);}
+/* ── TRADE JOURNAL ── */
+.journal-tabs{display:flex;gap:6px;margin-bottom:20px;}
+.jtab{padding:8px 18px;border-radius:7px;border:1px solid var(--b2);background:transparent;color:var(--dim);cursor:pointer;font-size:11px;font-family:'DM Mono',monospace;letter-spacing:.4px;}
+.jtab.active{background:rgba(0,232,122,.1);border-color:rgba(0,232,122,.3);color:var(--green);}
+.journal-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+.jfld{display:flex;flex-direction:column;gap:4px;}
+.jfld label{font-size:9.5px;color:var(--dim);letter-spacing:.6px;text-transform:uppercase;}
+.jfld input,.jfld select,.jfld textarea{background:var(--s2);border:1px solid var(--b2);color:var(--txt);border-radius:7px;padding:8px 11px;font-size:12px;font-family:'DM Mono',monospace;outline:none;width:100%;}
+.jfld textarea{resize:vertical;min-height:64px;grid-column:1/-1;}
+.journal-entry{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;margin-bottom:10px;}
+.je-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:6px;}
+.je-ticker{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;}
+.je-type{font-size:9px;padding:2px 8px;border-radius:4px;font-weight:700;font-family:'DM Mono',monospace;}
+.je-type.call{background:rgba(0,232,122,.1);color:var(--green);border:1px solid rgba(0,232,122,.2);}
+.je-type.put{background:rgba(255,77,106,.1);color:var(--red);border:1px solid rgba(255,77,106,.2);}
+.je-levels{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:6px;}
+.je-lv{font-size:10px;color:var(--dim);}
+.je-lv b{color:var(--txt);}
+.je-notes{font-size:11px;color:var(--dim);line-height:1.6;border-top:1px solid var(--b1);padding-top:8px;margin-top:6px;}
+.je-outcome{font-size:9px;padding:2px 9px;border-radius:4px;font-weight:700;}
+.je-outcome.win{background:rgba(0,232,122,.1);color:var(--green);}
+.je-outcome.loss{background:rgba(255,77,106,.1);color:var(--red);}
+.je-outcome.open{background:rgba(245,166,35,.1);color:var(--gold);}
+/* ── WATCHLIST ALERTS ── */
+.alert-list{display:flex;flex-direction:column;gap:8px;}
+.alert-card{background:var(--s1);border:1px solid var(--b1);border-radius:9px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+.alert-sym{font-family:'Syne',sans-serif;font-weight:800;font-size:15px;}
+.alert-thresh{font-size:10px;color:var(--dim);font-family:'DM Mono',monospace;}
+.alert-remove{background:rgba(255,77,106,.1);border:1px solid rgba(255,77,106,.2);color:var(--red);border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:'DM Mono',monospace;}
+.alert-status{font-size:9px;padding:2px 8px;border-radius:4px;font-weight:700;}
+.alert-status.triggered{background:rgba(0,232,122,.1);color:var(--green);border:1px solid rgba(0,232,122,.2);}
+.alert-status.watching{background:rgba(245,166,35,.08);color:var(--gold);border:1px solid rgba(245,166,35,.18);}
 .app-footer{background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.4) 100%);border-top:1px solid var(--b1);padding:28px 24px 32px;margin-top:40px;}
 .footer-inner{max-width:960px;margin:0 auto;}
 .footer-disc{background:rgba(255,59,48,.06);border:1px solid rgba(255,59,48,.18);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-start;}
@@ -2022,6 +2099,62 @@ function App() {
   const optRunId=useRef(0);
   const [clock,setClock]=useState(new Date().toLocaleTimeString());
 
+  // ── FREEMIUM / OWNER ACCESS ──
+  // Owner (PIN 2580) gets full access forever. Free users pay via Stripe.
+  const OWNER_PIN="2580";
+  const [isPro,setIsPro]=useState(()=>{
+    try{
+      // Check if Stripe redirected back after payment
+      const params=new URLSearchParams(window.location.search);
+      const success=params.get("rb_success");
+      if(success==="pro"||success==="edge"){
+        localStorage.setItem("rb_pro","true");
+        if(success==="edge")localStorage.setItem("rb_tier","edge");
+        // Clean the URL so the param doesn't persist on refresh
+        window.history.replaceState({},"",window.location.pathname);
+        return true;
+      }
+      return localStorage.getItem("rb_pro")==="true";
+    }catch{return false;}
+  });
+  const [userTier,setUserTier]=useState(()=>{
+    try{return localStorage.getItem("rb_tier")||"free";}catch{return "free";}
+  });
+  const isOwner=adminUnlocked; // Owner = admin unlocked, always full access
+  const hasFullAccess=isOwner||isPro;
+  // Freemium daily counters — all reset at midnight
+  const _getDaily=(key,def=0)=>{
+    try{
+      const dateKey=key+"_date"; const today=new Date().toDateString();
+      const storedDate=localStorage.getItem(dateKey);
+      if(storedDate!==today){localStorage.setItem(dateKey,today);localStorage.setItem(key,String(def));return def;}
+      return parseInt(localStorage.getItem(key)||String(def));
+    }catch{return def;}
+  };
+  const _setDaily=(key,val)=>{try{localStorage.setItem(key,String(val));}catch{}};
+
+  const [freeScansUsed,setFreeScansUsed]=useState(()=>_getDaily("rb_stock_scans"));   // stock scans
+  const [freeOptScans,setFreeOptScans]=useState(()=>_getDaily("rb_opt_scans"));        // options entry scans
+  const [freeAiUsed,setFreeAiUsed]=useState(()=>_getDaily("rb_ai_used"));              // AI insights
+  const [freeOptTickers,setFreeOptTickers]=useState(()=>{                               // options tickers scanned today
+    try{return new Set(JSON.parse(localStorage.getItem("rb_opt_tickers")||"[]"));}catch{return new Set();}
+  });
+  const FREE_STOCK_LIMIT=2;
+  const FREE_OPT_LIMIT=2;
+  const FREE_AI_LIMIT=2;
+  const [showPaywall,setShowPaywall]=useState(false);
+  const [showPricing,setShowPricing]=useState(false);
+
+  // ── TRADE JOURNAL ──
+  const [journal,setJournal]=useState(()=>{try{return JSON.parse(localStorage.getItem("rb_journal")||"[]");}catch{return[];}});
+  const [journalEntry,setJournalEntry]=useState({ticker:"",type:"call",entry:"",target:"",stop:"",notes:"",outcome:""});
+  const [journalTab,setJournalTab]=useState("log"); // log | new | stats
+
+  // ── WATCHLIST ALERTS ──
+  const [watchlist,setWatchlist]=useState(()=>{try{return JSON.parse(localStorage.getItem("rb_watchlist")||"[]");}catch{return[];}});
+  const [alertTicker,setAlertTicker]=useState("");
+  const [alertThreshold,setAlertThreshold]=useState(75);
+
   useEffect(()=>{
     const id=setInterval(()=>{setClock(new Date().toLocaleTimeString());setMs(mktStatus());},1000);
     return()=>clearInterval(id);
@@ -2030,6 +2163,9 @@ function App() {
   // NO background fetching — Finnhub only called when user hits Scan or Run Screen
 
   useEffect(()=>{try{localStorage.setItem("rubberband_emails",JSON.stringify(eList));}catch{};},[eList]);
+  useEffect(()=>{try{localStorage.setItem("rb_journal",JSON.stringify(journal));}catch{};},[journal]);
+  useEffect(()=>{try{localStorage.setItem("rb_watchlist",JSON.stringify(watchlist));}catch{};},[watchlist]);
+  useEffect(()=>{try{localStorage.setItem("rb_opt_tickers",JSON.stringify([...freeOptTickers]));}catch{};},[freeOptTickers]);
 
   const subscribe=()=>{
     if(!eEmail.includes("@"))return;
@@ -2050,6 +2186,13 @@ function App() {
 
   /* STOCK SCREENER */
   const runStocks=useCallback(async()=>{
+    // Freemium gate — owner always bypasses
+    if(!hasFullAccess){
+      if(freeScansUsed>=FREE_STOCK_LIMIT){setShowPaywall(true);return;}
+      const used=freeScansUsed+1;
+      setFreeScansUsed(used);
+      _setDaily("rb_stock_scans",used);
+    }
     const rid=++runId.current;
     setSLoading(true);setSStep(1);setSProg(10);setSResult(null);setStocks([]);setSFilter("All");
     // Fetch fresh prices for stock screener tickers — sequential, on demand only
@@ -2110,6 +2253,20 @@ function App() {
     // Helper — always clears loading state before any exit
     const abort=(msg)=>{ setOLoading(false); if(msg) setOInsights({error:true,msg}); };
 
+    // Freemium gate — owner always bypasses
+    if(!hasFullAccess){
+      // Lock after 2 scans/day
+      if(freeOptScans>=FREE_OPT_LIMIT){setOLoading(false);setShowPaywall(true);return;}
+      // Lock after 1 unique ticker per day
+      if(freeOptTickers.size>0&&!freeOptTickers.has(tickerNow)){
+        setOLoading(false);setShowPaywall(true);return;
+      }
+      const used=freeOptScans+1;
+      setFreeOptScans(used);
+      _setDaily("rb_opt_scans",used);
+      const newTickers=new Set([...freeOptTickers,tickerNow]);
+      setFreeOptTickers(newTickers);
+    }
     setOLoading(true); setOProg(10);
     setOContracts([]); setOInsights(null); setOTicker(null);
 
@@ -2231,9 +2388,14 @@ function App() {
     contracts.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
 
     setOStep(5); setOProg(88);
-    // ── AI insights — 12s timeout so scan never hangs here ──
+    // ── AI insights — gated for free users (2/day limit) ──
     let ins=null;
-    try{
+    const canUseAi=hasFullAccess||(freeAiUsed<FREE_AI_LIMIT);
+    if(!canUseAi){
+      // Free user used up AI — give fallback insights only (no API call)
+      ins=null; // will use fallback below
+    }
+    try{ if(canUseAi){
       const ctrl=new AbortController();
       const aiTimer=setTimeout(()=>ctrl.abort(),12000);
       const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -2256,7 +2418,12 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
         try{ins=JSON.parse(raw);}catch{}
         if(!ins){try{const m=raw.match(/\{[\s\S]*\}/);if(m)ins=JSON.parse(m[0]);}catch{}}
       }
-    }catch{}
+    }}catch{}
+
+    // Track AI usage for free users
+    if(!hasFullAccess&&canUseAi&&ins){
+      const used=freeAiUsed+1;setFreeAiUsed(used);_setDaily("rb_ai_used",used);
+    }
 
     if(!ins) ins={
       summary:`${base.n} (${tickerNow}) live at $${td.p.toFixed(2)}. IV ${td.iv}% — ${td.iv>60?'elevated, premium selling favored':'moderate, directional plays reasonable'}.`,
@@ -2310,6 +2477,9 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
         <div className="tab-bar">
           <div className={`tab ${tab==="stocks"?"active":""}`} onClick={()=>setTab("stocks")}>📊 Stock Screener{stocks.length>0&&<span className="tab-badge">{stocks.length}</span>}</div>
           <div className={`tab ${tab==="options"?"active":""}`} onClick={()=>setTab("options")}>⚡ Options Screener{oContracts.length>0&&<span className="tab-badge">{oContracts.length}</span>}</div>
+          <div className={`tab ${tab==="pricing"?"active":""}`} onClick={()=>setTab("pricing")} style={{fontSize:11}}>💎 Pro</div>
+          {hasFullAccess&&<div className={`tab ${tab==="journal"?"active":""}`} onClick={()=>setTab("journal")} style={{fontSize:11}}>📓 Journal</div>}
+          {hasFullAccess&&<div className={`tab ${tab==="alerts"?"active":""}`} onClick={()=>setTab("alerts")} style={{fontSize:11}}>🔔 Alerts</div>}
           <div style={{marginLeft:"auto",paddingRight:4}}><button onClick={()=>setTab("admin")} style={{background:"none",border:"none",cursor:"pointer",color:"var(--dim)",fontSize:10,opacity:.15,padding:"14px 8px",fontFamily:"DM Mono,monospace",letterSpacing:1}}>⬤</button></div>
         </div>
 
@@ -2334,7 +2504,12 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               <div className="fld"><label>Sector</label><div className="sel-wrap"><select value={sector} onChange={e=>setSector(e.target.value)} disabled={sLoading}>{SECTORS.map(s=><option key={s}>{s}</option>)}</select></div></div>
               <div className="fld"><label>Market / Geography</label><div className="sel-wrap"><select value={market} onChange={e=>setMarket(e.target.value)} disabled={sLoading}>{MARKETS.map(m=><option key={m}>{m}</option>)}</select></div></div>
             </div>
-            <button className="btn-green" onClick={runStocks} disabled={sLoading}>{sLoading?<><div className="spin"/>Scanning…</>:false?<><div className="spin"/>Loading Live Prices…</>:"Run Screen — Find All Matching Stocks"}</button>
+            <button className="btn-green" onClick={runStocks} disabled={sLoading}>{sLoading?<><div className="spin"/>Scanning…</>:"Run Screen — Find All Matching Stocks"}</button>
+            {!hasFullAccess&&<div className="scan-counter">
+              Stock scans: <b>{Math.max(0,FREE_STOCK_LIMIT-freeScansUsed)}</b>/{FREE_STOCK_LIMIT} remaining · AI insights: <b>{Math.max(0,FREE_AI_LIMIT-freeAiUsed)}</b>/{FREE_AI_LIMIT} remaining today ·{" "}
+              <span onClick={()=>{window.location.href=STRIPE_PRO_LINK;}} style={{color:"var(--green)",cursor:"pointer",textDecoration:"underline"}}>Upgrade to Pro via Stripe</span>
+            </div>}
+            {hasFullAccess&&<div className="scan-counter"><span style={{color:"var(--green)"}}>✓ {isOwner?"Owner — Unlimited access":"Pro — Unlimited access"}</span></div>}
           </div>
 
           {sLoading&&<div className="lbox"><div className="lsteps">{SSTEPS.map((s,i)=><div key={i} className={`lstep ${sStep>i?"done":sStep===i?"active":""}`}><div className="lstep-ico">{sStep>i?"✓":sStep===i?"…":i+1}</div><span>{s}</span></div>)}</div><div className="pbar"><div className="pfill g" style={{width:`${sProg}%`}}/></div></div>}
@@ -2503,27 +2678,49 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               <div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={optStrat} onChange={e=>setOptStrat(e.target.value)} disabled={oLoading}>{OSTRATEGIES.map(x=><option key={x}>{x}</option>)}</select></div></div>
             </div>
             <button className="btn-blue" onClick={runOptions} disabled={oLoading}>{oLoading?<><div className="spin-w"/>Scanning…</>:"⚡ Scan Option Chain — Generate Entry Points"}</button>
+            {!hasFullAccess&&<div className="scan-counter" style={{marginTop:8}}>
+              Entry point scans: <b>{Math.max(0,FREE_OPT_LIMIT-freeOptScans)}</b>/{FREE_OPT_LIMIT} remaining ·
+              AI insights: <b>{Math.max(0,FREE_AI_LIMIT-freeAiUsed)}</b>/{FREE_AI_LIMIT} remaining ·
+              Ticker lock: <b>{freeOptTickers.size>0?[...freeOptTickers].join(", "):"none scanned yet"}</b>{" "}
+              · <span onClick={()=>{window.location.href=STRIPE_PRO_LINK;}} style={{color:"var(--green)",cursor:"pointer",textDecoration:"underline"}}>Upgrade via Stripe</span>
+            </div>}
+            {hasFullAccess&&<div className="scan-counter"><span style={{color:"var(--green)"}}>✓ {isOwner?"Owner — Unlimited access":"Pro — Unlimited access"}</span></div>}
           </div>
 
 
-          {/* ── TOP PLAY (after MR, before OS scanner) ── */}
-          {oInsights?.topPlay&&<div style={{background:"linear-gradient(135deg,rgba(0,232,122,.1) 0%,rgba(0,212,255,.06) 100%)",border:"1px solid rgba(0,232,122,.35)",borderRadius:13,padding:"16px 20px",marginBottom:16,display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
-            <div style={{flexShrink:0,fontSize:22,lineHeight:1}}>⭐</div>
-            <div style={{flex:1,minWidth:220}}>
-              <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:11,letterSpacing:1.5,textTransform:"uppercase",color:"var(--green)",marginBottom:5}}>
-                ⭐ Top Play — {oTicker?.t||optTicker} · {oInsights.topPlay?.toLowerCase().includes("call")?"⬆ Bullish Signal":"⬇ Bearish Signal"}
+          {/* ── TOP PLAY — free gets 1/day, pro gets full AI insights ── */}
+          {oInsights?.topPlay&&(()=>{
+            const aiLocked=!hasFullAccess&&freeAiUsed>=FREE_AI_LIMIT;
+            return(
+              <div style={{background:"linear-gradient(135deg,rgba(0,232,122,.1) 0%,rgba(0,212,255,.06) 100%)",border:"1px solid rgba(0,232,122,.35)",borderRadius:13,padding:"16px 20px",marginBottom:16}}>
+                {/* Top Play row */}
+                <div style={{display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap",marginBottom:aiLocked?12:0}}>
+                  <div style={{flexShrink:0,fontSize:22,lineHeight:1}}>⭐</div>
+                  <div style={{flex:1,minWidth:220}}>
+                    <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:11,letterSpacing:1.5,textTransform:"uppercase",color:"var(--green)",marginBottom:5}}>
+                      ⭐ Top Play — {oTicker?.t||optTicker} · {oInsights.topPlay?.toLowerCase().includes("call")?"⬆ Bullish Signal":"⬇ Bearish Signal"}
+                    </div>
+                    <div style={{fontSize:13,color:"var(--txt)",lineHeight:1.7,fontWeight:600}}>{oInsights.topPlay}</div>
+                    {oInsights.entryTiming&&!aiLocked&&<div style={{fontSize:11,color:"var(--dim)",marginTop:6,lineHeight:1.6}}>
+                      <span style={{color:"var(--gold)",fontWeight:700}}>⏱ Entry: </span>{oInsights.entryTiming}
+                    </div>}
+                  </div>
+                  {prices[oTicker?.t]&&<div style={{flexShrink:0,textAlign:"right"}}>
+                    <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:18,color:prices[oTicker.t].change>=0?"var(--green)":"var(--red)"}}>{fmt(prices[oTicker.t].price)}</div>
+                    <div style={{fontSize:11,color:prices[oTicker.t].change>=0?"var(--green)":"var(--red)",fontWeight:700}}>{prices[oTicker.t].change>=0?"+":""}{prices[oTicker.t].change?.toFixed(2)}%</div>
+                    <div style={{fontSize:9,color:"var(--dim)",marginTop:2}}>● LIVE</div>
+                  </div>}
+                </div>
+                {/* Free tier lock notice after AI used up */}
+                {aiLocked&&(
+                  <div style={{borderTop:"1px solid rgba(0,232,122,.2)",paddingTop:10,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                    <div style={{fontSize:11,color:"var(--dim)"}}>🔒 <b style={{color:"var(--gold)"}}>AI insights limit reached</b> — you've used your {FREE_AI_LIMIT} free AI insights today. Full entry timing, IV analysis, and risk details unlock with Pro.</div>
+                    <button className="btn-upgrade" style={{padding:"7px 18px",fontSize:11}} onClick={()=>{window.location.href=STRIPE_PRO_LINK;}}>Upgrade → $19/mo via Stripe</button>
+                  </div>
+                )}
               </div>
-              <div style={{fontSize:13,color:"var(--txt)",lineHeight:1.7,fontWeight:600}}>{oInsights.topPlay}</div>
-              {oInsights.entryTiming&&<div style={{fontSize:11,color:"var(--dim)",marginTop:6,lineHeight:1.6}}>
-                <span style={{color:"var(--gold)",fontWeight:700}}>⏱ Entry: </span>{oInsights.entryTiming}
-              </div>}
-            </div>
-            {prices[oTicker?.t]&&<div style={{flexShrink:0,textAlign:"right"}}>
-              <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:18,color:prices[oTicker.t].change>=0?"var(--green)":"var(--red)"}}>{fmt(prices[oTicker.t].price)}</div>
-              <div style={{fontSize:11,color:prices[oTicker.t].change>=0?"var(--green)":"var(--red)",fontWeight:700}}>{prices[oTicker.t].change>=0?"+":""}{prices[oTicker.t].change?.toFixed(2)}% <span style={{opacity:.85}}>{prices[oTicker.t].change>=0?"+":""}{fmt(Math.abs(prices[oTicker.t].price*(prices[oTicker.t].change/100)))}</span></div>
-              <div style={{fontSize:9,color:"var(--dim)",marginTop:2}}>● LIVE</div>
-            </div>}
-          </div>}
+            );
+          })()}
 
           {/* ── MEAN REVERSION INDICATOR (single instance, always live) ── */}
           {prices[optTicker]&&(()=>{
@@ -2647,6 +2844,288 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           </div>}
         </div>}
 
+        {/* PRICING TAB */}
+        {tab==="pricing"&&<div className="page">
+          {/* Success banner after Stripe redirect */}
+          {isPro&&userTier&&(
+            <div style={{background:"linear-gradient(135deg,rgba(0,232,122,.15),rgba(0,212,255,.08))",border:"1px solid var(--green)",borderRadius:12,padding:"14px 20px",marginBottom:24,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+              <span style={{fontSize:20}}>🎉</span>
+              <div>
+                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,color:"var(--green)"}}>You're on {userTier==="edge"?"Edge":"Pro"} — Unlimited Access Active</div>
+                <div style={{fontSize:11,color:"var(--dim)",marginTop:2}}>All features unlocked. Manage your subscription at <span style={{color:"var(--green)"}}>billing.stripe.com</span></div>
+              </div>
+            </div>
+          )}
+
+          <div className="pricing-hero">
+            <h1>Simple, <span>transparent</span> pricing</h1>
+            <p className="pricing-sub">Pay securely via Stripe. Cancel anytime. No hidden fees. Your access unlocks instantly after payment.</p>
+          </div>
+
+          {/* Stripe trust badges */}
+          <div style={{display:"flex",justifyContent:"center",gap:16,flexWrap:"wrap",marginBottom:28}}>
+            {["🔒 Secured by Stripe","💳 All major cards","↩ Cancel anytime","🔄 Instant access"].map((b,i)=>(
+              <span key={i} style={{fontSize:11,color:"var(--dim)",fontFamily:"DM Mono,monospace",padding:"5px 12px",background:"rgba(255,255,255,.04)",border:"1px solid var(--b1)",borderRadius:20}}>{b}</span>
+            ))}
+          </div>
+
+          <div className="pricing-grid">
+            {/* FREE */}
+            <div className="pricing-card">
+              <div className="pricing-tier">Free</div>
+              <div className="pricing-price">$0<span>/mo</span></div>
+              <div className="pricing-desc">Try the platform. No card required.</div>
+              <ul className="pricing-feats">
+                {[
+                  ["2 stock scans per day",true],
+                  ["2 options scans per day (1 ticker)",true],
+                  ["2 AI insights per day",true],
+                  ["Dip trigger badge only",true],
+                  ["Full entry/exit levels",false],
+                  ["Full AI options insights",false],
+                  ["Trade journal",false],
+                  ["Watchlist alerts",false],
+                ].map(([f,on],i)=>(
+                  <li key={i} className="pricing-feat">
+                    <span className={on?"pricing-feat-check":"pricing-feat-x"}>{on?"✓":"✕"}</span>{f}
+                  </li>
+                ))}
+              </ul>
+              <button className="pricing-cta secondary" onClick={()=>setTab("stocks")}>Continue Free →</button>
+            </div>
+
+            {/* PRO */}
+            <div className="pricing-card featured">
+              <div className="pricing-card-badge">MOST POPULAR</div>
+              <div className="pricing-tier">Pro <span className="pro-badge">PRO</span></div>
+              <div className="pricing-price">$19<span>/mo</span></div>
+              <div className="pricing-desc">Everything you need to trade with an edge, every day.</div>
+              <ul className="pricing-feats">
+                {[
+                  ["Unlimited stock + options scans",true],
+                  ["All 208 stocks · 229 options tickers",true],
+                  ["Full dip trigger: entry, T1, T2, T3, stop",true],
+                  ["Full AI insights + IV analysis",true],
+                  ["Trade journal with P&L tracking",true],
+                  ["Watchlist alerts",true],
+                  ["Mean reversion + all 7 indicators",true],
+                  ["Real-time Finnhub data on every scan",true],
+                ].map(([f],i)=>(
+                  <li key={i} className="pricing-feat"><span className="pricing-feat-check">✓</span>{f}</li>
+                ))}
+              </ul>
+              {isPro
+                ? <button className="pricing-cta secondary" disabled>✓ Active Plan</button>
+                : <button className="pricing-cta primary" onClick={()=>{
+                    window.location.href=STRIPE_PRO_LINK;
+                  }}>
+                    <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.831 3.47 1.426 3.47 2.338 0 .99-.893 1.548-2.585 1.548-2.227 0-5.028-.917-7.083-2.034l-.89 5.594c2.043 1.02 5.08 1.694 8.21 1.694 2.583 0 4.777-.618 6.381-1.84 1.72-1.305 2.586-3.203 2.586-5.597 0-4.094-2.526-5.868-6.346-7.19z"/></svg>
+                      Pay with Stripe — $19/mo
+                    </span>
+                  </button>
+              }
+              <div style={{fontSize:10,color:"var(--dim)",textAlign:"center",marginTop:8}}>
+                Secure checkout · Instant unlock · Cancel anytime
+              </div>
+            </div>
+
+            {/* EDGE */}
+            <div className="pricing-card">
+              <div className="pricing-tier">Edge</div>
+              <div className="pricing-price">$29<span>/mo</span></div>
+              <div className="pricing-desc">For serious traders who want every data edge.</div>
+              <ul className="pricing-feats">
+                {[
+                  ["Everything in Pro",true],
+                  ["Pre-market AI brief (coming soon)",true],
+                  ["Earnings IV crush playbook (coming soon)",true],
+                  ["Portfolio heat map (coming soon)",true],
+                  ["Unlimited watchlist alerts",true],
+                  ["Direct founder Slack access",true],
+                ].map(([f],i)=>(
+                  <li key={i} className="pricing-feat"><span className="pricing-feat-check">✓</span>{f}</li>
+                ))}
+              </ul>
+              {userTier==="edge"
+                ? <button className="pricing-cta secondary" disabled>✓ Active Plan</button>
+                : <button className="pricing-cta primary" onClick={()=>{
+                    window.location.href=STRIPE_EDGE_LINK;
+                  }}>
+                    <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.831 3.47 1.426 3.47 2.338 0 .99-.893 1.548-2.585 1.548-2.227 0-5.028-.917-7.083-2.034l-.89 5.594c2.043 1.02 5.08 1.694 8.21 1.694 2.583 0 4.777-.618 6.381-1.84 1.72-1.305 2.586-3.203 2.586-5.597 0-4.094-2.526-5.868-6.346-7.19z"/></svg>
+                      Pay with Stripe — $29/mo
+                    </span>
+                  </button>
+              }
+              <div style={{fontSize:10,color:"var(--dim)",textAlign:"center",marginTop:8}}>
+                Secure checkout · Instant unlock · Cancel anytime
+              </div>
+            </div>
+          </div>
+
+          {/* How payment works */}
+          <div className="panel" style={{marginBottom:20}}>
+            <div className="panel-title">How it works</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:16,marginTop:4}}>
+              {[
+                ["1","Click Pay with Stripe","You're taken to Stripe's secure checkout page — the same platform used by Amazon, Google, and millions of businesses."],
+                ["2","Enter your card details","Stripe handles everything. Your card details never touch our servers. 256-bit encryption."],
+                ["3","Instant access","After payment Stripe redirects you back to RUBBERBAND.AI and your plan unlocks automatically — no code, no email."],
+                ["4","Cancel anytime","Manage or cancel your subscription directly at billing.stripe.com using the email you signed up with."],
+              ].map(([n,title,desc],i)=>(
+                <div key={i} style={{padding:"14px 16px",background:"rgba(255,255,255,.03)",border:"1px solid var(--b1)",borderRadius:10}}>
+                  <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:20,color:"var(--green)",marginBottom:6}}>{n}</div>
+                  <div style={{fontWeight:700,fontSize:12,marginBottom:4}}>{title}</div>
+                  <div style={{fontSize:11,color:"var(--dim)",lineHeight:1.6}}>{desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{textAlign:"center",padding:"16px 0",fontSize:11,color:"var(--dim)",lineHeight:1.8}}>
+            <b style={{color:"var(--txt)"}}>Questions?</b> Email <span style={{color:"var(--green)"}}>support@rubberband.ai</span>
+            {" · "}Payments powered by <b style={{color:"var(--txt)"}}>Stripe</b> — PCI DSS compliant
+            {" · "}Cancel anytime at <span style={{color:"var(--green)"}}>billing.stripe.com</span>
+          </div>
+        </div>}
+
+        {/* TRADE JOURNAL TAB */}
+        {tab==="journal"&&hasFullAccess&&<div className="page">
+          <div className="hero"><h1>Trade <span>Journal</span></h1><p>Log your trades, track your edge. Every entry is saved privately in your browser.</p></div>
+          <div className="journal-tabs">
+            {[["log","📋 My Trades"],["new","✏️ Log Trade"],["stats","📊 Stats"]].map(([t,l])=>(
+              <button key={t} className={`jtab ${journalTab===t?"active":""}`} onClick={()=>setJournalTab(t)}>{l}</button>
+            ))}
+          </div>
+
+          {journalTab==="new"&&(
+            <div className="panel">
+              <div className="panel-title">Log a New Trade</div>
+              <div className="journal-form">
+                <div className="jfld"><label>Ticker</label><input value={journalEntry.ticker} onChange={e=>setJournalEntry(p=>({...p,ticker:e.target.value.toUpperCase()}))} placeholder="NVDA"/></div>
+                <div className="jfld"><label>Type</label><select value={journalEntry.type} onChange={e=>setJournalEntry(p=>({...p,type:e.target.value}))}><option value="call">Call</option><option value="put">Put</option><option value="stock">Stock</option></select></div>
+                <div className="jfld"><label>Entry Price</label><input type="number" value={journalEntry.entry} onChange={e=>setJournalEntry(p=>({...p,entry:e.target.value}))} placeholder="0.00"/></div>
+                <div className="jfld"><label>Target</label><input type="number" value={journalEntry.target} onChange={e=>setJournalEntry(p=>({...p,target:e.target.value}))} placeholder="0.00"/></div>
+                <div className="jfld"><label>Stop Loss</label><input type="number" value={journalEntry.stop} onChange={e=>setJournalEntry(p=>({...p,stop:e.target.value}))} placeholder="0.00"/></div>
+                <div className="jfld"><label>Outcome</label><select value={journalEntry.outcome} onChange={e=>setJournalEntry(p=>({...p,outcome:e.target.value}))}><option value="open">Open / Active</option><option value="win">Win ✓</option><option value="loss">Loss ✗</option></select></div>
+                <div className="jfld" style={{gridColumn:"1/-1"}}><label>Notes / Reasoning</label><textarea value={journalEntry.notes} onChange={e=>setJournalEntry(p=>({...p,notes:e.target.value}))} placeholder="Why did you take this trade? What was the setup? What did you learn?"/></div>
+              </div>
+              <button className="btn-green" onClick={()=>{
+                if(!journalEntry.ticker||!journalEntry.entry)return;
+                const entry={...journalEntry,id:Date.now(),date:new Date().toLocaleDateString(),time:new Date().toLocaleTimeString()};
+                setJournal(prev=>[entry,...prev]);
+                setJournalEntry({ticker:"",type:"call",entry:"",target:"",stop:"",notes:"",outcome:""});
+                setJournalTab("log");
+              }}>Save Trade →</button>
+            </div>
+          )}
+
+          {journalTab==="log"&&(
+            journal.length===0
+              ?<div className="empty"><div className="ico">📋</div><h3>No trades logged yet</h3><p>Use the Log Trade tab to record your first trade.</p></div>
+              :<div>{journal.map((e,i)=>(
+                <div key={e.id||i} className="journal-entry">
+                  <div className="je-header">
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span className="je-ticker">{e.ticker}</span>
+                      <span className={`je-type ${e.type}`}>{e.type.toUpperCase()}</span>
+                      {e.outcome&&<span className={`je-outcome ${e.outcome}`}>{e.outcome==="win"?"✓ WIN":e.outcome==="loss"?"✗ LOSS":"◎ OPEN"}</span>}
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:10,color:"var(--dim)"}}>{e.date} {e.time}</span>
+                      <button onClick={()=>setJournal(prev=>prev.filter((_,j)=>j!==i))} style={{background:"rgba(255,77,106,.1)",border:"none",color:"var(--red)",borderRadius:5,padding:"2px 8px",cursor:"pointer",fontSize:10}}>✕</button>
+                    </div>
+                  </div>
+                  <div className="je-levels">
+                    <span className="je-lv">Entry <b style={{color:"var(--green)"}}>${e.entry}</b></span>
+                    {e.target&&<span className="je-lv">Target <b style={{color:"var(--cyan)"}}>${e.target}</b></span>}
+                    {e.stop&&<span className="je-lv">Stop <b style={{color:"var(--red)"}}>${e.stop}</b></span>}
+                    {e.entry&&e.target&&<span className="je-lv">R/R <b style={{color:"var(--gold)"}}>{(((+e.target-+e.entry)/(+e.entry-+e.stop))||0).toFixed(1)}:1</b></span>}
+                  </div>
+                  {e.notes&&<div className="je-notes">{e.notes}</div>}
+                </div>
+              ))}</div>
+          )}
+
+          {journalTab==="stats"&&(()=>{
+            const wins=journal.filter(e=>e.outcome==="win").length;
+            const losses=journal.filter(e=>e.outcome==="loss").length;
+            const total=wins+losses;
+            const winRate=total>0?Math.round((wins/total)*100):0;
+            const byType=["call","put","stock"].map(t=>({type:t,count:journal.filter(e=>e.type===t).length}));
+            return(
+              <div>
+                <div className="stats-row">
+                  <div className="sbox"><div className="sv g">{journal.length}</div><div className="sl">Total Trades</div></div>
+                  <div className="sbox"><div className="sv g">{wins}</div><div className="sl">Wins</div></div>
+                  <div className="sbox"><div className="sv r">{losses}</div><div className="sl">Losses</div></div>
+                  <div className="sbox"><div className="sv gold">{winRate}%</div><div className="sl">Win Rate</div></div>
+                </div>
+                <div className="panel" style={{marginTop:16}}>
+                  <div className="panel-title">Trades by Type</div>
+                  {byType.map((b,i)=>(
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid var(--b1)",fontSize:12}}>
+                      <span style={{textTransform:"uppercase",fontFamily:"DM Mono,monospace",fontSize:10,color:"var(--dim)"}}>{b.type}</span>
+                      <span style={{fontWeight:700}}>{b.count} trades</span>
+                    </div>
+                  ))}
+                </div>
+                {journal.length===0&&<div className="empty"><div className="ico">📊</div><h3>Log trades to see stats</h3></div>}
+              </div>
+            );
+          })()}
+        </div>}
+
+        {/* WATCHLIST ALERTS TAB */}
+        {tab==="alerts"&&hasFullAccess&&<div className="page">
+          <div className="hero"><h1>Watchlist <span>Alerts</span></h1><p>Track tickers and get notified when their dip trigger score crosses your threshold.</p></div>
+          <div className="panel" style={{marginBottom:20}}>
+            <div className="panel-title">Add Ticker to Watchlist</div>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+              <div className="jfld" style={{flex:1,minWidth:120}}>
+                <label>Ticker</label>
+                <input value={alertTicker} onChange={e=>setAlertTicker(e.target.value.toUpperCase())} placeholder="NVDA" maxLength={6} style={{background:"var(--s2)",border:"1px solid var(--b2)",color:"var(--txt)",borderRadius:7,padding:"8px 11px",fontSize:12,fontFamily:"DM Mono,monospace",outline:"none",width:"100%"}}/>
+              </div>
+              <div className="jfld" style={{flex:1,minWidth:160}}>
+                <label>Alert when Dip Score ≥</label>
+                <input type="number" min={1} max={100} value={alertThreshold} onChange={e=>setAlertThreshold(+e.target.value)} style={{background:"var(--s2)",border:"1px solid var(--b2)",color:"var(--txt)",borderRadius:7,padding:"8px 11px",fontSize:12,fontFamily:"DM Mono,monospace",outline:"none",width:"100%"}}/>
+              </div>
+              <button className="btn-green" style={{marginBottom:0,padding:"9px 22px",fontSize:12}} onClick={()=>{
+                if(!alertTicker)return;
+                if(watchlist.find(w=>w.ticker===alertTicker))return;
+                setWatchlist(prev=>[...prev,{ticker:alertTicker,threshold:alertThreshold,added:new Date().toLocaleDateString()}]);
+                setAlertTicker("");
+              }}>+ Add</button>
+            </div>
+          </div>
+          {watchlist.length===0
+            ?<div className="empty"><div className="ico">🔔</div><h3>No alerts set</h3><p>Add tickers above to monitor for dip trigger signals.</p></div>
+            :<div className="alert-list">
+              {watchlist.map((w,i)=>{
+                const q=prices[w.ticker];
+                const base=OPT_BASE.find(x=>x.t===w.ticker)||{iv:45};
+                const dip=q?calcDipTrigger(q.price,q.high||q.price*1.015,q.low||q.price*0.985,q.prevClose||q.price,q.change||0,base.iv||45,w.ticker):null;
+                const triggered=dip&&dip.score>=w.threshold;
+                return(
+                  <div key={i} className="alert-card">
+                    <div>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                        <span className="alert-sym">{w.ticker}</span>
+                        <span className={`alert-status ${triggered?"triggered":"watching"}`}>{triggered?"🟢 TRIGGERED":"⏳ Watching"}</span>
+                      </div>
+                      <div className="alert-thresh">Alert when score ≥ {w.threshold} · {dip?`Current: ${dip.score}/100 (${dip.grade})`:"Run a scan to check score"}</div>
+                      {triggered&&dip&&<div style={{fontSize:10,color:"var(--green)",marginTop:4}}>Entry: ${dip.entry} · T1: ${dip.t1} · Stop: ${dip.stop}</div>}
+                    </div>
+                    <button className="alert-remove" onClick={()=>setWatchlist(prev=>prev.filter((_,j)=>j!==i))}>Remove</button>
+                  </div>
+                );
+              })}
+            </div>
+          }
+          <div className="disc" style={{marginTop:16}}>⚠ Alert scores are based on the last scan for each ticker. Run a scan to get current dip scores. Browser-based alerts only — no push notifications yet.</div>
+        </div>}
+
         {/* ADMIN TAB */}
         {tab==="admin"&&<div className="page">
           {!adminUnlocked?(
@@ -2688,16 +3167,71 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                 </table></div>
                 <button className="export-btn" onClick={exportCSV}>⬇ Export CSV — Import to Mailchimp / ConvertKit</button>
               </div>}
+              <div className="stats-row" style={{marginTop:20}}>
+                <div className="sbox"><div className="sv g">{isOwner?"Owner":isPro?"Pro":"Free"}</div><div className="sl">Access Tier</div></div>
+                <div className="sbox"><div className="sv gold">{freeScansUsed}/{FREE_STOCK_LIMIT}</div><div className="sl">Stock Scans Today</div></div>
+                <div className="sbox"><div className="sv b">{freeOptScans}/{FREE_OPT_LIMIT}</div><div className="sl">Opt Scans Today</div></div>
+                <div className="sbox"><div className="sv p">{freeAiUsed}/{FREE_AI_LIMIT}</div><div className="sl">AI Insights Today</div></div>
+              </div>
+              <div className="stats-row">
+                <div className="sbox"><div className="sv g">{journal.length}</div><div className="sl">Journal Entries</div></div>
+                <div className="sbox"><div className="sv b">{watchlist.length}</div><div className="sl">Watchlist Alerts</div></div>
+                <div className="sbox"><div className="sv p">{eList.length}</div><div className="sl">Email Subscribers</div></div>
+                <div className="sbox"><div className="sv gold">{freeOptTickers.size>0?[...freeOptTickers].join(", "):"—"}</div><div className="sl">Free Ticker Lock</div></div>
+              </div>
               <div className="panel" style={{marginTop:20}}>
+                <div className="panel-title">Owner Controls</div>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:12}}>
+                  <button className="btn-green" style={{fontSize:11,padding:"8px 18px"}} onClick={()=>{setIsPro(true);try{localStorage.setItem("rb_pro","true");}catch{}}}>✓ Grant Pro Access</button>
+                  <button className="btn-sm" onClick={()=>{setIsPro(false);try{localStorage.removeItem("rb_pro");}catch{}}}>Revoke Pro</button>
+                  <button className="btn-sm" onClick={()=>{
+                    setFreeScansUsed(0);setFreeOptScans(0);setFreeAiUsed(0);setFreeOptTickers(new Set());
+                    _setDaily("rb_stock_scans",0);_setDaily("rb_opt_scans",0);_setDaily("rb_ai_used",0);
+                    try{localStorage.removeItem("rb_opt_tickers");}catch{}
+                  }}>Reset All Daily Limits</button>
+                </div>
+                <div style={{fontSize:10,color:"var(--dim)",lineHeight:1.8}}>
+                  As owner (PIN unlocked) you always have full access regardless of Pro status. Use "Grant Pro Access" to test the Pro experience as a regular user would see it.
+                </div>
+              </div>
+              <div className="panel" style={{marginTop:16}}>
                 <div className="panel-title">Monetization Roadmap</div>
                 <div className="li-list">
-                  {["Export your list and import into Mailchimp (free up to 500 contacts)","Send your first email Sunday with top 3 AI picks from this week","Add a Gumroad link to unlock the full 18-stock list for $9/month","Post a screen recording of RUBBERBAND.AI on X/IG with your link","Add Webull or Tastytrade affiliate links next to each stock for passive income"].map((t,i)=><div className="li-item" key={i}><div className="li-ico ok">{i+1}</div><span>{t}</span></div>)}
+                  {["Export subscriber list → import into Mailchimp (free ≤500 contacts)","Sunday email: top 3 AI dip setups of the week — drives upgrades","Share your Pro access code via X/IG/TikTok to drive paid signups","Add Tastytrade or Webull affiliate links next to each options card","Launch Edge tier ($29/mo) with pre-market brief and earnings playbook","Offer annual Pro at $149/yr (save $79) to boost LTV"].map((t,i)=><div className="li-item" key={i}><div className="li-ico ok">{i+1}</div><span>{t}</span></div>)}
                 </div>
               </div>
             </>
           )}
         </div>}
       </div>
+
+      {/* ── PAYWALL MODAL ── */}
+      {showPaywall&&(
+        <div className="paywall-overlay" onClick={e=>{if(e.target===e.currentTarget)setShowPaywall(false);}}>
+          <div className="paywall-card">
+            <div className="paywall-icon">🔐</div>
+            <div className="paywall-title">You've hit the free limit</div>
+            <div className="paywall-sub">Free users get <b>3 scans per day</b>. Upgrade to Pro for unlimited scans, full dip trigger levels, AI insights, trade journal, and watchlist alerts.</div>
+            <div className="paywall-features">
+              {["Unlimited stock + options scans","Full dip trigger: entry, T1, T2, T3, stop levels","AI-generated options insights & IV analysis","Trade journal with P&L tracking","Watchlist alerts for dip trigger signals","Pre-market AI brief (coming soon)","Priority Finnhub data refresh"].map((f,i)=>(
+                <div key={i} className="paywall-feat"><span className="paywall-feat-icon">✓</span>{f}</div>
+              ))}
+            </div>
+            <div className="paywall-btns">
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <button className="btn-upgrade" onClick={()=>{setShowPaywall(false);window.location.href=STRIPE_PRO_LINK;}}>
+                  <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.831 3.47 1.426 3.47 2.338 0 .99-.893 1.548-2.585 1.548-2.227 0-5.028-.917-7.083-2.034l-.89 5.594c2.043 1.02 5.08 1.694 8.21 1.694 2.583 0 4.777-.618 6.381-1.84 1.72-1.305 2.586-3.203 2.586-5.597 0-4.094-2.526-5.868-6.346-7.19z"/></svg>
+                    Upgrade to Pro — $19/mo via Stripe
+                  </span>
+                </button>
+                <button className="btn-dismiss" onClick={()=>{setShowPaywall(false);setTab("pricing");}}>View all plans</button>
+              </div>
+              <button className="btn-dismiss" onClick={()=>setShowPaywall(false)}>Maybe later</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── GLOBAL DISCLOSURE FOOTER ── */}
       <footer className="app-footer">
