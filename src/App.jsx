@@ -744,6 +744,124 @@ const UNIVERSE_BASE = [
   {t:"LASR",n:"nLIGHT Inc",sec:"Technology",cap:"Small",geo:"US"},
   {t:"AMPX",n:"Amprius Technologies",sec:"Technology",cap:"Micro",geo:"US"},
   {t:"SYM",n:"Symbotic Inc",sec:"Technology",cap:"Mid",geo:"US"},
+  // ── Expanded High-Probability Universe ──
+  {t:"ARES",n:"Ares Management Corp",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"XYZ",n:"Block Inc (XYZ)",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"NSRGY",n:"Nestle SA",sec:"Consumer Staples",cap:"Large",geo:"Europe"},
+  {t:"GEV",n:"GE Vernova",sec:"Clean Energy",cap:"Large",geo:"US"},
+  {t:"LIN",n:"Linde PLC",sec:"Materials",cap:"Large",geo:"US"},
+  {t:"PWR",n:"Quanta Services",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"ROST",n:"Ross Stores",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"HLT",n:"Hilton Worldwide",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"LHX",n:"L3Harris Technologies",sec:"Defense",cap:"Large",geo:"US"},
+  {t:"AAOI",n:"Applied Optoelectronics",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"COF",n:"Capital One Financial",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"CCJ",n:"Cameco Corp",sec:"Energy",cap:"Mid",geo:"US"},
+  {t:"DJT",n:"Trump Media & Technology",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"LNG",n:"Cheniere Energy",sec:"Energy",cap:"Large",geo:"US"},
+  {t:"LITE",n:"Lumentum Holdings",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"CAT",n:"Caterpillar Inc",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"VMC",n:"Vulcan Materials",sec:"Materials",cap:"Large",geo:"US"},
+  {t:"COST",n:"Costco Wholesale",sec:"Consumer Staples",cap:"Large",geo:"US"},
+  {t:"VICR",n:"Vicor Corp",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"EME",n:"EMCOR Group",sec:"Industrials",cap:"Mid",geo:"US"},
+  {t:"BLK",n:"BlackRock Inc",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"KKR",n:"KKR & Co",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"APO",n:"Apollo Global Mgmt",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"BAM",n:"Brookfield Asset Mgmt",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"MS",n:"Morgan Stanley",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"WFC",n:"Wells Fargo",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"C",n:"Citigroup Inc",sec:"Financials",cap:"Large",geo:"US"},
+  {t:"AXP",n:"American Express",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"DFS",n:"Discover Financial",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"ICE",n:"Intercontinental Exchange",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"CME",n:"CME Group",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"CBOE",n:"Cboe Global Markets",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"MSCI",n:"MSCI Inc",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"NDAQ",n:"Nasdaq Inc",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"PANW",n:"Palo Alto Networks",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"FTNT",n:"Fortinet Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"CYBR",n:"CyberArk Software",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"ZI",n:"ZoomInfo Technologies",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"ARM",n:"Arm Holdings",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"MCHP",n:"Microchip Technology",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"AMAT",n:"Applied Materials",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"LRCX",n:"Lam Research",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"KLAC",n:"KLA Corp",sec:"Semiconductors",cap:"Large",geo:"US"},
+  {t:"DELL",n:"Dell Technologies",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"HPQ",n:"HP Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"HPE",n:"Hewlett Packard Enterprise",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"NTAP",n:"NetApp Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"PSTG",n:"Pure Storage",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"ANET",n:"Arista Networks",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"CSCO",n:"Cisco Systems",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"UPS",n:"United Parcel Service",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"FDX",n:"FedEx Corp",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"XPO",n:"XPO Inc",sec:"Industrials",cap:"Mid",geo:"US"},
+  {t:"DAL",n:"Delta Air Lines",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"UAL",n:"United Airlines",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"AAL",n:"American Airlines",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"LUV",n:"Southwest Airlines",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"UNP",n:"Union Pacific",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"CSX",n:"CSX Corp",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"NSC",n:"Norfolk Southern",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"PFE",n:"Pfizer Inc",sec:"Healthcare",cap:"Large",geo:"US"},
+  {t:"MRK",n:"Merck & Co",sec:"Healthcare",cap:"Large",geo:"US"},
+  {t:"ABBV",n:"AbbVie Inc",sec:"Healthcare",cap:"Large",geo:"US"},
+  {t:"JNJ",n:"Johnson & Johnson",sec:"Healthcare",cap:"Large",geo:"US"},
+  {t:"BMY",n:"Bristol-Myers Squibb",sec:"Healthcare",cap:"Large",geo:"US"},
+  {t:"AMGN",n:"Amgen Inc",sec:"Biotech",cap:"Large",geo:"US"},
+  {t:"ILMN",n:"Illumina Inc",sec:"Healthcare",cap:"Large",geo:"US"},
+  {t:"IDXX",n:"IDEXX Laboratories",sec:"Healthcare",cap:"Large",geo:"US"},
+  {t:"WMT",n:"Walmart Inc",sec:"Consumer Staples",cap:"Large",geo:"US"},
+  {t:"TGT",n:"Target Corp",sec:"Consumer Staples",cap:"Large",geo:"US"},
+  {t:"MCD",n:"McDonalds Corp",sec:"Consumer Staples",cap:"Large",geo:"US"},
+  {t:"SBUX",n:"Starbucks Corp",sec:"Consumer Staples",cap:"Large",geo:"US"},
+  {t:"CMG",n:"Chipotle Mexican Grill",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"YUM",n:"Yum! Brands",sec:"Consumer Staples",cap:"Large",geo:"US"},
+  {t:"NKE",n:"Nike Inc",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"LULU",n:"Lululemon Athletica",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"MNST",n:"Monster Beverage",sec:"Consumer Staples",cap:"Mid",geo:"US"},
+  {t:"PEP",n:"PepsiCo Inc",sec:"Consumer Staples",cap:"Large",geo:"US"},
+  {t:"KO",n:"Coca-Cola Co",sec:"Consumer Staples",cap:"Large",geo:"US"},
+  {t:"MDLZ",n:"Mondelez International",sec:"Consumer Staples",cap:"Large",geo:"US"},
+  {t:"HSY",n:"Hershey Co",sec:"Consumer Staples",cap:"Mid",geo:"US"},
+  {t:"DKNG",n:"DraftKings Inc",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"MGM",n:"MGM Resorts",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"LVS",n:"Las Vegas Sands",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"WYNN",n:"Wynn Resorts",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"CZR",n:"Caesars Entertainment",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"NCLH",n:"Norwegian Cruise Line",sec:"Consumer Discretionary",cap:"Mid",geo:"US"},
+  {t:"CCL",n:"Carnival Corp",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"RCL",n:"Royal Caribbean",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"BKNG",n:"Booking Holdings",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"EXPE",n:"Expedia Group",sec:"Consumer Discretionary",cap:"Large",geo:"US"},
+  {t:"OXY",n:"Occidental Petroleum",sec:"Energy",cap:"Large",geo:"US"},
+  {t:"DVN",n:"Devon Energy",sec:"Energy",cap:"Large",geo:"US"},
+  {t:"EOG",n:"EOG Resources",sec:"Energy",cap:"Large",geo:"US"},
+  {t:"HAL",n:"Halliburton Co",sec:"Energy",cap:"Large",geo:"US"},
+  {t:"SLB",n:"SLB Schlumberger",sec:"Energy",cap:"Large",geo:"US"},
+  {t:"NEM",n:"Newmont Corp",sec:"Mining",cap:"Large",geo:"US"},
+  {t:"GOLD",n:"Barrick Gold",sec:"Mining",cap:"Large",geo:"US"},
+  {t:"WPM",n:"Wheaton Precious Metals",sec:"Mining",cap:"Large",geo:"US"},
+  {t:"DHR",n:"Danaher Corp",sec:"Healthcare",cap:"Large",geo:"US"},
+  {t:"ROP",n:"Roper Technologies",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"IDEX",n:"IDEX Corp",sec:"Industrials",cap:"Mid",geo:"US"},
+  {t:"AME",n:"AMETEK Inc",sec:"Industrials",cap:"Large",geo:"US"},
+  {t:"ROKU",n:"Roku Inc",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"TTD",n:"The Trade Desk",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"MGNI",n:"Magnite Inc",sec:"Technology",cap:"Small",geo:"US"},
+  {t:"FIS",n:"Fidelity National Info",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"FISV",n:"Fiserv Inc",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"GPN",n:"Global Payments",sec:"Fintech",cap:"Large",geo:"US"},
+  {t:"TW",n:"Tradeweb Markets",sec:"Fintech",cap:"Mid",geo:"US"},
+  {t:"AMT",n:"American Tower",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"EQIX",n:"Equinix Inc",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"DLR",n:"Digital Realty Trust",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"ZM",n:"Zoom Video",sec:"Technology",cap:"Large",geo:"US"},
+  {t:"DOCU",n:"DocuSign Inc",sec:"Technology",cap:"Mid",geo:"US"},
+  {t:"SE",n:"Sea Limited",sec:"Technology",cap:"Large",geo:"Asia Pacific"},
+  {t:"GRAB",n:"Grab Holdings",sec:"Technology",cap:"Mid",geo:"Asia Pacific"},
 ];
 
 const OPT_BASE = [
@@ -988,6 +1106,124 @@ const OPT_BASE = [
   {t:"LASR",n:"nLIGHT Inc",iv:64,cat:"Defense"},
   {t:"AMPX",n:"Amprius Technologies",iv:96,cat:"High Vol"},
   {t:"SYM",n:"Symbotic Inc",iv:68,cat:"AI"},
+  // ── Owner-requested + High-Probability Additions ──
+  {t:"ARES",n:"Ares Management Corp",iv:72,cat:"Fintech"},
+  {t:"XYZ",n:"Block Inc (XYZ)",iv:58,cat:"Fintech"},
+  {t:"NSRGY",n:"Nestle SA",iv:18,cat:"Consumer"},
+  {t:"GEV",n:"GE Vernova",iv:44,cat:"EV/Energy"},
+  {t:"LIN",n:"Linde PLC",iv:20,cat:"Defense"},
+  {t:"PWR",n:"Quanta Services",iv:34,cat:"Defense"},
+  {t:"ROST",n:"Ross Stores",iv:22,cat:"Consumer"},
+  {t:"HLT",n:"Hilton Worldwide",iv:28,cat:"Consumer"},
+  {t:"LHX",n:"L3Harris Technologies",iv:24,cat:"Defense"},
+  {t:"AAOI",n:"Applied Optoelectronics",iv:92,cat:"High Vol"},
+  {t:"COF",n:"Capital One Financial",iv:32,cat:"Fintech"},
+  {t:"CCJ",n:"Cameco Corp",iv:58,cat:"EV/Energy"},
+  {t:"DJT",n:"Trump Media & Technology",iv:128,cat:"High Vol"},
+  {t:"LNG",n:"Cheniere Energy",iv:32,cat:"Defense"},
+  {t:"LITE",n:"Lumentum Holdings",iv:54,cat:"AI"},
+  {t:"CAT",n:"Caterpillar Inc",iv:24,cat:"Defense"},
+  {t:"VMC",n:"Vulcan Materials",iv:22,cat:"Defense"},
+  {t:"COST",n:"Costco Wholesale",iv:18,cat:"Consumer"},
+  {t:"VICR",n:"Vicor Corp",iv:62,cat:"AI"},
+  {t:"EME",n:"EMCOR Group",iv:28,cat:"Defense"},
+  {t:"BLK",n:"BlackRock Inc",iv:22,cat:"Fintech"},
+  {t:"KKR",n:"KKR & Co",iv:42,cat:"Fintech"},
+  {t:"APO",n:"Apollo Global Mgmt",iv:44,cat:"Fintech"},
+  {t:"BAM",n:"Brookfield Asset Mgmt",iv:32,cat:"Fintech"},
+  {t:"MS",n:"Morgan Stanley",iv:28,cat:"Fintech"},
+  {t:"WFC",n:"Wells Fargo",iv:26,cat:"Fintech"},
+  {t:"C",n:"Citigroup Inc",iv:28,cat:"Fintech"},
+  {t:"AXP",n:"American Express",iv:24,cat:"Fintech"},
+  {t:"DFS",n:"Discover Financial",iv:28,cat:"Fintech"},
+  {t:"ICE",n:"Intercontinental Exchange",iv:20,cat:"Fintech"},
+  {t:"CME",n:"CME Group",iv:18,cat:"Fintech"},
+  {t:"CBOE",n:"Cboe Global Markets",iv:20,cat:"Fintech"},
+  {t:"MSCI",n:"MSCI Inc",iv:22,cat:"Fintech"},
+  {t:"NDAQ",n:"Nasdaq Inc",iv:18,cat:"Fintech"},
+  {t:"PANW",n:"Palo Alto Networks",iv:48,cat:"AI"},
+  {t:"FTNT",n:"Fortinet Inc",iv:42,cat:"AI"},
+  {t:"CYBR",n:"CyberArk Software",iv:58,cat:"AI"},
+  {t:"ZI",n:"ZoomInfo Technologies",iv:62,cat:"AI"},
+  {t:"ARM",n:"Arm Holdings",iv:62,cat:"Mega Cap"},
+  {t:"MCHP",n:"Microchip Technology",iv:36,cat:"Mega Cap"},
+  {t:"AMAT",n:"Applied Materials",iv:38,cat:"Mega Cap"},
+  {t:"LRCX",n:"Lam Research",iv:36,cat:"Mega Cap"},
+  {t:"KLAC",n:"KLA Corp",iv:34,cat:"Mega Cap"},
+  {t:"DELL",n:"Dell Technologies",iv:38,cat:"Enterprise"},
+  {t:"HPQ",n:"HP Inc",iv:26,cat:"Enterprise"},
+  {t:"HPE",n:"Hewlett Packard Enterprise",iv:28,cat:"Enterprise"},
+  {t:"NTAP",n:"NetApp Inc",iv:32,cat:"Enterprise"},
+  {t:"PSTG",n:"Pure Storage",iv:48,cat:"Enterprise"},
+  {t:"ANET",n:"Arista Networks",iv:42,cat:"Enterprise"},
+  {t:"CSCO",n:"Cisco Systems",iv:22,cat:"Enterprise"},
+  {t:"UPS",n:"United Parcel Service",iv:22,cat:"Defense"},
+  {t:"FDX",n:"FedEx Corp",iv:26,cat:"Defense"},
+  {t:"XPO",n:"XPO Inc",iv:38,cat:"Defense"},
+  {t:"DAL",n:"Delta Air Lines",iv:38,cat:"Consumer"},
+  {t:"UAL",n:"United Airlines",iv:42,cat:"Consumer"},
+  {t:"AAL",n:"American Airlines",iv:58,cat:"High Vol"},
+  {t:"LUV",n:"Southwest Airlines",iv:28,cat:"Consumer"},
+  {t:"UNP",n:"Union Pacific",iv:18,cat:"Defense"},
+  {t:"CSX",n:"CSX Corp",iv:20,cat:"Defense"},
+  {t:"NSC",n:"Norfolk Southern",iv:20,cat:"Defense"},
+  {t:"PFE",n:"Pfizer Inc",iv:24,cat:"Biotech"},
+  {t:"MRK",n:"Merck & Co",iv:20,cat:"Biotech"},
+  {t:"ABBV",n:"AbbVie Inc",iv:22,cat:"Biotech"},
+  {t:"JNJ",n:"Johnson & Johnson",iv:18,cat:"Biotech"},
+  {t:"BMY",n:"Bristol-Myers Squibb",iv:28,cat:"Biotech"},
+  {t:"AMGN",n:"Amgen Inc",iv:24,cat:"Biotech"},
+  {t:"ILMN",n:"Illumina Inc",iv:38,cat:"Biotech"},
+  {t:"IDXX",n:"IDEXX Laboratories",iv:24,cat:"Biotech"},
+  {t:"WMT",n:"Walmart Inc",iv:18,cat:"Consumer"},
+  {t:"TGT",n:"Target Corp",iv:26,cat:"Consumer"},
+  {t:"MCD",n:"McDonalds Corp",iv:18,cat:"Consumer"},
+  {t:"SBUX",n:"Starbucks Corp",iv:28,cat:"Consumer"},
+  {t:"CMG",n:"Chipotle Mexican Grill",iv:30,cat:"Consumer"},
+  {t:"YUM",n:"Yum! Brands",iv:20,cat:"Consumer"},
+  {t:"NKE",n:"Nike Inc",iv:26,cat:"Consumer"},
+  {t:"LULU",n:"Lululemon Athletica",iv:38,cat:"Consumer"},
+  {t:"MNST",n:"Monster Beverage",iv:24,cat:"Consumer"},
+  {t:"PEP",n:"PepsiCo Inc",iv:16,cat:"Consumer"},
+  {t:"KO",n:"Coca-Cola Co",iv:14,cat:"Consumer"},
+  {t:"MDLZ",n:"Mondelez International",iv:18,cat:"Consumer"},
+  {t:"HSY",n:"Hershey Co",iv:18,cat:"Consumer"},
+  {t:"DKNG",n:"DraftKings Inc",iv:72,cat:"Consumer"},
+  {t:"MGM",n:"MGM Resorts",iv:38,cat:"Consumer"},
+  {t:"LVS",n:"Las Vegas Sands",iv:32,cat:"Consumer"},
+  {t:"WYNN",n:"Wynn Resorts",iv:38,cat:"Consumer"},
+  {t:"CZR",n:"Caesars Entertainment",iv:48,cat:"Consumer"},
+  {t:"NCLH",n:"Norwegian Cruise Line",iv:52,cat:"Consumer"},
+  {t:"CCL",n:"Carnival Corp",iv:42,cat:"Consumer"},
+  {t:"RCL",n:"Royal Caribbean",iv:38,cat:"Consumer"},
+  {t:"BKNG",n:"Booking Holdings",iv:26,cat:"Consumer"},
+  {t:"EXPE",n:"Expedia Group",iv:34,cat:"Consumer"},
+  {t:"OXY",n:"Occidental Petroleum",iv:34,cat:"Defense"},
+  {t:"DVN",n:"Devon Energy",iv:38,cat:"Defense"},
+  {t:"EOG",n:"EOG Resources",iv:28,cat:"Defense"},
+  {t:"HAL",n:"Halliburton Co",iv:34,cat:"Defense"},
+  {t:"SLB",n:"SLB (Schlumberger)",iv:32,cat:"Defense"},
+  {t:"NEM",n:"Newmont Corp",iv:32,cat:"Defense"},
+  {t:"GOLD",n:"Barrick Gold",iv:34,cat:"Defense"},
+  {t:"WPM",n:"Wheaton Precious Metals",iv:28,cat:"Defense"},
+  {t:"DHR",n:"Danaher Corp",iv:22,cat:"Biotech"},
+  {t:"ROP",n:"Roper Technologies",iv:20,cat:"Enterprise"},
+  {t:"IDEX",n:"IDEX Corp",iv:22,cat:"Defense"},
+  {t:"AME",n:"AMETEK Inc",iv:20,cat:"Defense"},
+  {t:"ROKU",n:"Roku Inc",iv:68,cat:"Consumer"},
+  {t:"TTD",n:"The Trade Desk",iv:62,cat:"AI"},
+  {t:"MGNI",n:"Magnite Inc",iv:74,cat:"AI"},
+  {t:"FIS",n:"Fidelity National Info",iv:28,cat:"Fintech"},
+  {t:"FISV",n:"Fiserv Inc",iv:22,cat:"Fintech"},
+  {t:"GPN",n:"Global Payments",iv:28,cat:"Fintech"},
+  {t:"TW",n:"Tradeweb Markets",iv:30,cat:"Fintech"},
+  {t:"AMT",n:"American Tower",iv:18,cat:"ETF"},
+  {t:"EQIX",n:"Equinix Inc",iv:22,cat:"Enterprise"},
+  {t:"DLR",n:"Digital Realty Trust",iv:22,cat:"Enterprise"},
+  {t:"ZM",n:"Zoom Video",iv:42,cat:"Enterprise"},
+  {t:"DOCU",n:"DocuSign Inc",iv:44,cat:"Enterprise"},
+  {t:"SE",n:"Sea Limited",iv:72,cat:"Consumer"},
+  {t:"GRAB",n:"Grab Holdings",iv:68,cat:"Consumer"},
 ];
 
 /* ── FINNHUB ── */
@@ -2051,8 +2287,12 @@ function HLRow({label,r,cur,ot}){
   );
 }
 
-function App() {
+function App({ session, onSignOut }) {
   const [tab,setTab]=useState("stocks");
+  // ── USER SESSION ──
+  const user = session?.user || null;
+  const userEmail = user?.email || "";
+  const isOwnerEmail = userEmail === "rubberbandai.owner@gmail.com"; // set this to YOUR email
   const [prices,setPrices]=useState({});
   const [lastRefresh,setLastRefresh]=useState(null);
   const [ms,setMs]=useState(mktStatus());
@@ -2104,13 +2344,11 @@ function App() {
   const OWNER_PIN="2580";
   const [isPro,setIsPro]=useState(()=>{
     try{
-      // Check if Stripe redirected back after payment
       const params=new URLSearchParams(window.location.search);
       const success=params.get("rb_success");
       if(success==="pro"||success==="edge"){
         localStorage.setItem("rb_pro","true");
         if(success==="edge")localStorage.setItem("rb_tier","edge");
-        // Clean the URL so the param doesn't persist on refresh
         window.history.replaceState({},"",window.location.pathname);
         return true;
       }
@@ -2120,8 +2358,9 @@ function App() {
   const [userTier,setUserTier]=useState(()=>{
     try{return localStorage.getItem("rb_tier")||"free";}catch{return "free";}
   });
-  const isOwner=adminUnlocked; // Owner = admin unlocked, always full access
+  const isOwner=adminUnlocked||isOwnerEmail; // Owner = admin PIN OR owner email
   const hasFullAccess=isOwner||isPro;
+  const hasEdgeAccess=isOwner||(isPro&&userTier==="edge"); // Edge features
   // Freemium daily counters — all reset at midnight
   const _getDaily=(key,def=0)=>{
     try{
@@ -2470,7 +2709,20 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           <div className="hdr-right">
             <span className="chip live">● {clock}</span>
             <span className={`chip ${msClass}`}>{msLabel}</span>
-            {false?<span className="chip mloading">⟳ {0}/{0} prices</span>:lastRefresh&&<span className="chip ai">LIVE ✓</span>}
+            {lastRefresh&&<span className="chip ai">LIVE ✓</span>}
+            {user&&(
+              <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:20,padding:"4px 10px 4px 6px"}}>
+                <div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#00e87a,#00d4ff)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"#000",flexShrink:0}}>
+                  {userEmail.charAt(0).toUpperCase()}
+                </div>
+                <span style={{fontSize:10,color:"rgba(255,255,255,.6)",fontFamily:"DM Mono,monospace",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {isOwner?"👑 ":isPro?"⭐ ":""}{userEmail.split("@")[0]}
+                </span>
+                <button onClick={onSignOut} style={{background:"none",border:"none",color:"rgba(255,255,255,.3)",cursor:"pointer",fontSize:10,padding:"0 0 0 4px",fontFamily:"DM Mono,monospace"}} title="Sign out">
+                  ⏏
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
@@ -2480,6 +2732,9 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           <div className={`tab ${tab==="pricing"?"active":""}`} onClick={()=>setTab("pricing")} style={{fontSize:11}}>💎 Pro</div>
           {hasFullAccess&&<div className={`tab ${tab==="journal"?"active":""}`} onClick={()=>setTab("journal")} style={{fontSize:11}}>📓 Journal</div>}
           {hasFullAccess&&<div className={`tab ${tab==="alerts"?"active":""}`} onClick={()=>setTab("alerts")} style={{fontSize:11}}>🔔 Alerts</div>}
+          {hasEdgeAccess&&<div className={`tab ${tab==="premarket"?"active":""}`} onClick={()=>setTab("premarket")} style={{fontSize:11,color:"var(--gold)"}}>⚡ Pre-Market</div>}
+          {hasEdgeAccess&&<div className={`tab ${tab==="earnings"?"active":""}`} onClick={()=>setTab("earnings")} style={{fontSize:11,color:"var(--gold)"}}>📅 Earnings</div>}
+          {hasEdgeAccess&&<div className={`tab ${tab==="heatmap"?"active":""}`} onClick={()=>setTab("heatmap")} style={{fontSize:11,color:"var(--gold)"}}>🔥 Heat Map</div>}
           <div style={{marginLeft:"auto",paddingRight:4}}><button onClick={()=>setTab("admin")} style={{background:"none",border:"none",cursor:"pointer",color:"var(--dim)",fontSize:10,opacity:.15,padding:"14px 8px",fontFamily:"DM Mono,monospace",letterSpacing:1}}>⬤</button></div>
         </div>
 
@@ -2852,7 +3107,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               <span style={{fontSize:20}}>🎉</span>
               <div>
                 <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,color:"var(--green)"}}>You're on {userTier==="edge"?"Edge":"Pro"} — Unlimited Access Active</div>
-                <div style={{fontSize:11,color:"var(--dim)",marginTop:2}}>All features unlocked. Manage your subscription at <span style={{color:"var(--green)"}}>billing.stripe.com</span></div>
+                <div style={{fontSize:11,color:"var(--dim)",marginTop:2}}>All features unlocked. Manage your subscription at <a href="https://billing.stripe.com" target="_blank" rel="noopener noreferrer" style={{color:"var(--green)"}}>billing.stripe.com</a></div>
               </div>
             </div>
           )}
@@ -2938,11 +3193,11 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               <ul className="pricing-feats">
                 {[
                   ["Everything in Pro",true],
-                  ["Pre-market AI brief (coming soon)",true],
-                  ["Earnings IV crush playbook (coming soon)",true],
-                  ["Portfolio heat map (coming soon)",true],
+                  ["Pre-market AI brief — top setups before open",true],
+                  ["Earnings IV crush playbook — per stock",true],
+                  ["Portfolio heat map — all positions scored",true],
                   ["Unlimited watchlist alerts",true],
-                  ["Direct founder Slack access",true],
+                  ["Every future feature — first access",true],
                 ].map(([f],i)=>(
                   <li key={i} className="pricing-feat"><span className="pricing-feat-check">✓</span>{f}</li>
                 ))}
@@ -2972,7 +3227,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                 ["1","Click Pay with Stripe","You're taken to Stripe's secure checkout page — the same platform used by Amazon, Google, and millions of businesses."],
                 ["2","Enter your card details","Stripe handles everything. Your card details never touch our servers. 256-bit encryption."],
                 ["3","Instant access","After payment Stripe redirects you back to RUBBERBAND.AI and your plan unlocks automatically — no code, no email."],
-                ["4","Cancel anytime","Manage or cancel your subscription directly at billing.stripe.com using the email you signed up with."],
+                ["4","Cancel anytime","Manage or cancel your subscription directly at billing.stripe.com using the email you signed up with. Click the link in your Stripe receipt email, or visit billing.stripe.com directly."],
               ].map(([n,title,desc],i)=>(
                 <div key={i} style={{padding:"14px 16px",background:"rgba(255,255,255,.03)",border:"1px solid var(--b1)",borderRadius:10}}>
                   <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:20,color:"var(--green)",marginBottom:6}}>{n}</div>
@@ -2984,9 +3239,9 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           </div>
 
           <div style={{textAlign:"center",padding:"16px 0",fontSize:11,color:"var(--dim)",lineHeight:1.8}}>
-            <b style={{color:"var(--txt)"}}>Questions?</b> Email <span style={{color:"var(--green)"}}>support@rubberband.ai</span>
+            <b style={{color:"var(--txt)"}}>Questions?</b> Email <span style={{color:"var(--green)"}}>rubberband.ai.io@gmail.com</span>
             {" · "}Payments powered by <b style={{color:"var(--txt)"}}>Stripe</b> — PCI DSS compliant
-            {" · "}Cancel anytime at <span style={{color:"var(--green)"}}>billing.stripe.com</span>
+            {" · "}<a href="https://billing.stripe.com" target="_blank" rel="noopener noreferrer" style={{color:"var(--green)",textDecoration:"underline"}}>Cancel anytime at billing.stripe.com</a>
           </div>
         </div>}
 
@@ -3126,6 +3381,231 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           <div className="disc" style={{marginTop:16}}>⚠ Alert scores are based on the last scan for each ticker. Run a scan to get current dip scores. Browser-based alerts only — no push notifications yet.</div>
         </div>}
 
+        {/* PRE-MARKET AI BRIEF — EDGE TIER */}
+        {tab==="premarket"&&hasEdgeAccess&&<div className="page">
+          <div className="hero">
+            <h1>⚡ Pre-Market <span>AI Brief</span></h1>
+            <p>AI-generated top setups for today's session. Updates each morning before market open.</p>
+          </div>
+          {(()=>{
+            const mktDate=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+            const etHour=new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"})).getHours();
+            const isPreMarket=etHour>=4&&etHour<9;
+            const isMarketDay=new Date().getDay()>0&&new Date().getDay()<6;
+            // Build top 5 setups from scanned prices
+            const scanned=Object.keys(prices).filter(t=>prices[t]).slice(0,40);
+            const setups=scanned.map(t=>{
+              const q=prices[t];
+              const base=OPT_BASE.find(x=>x.t===t)||{iv:40,n:t};
+              const dip=calcDipTrigger(q.price,q.high||q.price*1.01,q.low||q.price*0.99,q.prevClose||q.price,q.change||0,base.iv||40,t);
+              return{t,q,dip,base};
+            }).filter(x=>x.dip&&x.dip.score>=55).sort((a,b)=>b.dip.score-a.dip.score).slice(0,6);
+            return(
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+                  <div style={{background:"rgba(0,232,122,.08)",border:"1px solid rgba(0,232,122,.2)",borderRadius:8,padding:"8px 14px",fontSize:11,color:"var(--green)",fontFamily:"DM Mono,monospace"}}>
+                    {isPreMarket?"⚡ PRE-MARKET LIVE":"📅 "+mktDate}
+                  </div>
+                  <div style={{fontSize:11,color:"var(--dim)"}}>
+                    {scanned.length>0?`${scanned.length} tickers analyzed from your recent scans`:"Run scans on the Stock or Options tabs first to populate setups"}
+                  </div>
+                </div>
+                {setups.length===0?(
+                  <div className="empty">
+                    <div className="ico">⚡</div>
+                    <h3>No setups loaded yet</h3>
+                    <p>Run stock or options scans to populate your pre-market brief.<br/>Your top dip setups will appear here automatically.</p>
+                  </div>
+                ):(
+                  <div>
+                    <div className="sec-lbl" style={{marginBottom:12}}>🎯 Today's Top {setups.length} Dip Setups — Ranked by Signal Strength</div>
+                    {setups.map((s,i)=>(
+                      <div key={s.t} style={{background:i===0?"linear-gradient(135deg,rgba(0,232,122,.1),rgba(0,212,255,.06))":"var(--s1)",border:`1px solid ${i===0?"var(--green)":"var(--b1)"}`,borderRadius:13,padding:"18px 20px",marginBottom:12}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:10}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
+                            <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:20,color:i===0?"var(--green)":"var(--txt)"}}>{s.t}</span>
+                            {i===0&&<span style={{background:"var(--green)",color:"#000",fontSize:9,fontWeight:800,padding:"2px 9px",borderRadius:4,fontFamily:"Syne,sans-serif",letterSpacing:.5}}>TOP SETUP</span>}
+                            <span className={`dip-badge ${s.dip.grade}`}>{s.dip.gradeLabel}</span>
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:18,color:s.q.change>=0?"var(--green)":"var(--red)"}}>{fmt(s.q.price)}</div>
+                            <div style={{fontSize:11,color:s.q.change>=0?"var(--green)":"var(--red)",fontWeight:700}}>{s.q.change>=0?"+":""}{s.q.change?.toFixed(2)}%</div>
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                          <span style={{fontSize:10,padding:"3px 9px",background:"rgba(0,232,122,.08)",border:"1px solid rgba(0,232,122,.2)",borderRadius:5,color:"var(--green)",fontFamily:"DM Mono,monospace"}}>Entry ${s.dip.entry}</span>
+                          <span style={{fontSize:10,padding:"3px 9px",background:"rgba(0,212,255,.08)",border:"1px solid rgba(0,212,255,.2)",borderRadius:5,color:"var(--cyan)",fontFamily:"DM Mono,monospace"}}>T1 ${s.dip.t1}</span>
+                          <span style={{fontSize:10,padding:"3px 9px",background:"rgba(0,212,255,.08)",border:"1px solid rgba(0,212,255,.2)",borderRadius:5,color:"var(--blue)",fontFamily:"DM Mono,monospace"}}>T2 ${s.dip.t2}</span>
+                          <span style={{fontSize:10,padding:"3px 9px",background:"rgba(255,77,106,.08)",border:"1px solid rgba(255,77,106,.2)",borderRadius:5,color:"var(--red)",fontFamily:"DM Mono,monospace"}}>Stop ${s.dip.stop}</span>
+                          <span style={{fontSize:10,padding:"3px 9px",background:"rgba(245,166,35,.08)",border:"1px solid rgba(245,166,35,.2)",borderRadius:5,color:"var(--gold)",fontFamily:"DM Mono,monospace"}}>R/R {s.dip.rr}:1</span>
+                          <span style={{fontSize:10,padding:"3px 9px",background:"rgba(255,255,255,.04)",border:"1px solid var(--b1)",borderRadius:5,color:"var(--dim)",fontFamily:"DM Mono,monospace"}}>Score {s.dip.score}/100</span>
+                        </div>
+                        <div style={{fontSize:11,color:"var(--dim)",lineHeight:1.65}}>
+                          {s.dip.reasons.slice(0,2).map((r,j)=><div key={j} dangerouslySetInnerHTML={{__html:"• "+r}}/>)}
+                        </div>
+                        <div style={{marginTop:8,display:"flex",gap:5,flexWrap:"wrap"}}>
+                          {s.dip.signals.filter(sig=>sig.type==="bull").slice(0,4).map((sig,j)=>(
+                            <span key={j} className="dip-sig bull">{sig.label}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="disc" style={{marginTop:12}}>⚠ Pre-market setups are based on your most recent price scans. Run fresh scans for updated signals. Not financial advice.</div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>}
+
+        {/* EARNINGS IV CRUSH PLAYBOOK — EDGE TIER */}
+        {tab==="earnings"&&hasEdgeAccess&&<div className="page">
+          <div className="hero">
+            <h1>📅 Earnings <span>IV Playbook</span></h1>
+            <p>Options strategy guide for earnings plays. IV crush analysis and positioning for every major ticker.</p>
+          </div>
+          {(()=>{
+            // Earnings calendar — major tickers with typical earnings windows
+            const earningsData=[
+              {t:"NVDA",n:"NVIDIA",sector:"Semis",ivBefore:85,ivAfter:42,ivCrush:51,move:8.2,strategy:"Iron Condor / Short Straddle",notes:"Historically moves 8-12% on earnings. IV crush is extreme — 50%+ drop post-earnings. Sell premium 1-2 days before."},
+              {t:"TSLA",n:"Tesla",sector:"EV",ivBefore:92,ivAfter:55,ivCrush:40,move:9.8,strategy:"Short Strangle outside expected move",notes:"Very high IV before earnings. Expected move usually overstates actual move. Ideal for premium selling strategies."},
+              {t:"META",n:"Meta Platforms",sector:"Tech",ivBefore:62,ivAfter:34,ivCrush:45,move:6.1,strategy:"Iron Condor or ATM Straddle sell",notes:"Consistent IV crush 40-50%. Moves within expected range ~65% of the time. Sell ATM straddle for best R/R."},
+              {t:"AAPL",n:"Apple",sector:"Tech",ivBefore:38,ivAfter:22,ivCrush:42,move:4.2,strategy:"Short Strangle / Covered Call",notes:"Lower IV base but still crushes 40%+. Small mover historically. Best for conservative premium selling."},
+              {t:"AMZN",n:"Amazon",sector:"Cloud",ivBefore:54,ivAfter:28,ivCrush:48,move:7.3,strategy:"Iron Condor — wide wings",notes:"AWS revenue drives post-earnings direction. IV crush strong. Wide condor recommended for margin of safety."},
+              {t:"GOOGL",n:"Alphabet",sector:"Tech",ivBefore:48,ivAfter:26,ivCrush:46,move:5.8,strategy:"Short Straddle or Iron Condor",notes:"Search + cloud dual driver. Moves within expected range ~70% of time. Strong crush candidate."},
+              {t:"MSFT",n:"Microsoft",sector:"Cloud",ivBefore:42,ivAfter:24,ivCrush:43,move:4.5,strategy:"Short Strangle / Cash-secured put",notes:"Azure growth is the key metric. Lower IV but reliable crush. Best for conservative traders."},
+              {t:"COIN",n:"Coinbase",sector:"Crypto",ivBefore:118,ivAfter:68,ivCrush:42,move:14.2,strategy:"Buy ATM Straddle 5+ DTE before earnings",notes:"BTC correlation makes moves unpredictable. High IV means debit straddle can profit if BTC volatile around earnings."},
+              {t:"AMD",n:"AMD",sector:"Semis",ivBefore:74,ivAfter:44,ivCrush:41,move:7.8,strategy:"Iron Condor or Short Straddle",notes:"AI GPU narrative drives earnings reaction. IV crush strong. Expected move typically overstates actual move."},
+              {t:"PLTR",n:"Palantir",sector:"AI",ivBefore:96,ivAfter:54,ivCrush:44,move:11.2,strategy:"Short Strangle — wide",notes:"Very high IV pre-earnings. Government contract news drives direction. Wide strangle gives 2x expected move cushion."},
+              {t:"NFLX",n:"Netflix",sector:"Streaming",ivBefore:58,ivAfter:32,ivCrush:45,move:9.4,strategy:"Short Straddle or Iron Butterfly",notes:"Subscriber numbers are the key metric. Moves historically within expected range ~60% of time. Strong crush."},
+              {t:"CRM",n:"Salesforce",sector:"SaaS",ivBefore:52,ivAfter:28,ivCrush:46,move:6.8,strategy:"Iron Condor",notes:"Billings growth drives reaction. Reliable IV crush. Conservative condor 1-wide from expected move is the play."},
+            ];
+            return(
+              <div>
+                <div style={{background:"rgba(245,166,35,.06)",border:"1px solid rgba(245,166,35,.2)",borderRadius:10,padding:"12px 16px",marginBottom:20,fontSize:11,color:"var(--gold)",lineHeight:1.7}}>
+                  <b>How to use this playbook:</b> IV Crush % = how much implied volatility drops immediately after earnings. Higher crush = better for premium sellers. The "Expected Move" = what the options market is pricing in. Historical data shows stocks move within the expected range ~65% of the time.
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {earningsData.map((e,i)=>{
+                    const q=prices[e.t];
+                    return(
+                      <div key={e.t} style={{background:"var(--s1)",border:"1px solid var(--b1)",borderRadius:12,padding:"16px 18px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8,marginBottom:10}}>
+                          <div>
+                            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:17}}>{e.t}</span>
+                              <span style={{fontSize:10,color:"var(--dim)"}}>{e.n}</span>
+                              <span style={{fontSize:9,padding:"2px 7px",background:"rgba(0,212,255,.1)",border:"1px solid rgba(0,212,255,.2)",borderRadius:4,color:"var(--cyan)",fontFamily:"DM Mono,monospace"}}>{e.sector}</span>
+                            </div>
+                            <div style={{fontSize:11,fontWeight:700,color:"var(--gold)"}}>{e.strategy}</div>
+                          </div>
+                          {q&&<div style={{textAlign:"right"}}>
+                            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:16}}>{fmt(q.price)}</div>
+                            <div style={{fontSize:10,color:q.change>=0?"var(--green)":"var(--red)"}}>{q.change>=0?"+":""}{q.change?.toFixed(2)}%</div>
+                          </div>}
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:8,marginBottom:10}}>
+                          {[
+                            ["IV Before",e.ivBefore+"%","var(--gold)"],
+                            ["IV After",e.ivAfter+"%","var(--dim)"],
+                            ["IV Crush",e.ivCrush+"%","var(--green)"],
+                            ["Avg Move","±"+e.move+"%","var(--cyan)"],
+                          ].map(([label,val,color],j)=>(
+                            <div key={j} style={{background:"rgba(255,255,255,.03)",border:"1px solid var(--b1)",borderRadius:7,padding:"8px 10px",textAlign:"center"}}>
+                              <div style={{fontSize:8.5,color:"var(--dim)",letterSpacing:.6,textTransform:"uppercase",marginBottom:3}}>{label}</div>
+                              <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:15,color}}>{val}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{fontSize:11,color:"var(--dim)",lineHeight:1.65}}>{e.notes}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="disc" style={{marginTop:16}}>⚠ Historical IV crush percentages are estimates based on typical earnings behavior. Actual results vary. Always verify current IV before entering positions.</div>
+              </div>
+            );
+          })()}
+        </div>}
+
+        {/* PORTFOLIO HEAT MAP — EDGE TIER */}
+        {tab==="heatmap"&&hasEdgeAccess&&<div className="page">
+          <div className="hero">
+            <h1>🔥 Portfolio <span>Heat Map</span></h1>
+            <p>Score every position in your portfolio. See what to add, reduce, and watch — all in one view.</p>
+          </div>
+          {(()=>{
+            const scanned=Object.entries(prices).filter(([t,q])=>q&&q.price>0);
+            if(scanned.length===0) return(
+              <div className="empty"><div className="ico">🔥</div><h3>No positions loaded</h3><p>Run stock or options scans first. Every ticker you scan will appear here with a heat map score.</p></div>
+            );
+            const heatData=scanned.map(([t,q])=>{
+              const base=OPT_BASE.find(x=>x.t===t)||UNIVERSE_BASE.find(x=>x.t===t)||{iv:40,n:t,sec:"Unknown"};
+              const dip=calcDipTrigger(q.price,q.high||q.price*1.01,q.low||q.price*0.99,q.prevClose||q.price,q.change||0,base.iv||40,t);
+              const mr=calcMeanReversion(q.price,q.high||q.price*1.015,q.low||q.price*0.985,q.prevClose||q.price,q.change||0,base.iv||50);
+              const heatScore=Math.round((dip.score*0.6)+(mr.mrScore*0.4));
+              const action=heatScore>=70?"ADD":heatScore>=50?"HOLD":heatScore>=35?"WATCH":"REDUCE";
+              const actionColor=heatScore>=70?"var(--green)":heatScore>=50?"var(--cyan)":heatScore>=35?"var(--gold)":"var(--red)";
+              return{t,q,dip,mr,heatScore,action,actionColor,base};
+            }).sort((a,b)=>b.heatScore-a.heatScore);
+            const adds=heatData.filter(x=>x.action==="ADD").length;
+            const reduces=heatData.filter(x=>x.action==="REDUCE").length;
+            return(
+              <div>
+                <div className="stats-row" style={{marginBottom:20}}>
+                  <div className="sbox"><div className="sv g">{adds}</div><div className="sl">Add Signals</div></div>
+                  <div className="sbox"><div className="sv b">{heatData.filter(x=>x.action==="HOLD").length}</div><div className="sl">Hold</div></div>
+                  <div className="sbox"><div className="sv gold">{heatData.filter(x=>x.action==="WATCH").length}</div><div className="sl">Watch</div></div>
+                  <div className="sbox"><div className="sv r">{reduces}</div><div className="sl">Reduce Signals</div></div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:20}}>
+                  {heatData.map((h,i)=>{
+                    const intensity=h.heatScore/100;
+                    const bg=h.action==="ADD"?`rgba(0,232,122,${intensity*0.25})`
+                      :h.action==="REDUCE"?`rgba(255,77,106,${intensity*0.25})`
+                      :h.action==="HOLD"?`rgba(0,212,255,${intensity*0.15})`
+                      :`rgba(245,166,35,${intensity*0.15})`;
+                    const border=h.action==="ADD"?`rgba(0,232,122,${intensity*0.6})`
+                      :h.action==="REDUCE"?`rgba(255,77,106,${intensity*0.5})`
+                      :h.action==="HOLD"?"rgba(0,212,255,.25)":"rgba(245,166,35,.25)";
+                    return(
+                      <div key={h.t} style={{background:bg,border:`1px solid ${border}`,borderRadius:10,padding:"12px 14px",cursor:"pointer"}} onClick={()=>{setOptTicker(h.t);setTab("options");}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                          <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:16}}>{h.t}</span>
+                          <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,color:h.actionColor}}>{h.action}</span>
+                        </div>
+                        <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:22,color:h.actionColor,marginBottom:4}}>{h.heatScore}</div>
+                        <div style={{fontSize:9,color:"var(--dim)",marginBottom:6}}>Heat Score / 100</div>
+                        <div style={{fontSize:10,fontWeight:600}}>{fmt(h.q.price)}</div>
+                        <div style={{fontSize:9,color:h.q.change>=0?"var(--green)":"var(--red)"}}>{h.q.change>=0?"+":""}{h.q.change?.toFixed(2)}%</div>
+                        <div style={{marginTop:6,fontSize:8.5,color:"var(--dim)"}}>Dip {h.dip.score} · MR {h.mr.mrScore}</div>
+                        <div style={{width:"100%",height:3,background:"rgba(255,255,255,.08)",borderRadius:2,marginTop:6}}>
+                          <div style={{width:`${h.heatScore}%`,height:"100%",background:h.actionColor,borderRadius:2}}/>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{background:"var(--s1)",border:"1px solid var(--b1)",borderRadius:12,padding:"16px 20px",marginBottom:16}}>
+                  <div className="sec-lbl" style={{marginBottom:12}}>Heat Map Legend</div>
+                  <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+                    {[["🟢 ADD (70-100)","Dip trigger + MR both strong. Prime entry zone.","var(--green)"],
+                      ["🔵 HOLD (50-69)","Decent setup. Hold existing positions.","var(--cyan)"],
+                      ["🟡 WATCH (35-49)","Mixed signals. Wait for better entry.","var(--gold)"],
+                      ["🔴 REDUCE (<35)","Extended/overbought. Consider reducing.","var(--red)"]].map(([label,desc,color],j)=>(
+                      <div key={j} style={{flex:1,minWidth:160}}>
+                        <div style={{fontWeight:700,fontSize:11,color,marginBottom:3}}>{label}</div>
+                        <div style={{fontSize:10,color:"var(--dim)"}}>{desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="disc">⚠ Heat map scores are based on technical dip trigger and mean reversion signals only. Not a recommendation to buy or sell. Click any tile to load ticker in Options Screener.</div>
+              </div>
+            );
+          })()}
+        </div>}
+
         {/* ADMIN TAB */}
         {tab==="admin"&&<div className="page">
           {!adminUnlocked?(
@@ -3213,7 +3693,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             <div className="paywall-title">You've hit the free limit</div>
             <div className="paywall-sub">Free users get <b>3 scans per day</b>. Upgrade to Pro for unlimited scans, full dip trigger levels, AI insights, trade journal, and watchlist alerts.</div>
             <div className="paywall-features">
-              {["Unlimited stock + options scans","Full dip trigger: entry, T1, T2, T3, stop levels","AI-generated options insights & IV analysis","Trade journal with P&L tracking","Watchlist alerts for dip trigger signals","Pre-market AI brief (coming soon)","Priority Finnhub data refresh"].map((f,i)=>(
+              {["Unlimited stock + options scans","Full dip trigger: entry, T1, T2, T3, stop levels","AI-generated options insights & IV analysis","Trade journal with P&L tracking","Watchlist alerts for dip trigger signals","Pre-market AI brief — daily top setups","Priority Finnhub data refresh"].map((f,i)=>(
                 <div key={i} className="paywall-feat"><span className="paywall-feat-icon">✓</span>{f}</div>
               ))}
             </div>
@@ -3246,6 +3726,10 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               Options trading involves <b>substantial risk of loss</b> and is not suitable for all investors. Past performance does not guarantee future results. 
               Always conduct your own thorough due diligence and consult a <b>licensed financial advisor</b> before making any investment decision. 
               <b>You may lose all of your invested capital.</b>
+              <br/><br/>
+              <b>Universe Disclosure:</b> RUBBERBAND.AI screens a curated universe of stocks and options selected for <b>high-probability price action, liquidity, options volume, and volatility characteristics</b>. 
+              This platform does not cover every stock on the market — it focuses on tickers with the strongest technical setups, institutional interest, and options market activity. 
+              Inclusion in our screener does not constitute a recommendation. Exclusion does not imply a negative view.
             </div>
           </div>
           <div className="footer-links">
