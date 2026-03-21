@@ -2292,7 +2292,7 @@ function App({ session, onSignOut }) {
   // ── USER SESSION ──
   const user = session?.user || null;
   const userEmail = user?.email || "";
-  const isOwnerEmail = userEmail === "rubberbandai.owner@gmail.com"; // set this to YOUR email
+  const isOwnerEmail = userEmail === "rubberband.ai.io@gmail.com";
   const [prices,setPrices]=useState({});
   const [lastRefresh,setLastRefresh]=useState(null);
   const [ms,setMs]=useState(mktStatus());
