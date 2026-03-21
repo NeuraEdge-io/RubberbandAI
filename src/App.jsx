@@ -2287,6 +2287,197 @@ function HLRow({label,r,cur,ot}){
   );
 }
 
+function EarningsPlaybook({ prices, OPT_BASE, UNIVERSE_BASE, calcDipTrigger, fmt }) {
+  const [expanded, setExpanded] = React.useState(null);
+
+  const strikeGrid = (price) => {
+    const incr = price<25?1:price<100?2.5:price<200?5:price<500?10:25;
+    return Math.round(price/incr)*incr;
+  };
+
+  const allPlays = OPT_BASE.map(base => {
+    const q = prices[base.t];
+    const livePrice = q?.price || null;
+    const iv = base.iv || 30;
+    const ivCrushPct = iv>=100?52:iv>=80?47:iv>=60?43:iv>=40?38:iv>=25?32:25;
+    const ivAfterEst = Math.round(iv*(1-ivCrushPct/100));
+    const expMovePct = +(iv/100/Math.sqrt(52)).toFixed(1);
+    let score = 0;
+    if(iv>=100)score+=35; else if(iv>=80)score+=28; else if(iv>=60)score+=22; else if(iv>=40)score+=15; else score+=8;
+    if(ivCrushPct>=50)score+=25; else if(ivCrushPct>=42)score+=18; else if(ivCrushPct>=35)score+=12; else score+=6;
+    let dipScore = 0;
+    if(q){
+      const dip=calcDipTrigger(q.price,q.high||q.price*1.01,q.low||q.price*0.99,q.prevClose||q.price,q.change||0,iv,base.t);
+      dipScore=dip?.score||0;
+      if(dipScore>=70)score+=20; else if(dipScore>=55)score+=14; else if(dipScore>=35)score+=8;
+      if(Math.abs(q.change||0)>=3)score+=10;
+      if(Math.abs(q.change||0)>=6)score+=5;
+    }
+    const liqMap={Large:10,Mid:6,Small:3,Micro:1};
+    const ub=UNIVERSE_BASE.find(x=>x.t===base.t);
+    score+=liqMap[ub?.cap||"Mid"]||5;
+    score=Math.min(100,score);
+    let strategy,stratColor;
+    if(iv>=80){strategy="Short Straddle / Iron Condor";stratColor="var(--gold)";}
+    else if(iv>=55){strategy="Short Strangle / Iron Condor";stratColor="var(--gold)";}
+    else if(iv>=35){strategy="Bull/Bear Spread or Straddle";stratColor="var(--cyan)";}
+    else{strategy="Directional Debit Spread";stratColor="var(--cyan)";}
+    const bias=(q?.change||0)>=2?"bullish":(q?.change||0)<=-2?"bearish":"neutral";
+    const biasLabel=bias==="bullish"?"📈 Bullish Lean":bias==="bearish"?"📉 Bearish Lean":"⚖ Neutral";
+    const biasColor=bias==="bullish"?"var(--green)":bias==="bearish"?"var(--red)":"var(--dim)";
+    const price=livePrice||100;
+    const atm=strikeGrid(price);
+    const incr=price<25?1:price<100?2.5:price<200?5:price<500?10:25;
+    const otmCall=atm+incr*2;
+    const otmPut=atm-incr*2;
+    const expMove=+(price*expMovePct/100).toFixed(2);
+    const callEntry=+(price*0.04).toFixed(2);
+    const callTarget=+(callEntry*1.75).toFixed(2);
+    const callStop=+(callEntry*0.45).toFixed(2);
+    const callBreakeven=+(atm+callEntry).toFixed(2);
+    const putEntry=+(price*0.035).toFixed(2);
+    const putTarget=+(putEntry*1.7).toFixed(2);
+    const putStop=+(putEntry*0.45).toFixed(2);
+    const putBreakeven=+(atm-putEntry).toFixed(2);
+    const stradPrem=+(callEntry+putEntry).toFixed(2);
+    const condorWing=incr*3;
+    const condorCredit=+(stradPrem*0.45).toFixed(2);
+    const condorMaxLoss=+(condorWing*100-condorCredit*100).toFixed(0);
+    return{
+      ...base,q,livePrice,iv,ivCrushPct,ivAfterEst,expMovePct,expMove,
+      score,strategy,stratColor,bias,biasLabel,biasColor,dipScore,
+      atm,otmCall,otmPut,incr,price,
+      call:{entry:callEntry,target:callTarget,stop:callStop,breakeven:callBreakeven,
+        setup:`${base.t} $${atm}C (ATM) — 7-10 DTE`,
+        entryNote:`Buy ATM call 5-7 days before earnings, targeting IV expansion. Exit at ${Math.round(callTarget/callEntry*100-100)}% profit or close 1 day before earnings to avoid crush.`,
+        exitNote:`Close at $${callTarget} (+75%) or stop at $${callStop} (-55%). Do NOT hold through earnings unless high-conviction beat expected.`,
+      },
+      put:{entry:putEntry,target:putTarget,stop:putStop,breakeven:putBreakeven,
+        setup:`${base.t} $${atm}P (ATM) — 7-10 DTE`,
+        entryNote:`Buy ATM put 5-7 days before earnings if bearish catalyst expected. Exit before IV crush hits.`,
+        exitNote:`Close at $${putTarget} (+70%) or stop at $${putStop} (-55%). Tight stop — IV crush destroys puts held through earnings.`,
+      },
+      condor:{credit:condorCredit,maxLoss:condorMaxLoss,
+        setup:`${base.t} Iron Condor: Sell $${otmPut}P/$${(atm-condorWing).toFixed(0)}P & $${(atm+condorWing).toFixed(0)}C/$${otmCall}C`,
+        entryNote:`Sell 1-2 days before earnings when IV is maximum. Collect $${condorCredit} credit. Profit if stock stays within ±$${expMove}.`,
+        exitNote:`Buy back at 50% of credit ($${+(condorCredit*0.5).toFixed(2)}). Max loss: $${condorMaxLoss}.`,
+      },
+    };
+  });
+
+  const top20 = allPlays.sort((a,b)=>b.score-a.score).slice(0,20);
+
+  return (
+    <div>
+      <div style={{background:"rgba(245,166,35,.06)",border:"1px solid rgba(245,166,35,.2)",borderRadius:10,padding:"12px 16px",marginBottom:16,fontSize:11,color:"var(--gold)",lineHeight:1.7}}>
+        <b>How scores work:</b> Each ticker is ranked 0-100 on IV level, IV crush probability, price momentum, dip trigger signal, and liquidity. Higher score = higher probability earnings play. Scores update when you run scans. Click any card to expand full entry/exit details.
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:10,marginBottom:16}}>
+        {top20.map((e,i)=>{
+          const isExp=expanded===e.t;
+          return(
+            <div key={e.t} style={{background:i<3?"linear-gradient(135deg,rgba(0,232,122,.07),rgba(0,212,255,.04))":"var(--s1)",border:`1px solid ${i<3?"rgba(0,232,122,.3)":"var(--b1)"}`,borderRadius:12,overflow:"hidden",cursor:"pointer"}} onClick={()=>setExpanded(isExp?null:e.t)}>
+              <div style={{padding:"14px 16px 10px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:16,color:i<3?"var(--green)":"var(--txt)"}}>{e.t}</span>
+                    {i<3&&<span style={{background:"var(--green)",color:"#000",fontSize:8,fontWeight:800,padding:"1px 6px",borderRadius:3,fontFamily:"Syne,sans-serif"}}>#{i+1} TOP</span>}
+                    <span style={{fontSize:9,padding:"2px 6px",background:"rgba(0,212,255,.08)",border:"1px solid rgba(0,212,255,.15)",borderRadius:4,color:"var(--cyan)",fontFamily:"DM Mono,monospace"}}>{e.cat}</span>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:20,color:i<3?"var(--green)":"var(--txt)"}}>{e.score}</div>
+                    <div style={{fontSize:8,color:"var(--dim)"}}>PROB SCORE</div>
+                  </div>
+                </div>
+                <div style={{fontSize:10,color:"var(--dim)",marginBottom:6}}>{e.n}</div>
+                {e.livePrice&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                  <span style={{fontFamily:"Syne,sans-serif",fontWeight:700,fontSize:13}}>{fmt(e.livePrice)}</span>
+                  <span style={{fontSize:10,color:e.q.change>=0?"var(--green)":"var(--red)",fontWeight:600}}>{e.q.change>=0?"+":""}{e.q.change?.toFixed(2)}%</span>
+                </div>}
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+                  <span style={{fontSize:9,padding:"2px 7px",background:"rgba(245,166,35,.1)",border:"1px solid rgba(245,166,35,.2)",borderRadius:4,color:"var(--gold)",fontFamily:"DM Mono,monospace"}}>IV {e.iv}%</span>
+                  <span style={{fontSize:9,padding:"2px 7px",background:"rgba(0,232,122,.08)",border:"1px solid rgba(0,232,122,.2)",borderRadius:4,color:"var(--green)",fontFamily:"DM Mono,monospace"}}>Crush ~{e.ivCrushPct}%</span>
+                  <span style={{fontSize:9,padding:"2px 7px",background:"rgba(0,212,255,.08)",border:"1px solid rgba(0,212,255,.15)",borderRadius:4,color:"var(--cyan)",fontFamily:"DM Mono,monospace"}}>±{e.expMovePct}% move</span>
+                  <span style={{fontSize:9,color:e.biasColor,fontWeight:600}}>{e.biasLabel}</span>
+                </div>
+                <div style={{fontSize:10,color:e.stratColor,fontWeight:700}}>{e.strategy}</div>
+                <div style={{width:"100%",height:3,background:"rgba(255,255,255,.06)",borderRadius:2,marginTop:8}}>
+                  <div style={{width:`${e.score}%`,height:"100%",background:e.score>=75?"var(--green)":e.score>=55?"var(--gold)":"var(--cyan)",borderRadius:2}}/>
+                </div>
+              </div>
+              <div style={{padding:"6px 16px",borderTop:"1px solid var(--b1)",fontSize:9,color:"var(--dim)",fontFamily:"DM Mono,monospace",display:"flex",justifyContent:"space-between"}}>
+                <span>Click to {isExp?"hide":"show"} entry / exit levels</span>
+                <span>{isExp?"▲":"▼"}</span>
+              </div>
+              {isExp&&(
+                <div style={{padding:"14px 16px",borderTop:"1px solid var(--b1)",background:"rgba(0,0,0,.3)"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:14}}>
+                    {[["IV Before",e.iv+"%","var(--gold)"],["IV After",e.ivAfterEst+"%","var(--dim)"],["Crush",e.ivCrushPct+"%","var(--green)"],["Exp Move","±"+e.expMovePct+"%","var(--cyan)"]].map(([l,v,c],j)=>(
+                      <div key={j} style={{background:"rgba(255,255,255,.03)",border:"1px solid var(--b1)",borderRadius:7,padding:"7px 8px",textAlign:"center"}}>
+                        <div style={{fontSize:7.5,color:"var(--dim)",letterSpacing:.5,textTransform:"uppercase",marginBottom:2}}>{l}</div>
+                        <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,color:c}}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{background:"rgba(0,232,122,.05)",border:"1px solid rgba(0,232,122,.2)",borderRadius:9,padding:"12px",marginBottom:8}}>
+                    <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:11,color:"var(--green)",marginBottom:8}}>📈 CALL PLAY — Bullish</div>
+                    <div style={{fontSize:10,color:"var(--dim)",fontFamily:"DM Mono,monospace",marginBottom:6}}>{e.call.setup}</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:8}}>
+                      {[["Entry",fmt(e.call.entry),"var(--txt)"],["Target",fmt(e.call.target),"var(--green)"],["Stop",fmt(e.call.stop),"var(--red)"]].map(([l,v,c],j)=>(
+                        <div key={j} style={{background:"rgba(255,255,255,.03)",borderRadius:6,padding:"6px 8px",textAlign:"center"}}>
+                          <div style={{fontSize:8,color:"var(--dim)",marginBottom:2}}>{l}</div>
+                          <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:12,color:c}}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{fontSize:10,color:"var(--dim)",lineHeight:1.6,marginBottom:4}}>{e.call.entryNote}</div>
+                    <div style={{fontSize:10,color:"var(--green)",lineHeight:1.6}}><b>Exit:</b> {e.call.exitNote}</div>
+                    <div style={{fontSize:9,color:"var(--dim)",marginTop:6}}>Breakeven at expiry: <b style={{color:"var(--txt)"}}>{fmt(e.call.breakeven)}</b></div>
+                  </div>
+                  <div style={{background:"rgba(255,77,106,.05)",border:"1px solid rgba(255,77,106,.2)",borderRadius:9,padding:"12px",marginBottom:8}}>
+                    <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:11,color:"var(--red)",marginBottom:8}}>📉 PUT PLAY — Bearish</div>
+                    <div style={{fontSize:10,color:"var(--dim)",fontFamily:"DM Mono,monospace",marginBottom:6}}>{e.put.setup}</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:8}}>
+                      {[["Entry",fmt(e.put.entry),"var(--txt)"],["Target",fmt(e.put.target),"var(--green)"],["Stop",fmt(e.put.stop),"var(--red)"]].map(([l,v,c],j)=>(
+                        <div key={j} style={{background:"rgba(255,255,255,.03)",borderRadius:6,padding:"6px 8px",textAlign:"center"}}>
+                          <div style={{fontSize:8,color:"var(--dim)",marginBottom:2}}>{l}</div>
+                          <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:12,color:c}}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{fontSize:10,color:"var(--dim)",lineHeight:1.6,marginBottom:4}}>{e.put.entryNote}</div>
+                    <div style={{fontSize:10,color:"var(--red)",lineHeight:1.6}}><b>Exit:</b> {e.put.exitNote}</div>
+                    <div style={{fontSize:9,color:"var(--dim)",marginTop:6}}>Breakeven at expiry: <b style={{color:"var(--txt)"}}>{fmt(e.put.breakeven)}</b></div>
+                  </div>
+                  {e.iv>=50&&(
+                    <div style={{background:"rgba(245,166,35,.05)",border:"1px solid rgba(245,166,35,.2)",borderRadius:9,padding:"12px"}}>
+                      <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:11,color:"var(--gold)",marginBottom:8}}>⚡ PREMIUM SELL — Iron Condor</div>
+                      <div style={{fontSize:9.5,color:"var(--dim)",fontFamily:"DM Mono,monospace",lineHeight:1.5,marginBottom:6}}>{e.condor.setup}</div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
+                        <div style={{background:"rgba(255,255,255,.03)",borderRadius:6,padding:"6px 8px",textAlign:"center"}}>
+                          <div style={{fontSize:8,color:"var(--dim)",marginBottom:2}}>Max Credit</div>
+                          <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,color:"var(--gold)"}}>{fmt(e.condor.credit)}</div>
+                        </div>
+                        <div style={{background:"rgba(255,255,255,.03)",borderRadius:6,padding:"6px 8px",textAlign:"center"}}>
+                          <div style={{fontSize:8,color:"var(--dim)",marginBottom:2}}>Max Loss</div>
+                          <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,color:"var(--red)"}}>${e.condor.maxLoss}</div>
+                        </div>
+                      </div>
+                      <div style={{fontSize:10,color:"var(--dim)",lineHeight:1.6,marginBottom:4}}>{e.condor.entryNote}</div>
+                      <div style={{fontSize:10,color:"var(--gold)",lineHeight:1.6}}><b>Exit:</b> {e.condor.exitNote}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="disc" style={{marginTop:8}}>⚠ Earnings plays are high-risk. IV crush can destroy option value even on correct directional calls. Entry/exit levels are estimates based on current IV and price data — always verify live bid/ask before entering. Not financial advice.</div>
+    </div>
+  );
+}
+
 function App({ session, onSignOut, onRequestAuth }) {
   const [tab,setTab]=useState("stocks");
   // ── USER SESSION ──
@@ -3486,219 +3677,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             <h1>📅 Earnings <span>IV Playbook</span></h1>
             <p>Dynamic top-20 highest-probability earnings plays ranked by profit score. Updates based on live IV data across all {OPT_BASE.length} tickers.</p>
           </div>
-          {(()=>{
-            // ── EARNINGS PROBABILITY ENGINE ──
-            // Scores every OPT_BASE ticker on earnings play potential
-            // using IV level, crush probability, momentum, dip signal, and liquidity
-            const strikeGrid=(price)=>{
-              const incr=price<25?1:price<100?2.5:price<200?5:price<500?10:25;
-              return Math.round(price/incr)*incr;
-            };
-            const allPlays=OPT_BASE.map(base=>{
-              const q=prices[base.t];
-              const livePrice=q?.price||null;
-              const iv=base.iv||30;
-              // IV crush probability: higher IV = more crush expected
-              const ivCrushPct=iv>=100?52:iv>=80?47:iv>=60?43:iv>=40?38:iv>=25?32:25;
-              const ivAfterEst=Math.round(iv*(1-ivCrushPct/100));
-              // Expected move: IV/sqrt(365) * sqrt(daysToEarnings~7) * price
-              const expMovePct=+(iv/100/Math.sqrt(52)).toFixed(1); // weekly expected move
-              // Profit score (0-100):
-              let score=0;
-              // High IV = better premium selling opportunity
-              if(iv>=100)score+=35; else if(iv>=80)score+=28; else if(iv>=60)score+=22; else if(iv>=40)score+=15; else score+=8;
-              // High crush = better short premium play
-              if(ivCrushPct>=50)score+=25; else if(ivCrushPct>=42)score+=18; else if(ivCrushPct>=35)score+=12; else score+=6;
-              // Dip signal from recent scan (if available)
-              let dipScore=0;
-              if(q){
-                const dip=calcDipTrigger(q.price,q.high||q.price*1.01,q.low||q.price*0.99,q.prevClose||q.price,q.change||0,iv,base.t);
-                dipScore=dip?.score||0;
-                if(dipScore>=70)score+=20; else if(dipScore>=55)score+=14; else if(dipScore>=35)score+=8;
-                // Momentum adds to directional plays
-                if(Math.abs(q.change||0)>=3)score+=10;
-                if(Math.abs(q.change||0)>=6)score+=5;
-              }
-              // Liquidity bonus (larger tickers = better fills)
-              const liqMap={Large:10,Mid:6,Small:3,Micro:1};
-              const ub=UNIVERSE_BASE.find(x=>x.t===base.t);
-              score+=liqMap[ub?.cap||"Mid"]||5;
-              score=Math.min(100,score);
-              // Strategy recommendation based on IV level
-              let strategy,stratColor;
-              if(iv>=80){strategy="Short Straddle / Iron Condor";stratColor="var(--gold)";}
-              else if(iv>=55){strategy="Short Strangle / Iron Condor";stratColor="var(--gold)";}
-              else if(iv>=35){strategy="Bull/Bear Spread or Straddle";stratColor="var(--cyan)";}
-              else{strategy="Directional Debit Spread";stratColor="var(--cyan)";}
-              // Bias based on recent price action
-              const bias=(q?.change||0)>=2?"bullish":(q?.change||0)<=-2?"bearish":"neutral";
-              const biasLabel=bias==="bullish"?"📈 Bullish Lean":bias==="bearish"?"📉 Bearish Lean":"⚖ Neutral";
-              const biasColor=bias==="bullish"?"var(--green)":bias==="bearish"?"var(--red)":"var(--dim)";
-              // Entry/exit levels using live price or estimated
-              const price=livePrice||(base.t==="NVDA"?875:base.t==="TSLA"?195:base.t==="AAPL"?185:100);
-              const atm=strikeGrid(price);
-              const incr=price<25?1:price<100?2.5:price<200?5:price<500?10:25;
-              const otmCall=atm+incr*2;
-              const otmPut=atm-incr*2;
-              const expMove=+(price*expMovePct/100).toFixed(2);
-              // Call play
-              const callEntry=+(price*0.04).toFixed(2); // ~ATM call premium estimate
-              const callTarget=+(callEntry*1.75).toFixed(2);
-              const callStop=+(callEntry*0.45).toFixed(2);
-              const callBreakeven=+(atm+callEntry).toFixed(2);
-              // Put play
-              const putEntry=+(price*0.035).toFixed(2);
-              const putTarget=+(putEntry*1.7).toFixed(2);
-              const putStop=+(putEntry*0.45).toFixed(2);
-              const putBreakeven=+(atm-putEntry).toFixed(2);
-              // Short straddle / condor (premium selling)
-              const stradPrem=+(callEntry+putEntry).toFixed(2);
-              const condorWing=incr*3;
-              const condorCredit=+(stradPrem*0.45).toFixed(2);
-              const condorMaxLoss=+(condorWing*100-condorCredit*100).toFixed(0);
-              return{
-                ...base,q,livePrice,iv,ivCrushPct,ivAfterEst,expMovePct,expMove,
-                score,strategy,stratColor,bias,biasLabel,biasColor,dipScore,
-                atm,otmCall,otmPut,incr,price,
-                call:{entry:callEntry,target:callTarget,stop:callStop,breakeven:callBreakeven,
-                  setup:`${base.t} $${atm}C (ATM) — 7-10 DTE`,
-                  entryNote:`Buy ATM call 5-7 days before earnings, targeting IV expansion. Exit at ${Math.round(callTarget/callEntry*100-100)}% profit or close 1 day before earnings to avoid crush.`,
-                  exitNote:`Close at $${callTarget} (+75%) or stop at $${callStop} (-55%). Do NOT hold through earnings unless high-conviction beat expected.`,
-                },
-                put:{entry:putEntry,target:putTarget,stop:putStop,breakeven:putBreakeven,
-                  setup:`${base.t} $${atm}P (ATM) — 7-10 DTE`,
-                  entryNote:`Buy ATM put 5-7 days before earnings if bearish catalyst expected. Momentum/guidance risk is the trigger. Exit before IV crush hits.`,
-                  exitNote:`Close at $${putTarget} (+70%) or stop at $${putStop} (-55%). Tight stop — IV crush destroys puts held through earnings.`,
-                },
-                condor:{credit:condorCredit,maxLoss:condorMaxLoss,
-                  setup:`${base.t} Iron Condor: Sell $${otmPut}P/$${atm-condorWing}P & $${atm+condorWing}C/$${otmCall}C`,
-                  entryNote:`Sell 1-2 days before earnings when IV is maximum. Collect $${condorCredit} credit per spread. Profit if stock stays within ±${expMove} of current price.`,
-                  exitNote:`Buy back at 50% of credit received ($${+(condorCredit*0.5).toFixed(2)}). Full profit if both sides expire worthless. Max loss: $${condorMaxLoss}.`,
-                },
-              };
-            });
-            // Sort by score descending, take top 20
-            const top20=allPlays.sort((a,b)=>b.score-a.score).slice(0,20);
-            const [expanded,setExpanded]=React.useState(null);
-            return(
-              <div>
-                <div style={{background:"rgba(245,166,35,.06)",border:"1px solid rgba(245,166,35,.2)",borderRadius:10,padding:"12px 16px",marginBottom:16,fontSize:11,color:"var(--gold)",lineHeight:1.7}}>
-                  <b>How scores work:</b> Each ticker is ranked 0-100 on IV level (premium opportunity), IV crush probability (premium seller edge), price momentum, dip trigger signal, and liquidity. 
-                  Higher score = higher probability of a profitable earnings play. Scores update when you run scans. Click any ticker to expand full entry/exit details.
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:10,marginBottom:16}}>
-                  {top20.map((e,i)=>{
-                    const isExp=expanded===e.t;
-                    return(
-                      <div key={e.t} style={{background:i<3?"linear-gradient(135deg,rgba(0,232,122,.07),rgba(0,212,255,.04))":"var(--s1)",border:`1px solid ${i<3?"rgba(0,232,122,.3)":"var(--b1)"}`,borderRadius:12,overflow:"hidden",cursor:"pointer"}} onClick={()=>setExpanded(isExp?null:e.t)}>
-                        {/* Card header */}
-                        <div style={{padding:"14px 16px 10px"}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                            <div style={{display:"flex",alignItems:"center",gap:8}}>
-                              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:16,color:i<3?"var(--green)":"var(--txt)"}}>{e.t}</span>
-                              {i<3&&<span style={{background:"var(--green)",color:"#000",fontSize:8,fontWeight:800,padding:"1px 6px",borderRadius:3,fontFamily:"Syne,sans-serif"}}>#{i+1} TOP</span>}
-                              <span style={{fontSize:9,padding:"2px 6px",background:"rgba(0,212,255,.08)",border:"1px solid rgba(0,212,255,.15)",borderRadius:4,color:"var(--cyan)",fontFamily:"DM Mono,monospace"}}>{e.cat}</span>
-                            </div>
-                            <div style={{textAlign:"right"}}>
-                              <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:20,color:i<3?"var(--green)":"var(--txt)"}}>{e.score}</div>
-                              <div style={{fontSize:8,color:"var(--dim)"}}>PROB SCORE</div>
-                            </div>
-                          </div>
-                          <div style={{fontSize:10,color:"var(--dim)",marginBottom:6}}>{e.n}</div>
-                          {e.livePrice&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-                            <span style={{fontFamily:"Syne,sans-serif",fontWeight:700,fontSize:13}}>{fmt(e.livePrice)}</span>
-                            <span style={{fontSize:10,color:e.q.change>=0?"var(--green)":"var(--red)",fontWeight:600}}>{e.q.change>=0?"+":""}{e.q.change?.toFixed(2)}%</span>
-                          </div>}
-                          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
-                            <span style={{fontSize:9,padding:"2px 7px",background:"rgba(245,166,35,.1)",border:"1px solid rgba(245,166,35,.2)",borderRadius:4,color:"var(--gold)",fontFamily:"DM Mono,monospace"}}>IV {e.iv}%</span>
-                            <span style={{fontSize:9,padding:"2px 7px",background:"rgba(0,232,122,.08)",border:"1px solid rgba(0,232,122,.2)",borderRadius:4,color:"var(--green)",fontFamily:"DM Mono,monospace"}}>Crush ~{e.ivCrushPct}%</span>
-                            <span style={{fontSize:9,padding:"2px 7px",background:"rgba(0,212,255,.08)",border:"1px solid rgba(0,212,255,.15)",borderRadius:4,color:"var(--cyan)",fontFamily:"DM Mono,monospace"}}>±{e.expMovePct}% move</span>
-                            <span style={{fontSize:9,color:e.biasColor,fontWeight:600}}>{e.biasLabel}</span>
-                          </div>
-                          <div style={{fontSize:10,color:e.stratColor,fontWeight:700}}>{e.strategy}</div>
-                          {/* Score bar */}
-                          <div style={{width:"100%",height:3,background:"rgba(255,255,255,.06)",borderRadius:2,marginTop:8}}>
-                            <div style={{width:`${e.score}%`,height:"100%",background:e.score>=75?"var(--green)":e.score>=55?"var(--gold)":"var(--cyan)",borderRadius:2}}/>
-                          </div>
-                        </div>
-                        {/* Expand indicator */}
-                        <div style={{padding:"6px 16px",borderTop:"1px solid var(--b1)",fontSize:9,color:"var(--dim)",fontFamily:"DM Mono,monospace",display:"flex",justifyContent:"space-between"}}>
-                          <span>Click to {isExp?"hide":"show"} entry / exit levels</span>
-                          <span>{isExp?"▲":"▼"}</span>
-                        </div>
-                        {/* Expanded detail */}
-                        {isExp&&(
-                          <div style={{padding:"14px 16px",borderTop:"1px solid var(--b1)",background:"rgba(0,0,0,.3)"}}>
-                            {/* Stats row */}
-                            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:14}}>
-                              {[["IV Before",e.iv+"%","var(--gold)"],["IV After",e.ivAfterEst+"%","var(--dim)"],["Crush",e.ivCrushPct+"%","var(--green)"],["Exp Move","±"+e.expMovePct+"%","var(--cyan)"]].map(([l,v,c],j)=>(
-                                <div key={j} style={{background:"rgba(255,255,255,.03)",border:"1px solid var(--b1)",borderRadius:7,padding:"7px 8px",textAlign:"center"}}>
-                                  <div style={{fontSize:7.5,color:"var(--dim)",letterSpacing:.5,textTransform:"uppercase",marginBottom:2}}>{l}</div>
-                                  <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,color:c}}>{v}</div>
-                                </div>
-                              ))}
-                            </div>
-                            {/* Calls */}
-                            <div style={{background:"rgba(0,232,122,.05)",border:"1px solid rgba(0,232,122,.2)",borderRadius:9,padding:"12px",marginBottom:8}}>
-                              <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:11,color:"var(--green)",marginBottom:8}}>📈 CALL PLAY — Bullish</div>
-                              <div style={{fontSize:10,color:"var(--dim)",fontFamily:"DM Mono,monospace",marginBottom:6}}>{e.call.setup}</div>
-                              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:8}}>
-                                {[["Entry",fmt(e.call.entry),"var(--txt)"],["Target",fmt(e.call.target),"var(--green)"],["Stop",fmt(e.call.stop),"var(--red)"]].map(([l,v,c],j)=>(
-                                  <div key={j} style={{background:"rgba(255,255,255,.03)",borderRadius:6,padding:"6px 8px",textAlign:"center"}}>
-                                    <div style={{fontSize:8,color:"var(--dim)",marginBottom:2}}>{l}</div>
-                                    <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:12,color:c}}>{v}</div>
-                                  </div>
-                                ))}
-                              </div>
-                              <div style={{fontSize:10,color:"var(--dim)",lineHeight:1.6,marginBottom:4}}>{e.call.entryNote}</div>
-                              <div style={{fontSize:10,color:"var(--green)",lineHeight:1.6}}><b>Exit:</b> {e.call.exitNote}</div>
-                              <div style={{fontSize:9,color:"var(--dim)",marginTop:6}}>Breakeven at expiry: <b style={{color:"var(--txt)"}}>{fmt(e.call.breakeven)}</b></div>
-                            </div>
-                            {/* Puts */}
-                            <div style={{background:"rgba(255,77,106,.05)",border:"1px solid rgba(255,77,106,.2)",borderRadius:9,padding:"12px",marginBottom:8}}>
-                              <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:11,color:"var(--red)",marginBottom:8}}>📉 PUT PLAY — Bearish</div>
-                              <div style={{fontSize:10,color:"var(--dim)",fontFamily:"DM Mono,monospace",marginBottom:6}}>{e.put.setup}</div>
-                              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:8}}>
-                                {[["Entry",fmt(e.put.entry),"var(--txt)"],["Target",fmt(e.put.target),"var(--green)"],["Stop",fmt(e.put.stop),"var(--red)"]].map(([l,v,c],j)=>(
-                                  <div key={j} style={{background:"rgba(255,255,255,.03)",borderRadius:6,padding:"6px 8px",textAlign:"center"}}>
-                                    <div style={{fontSize:8,color:"var(--dim)",marginBottom:2}}>{l}</div>
-                                    <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:12,color:c}}>{v}</div>
-                                  </div>
-                                ))}
-                              </div>
-                              <div style={{fontSize:10,color:"var(--dim)",lineHeight:1.6,marginBottom:4}}>{e.put.entryNote}</div>
-                              <div style={{fontSize:10,color:"var(--red)",lineHeight:1.6}}><b>Exit:</b> {e.put.exitNote}</div>
-                              <div style={{fontSize:9,color:"var(--dim)",marginTop:6}}>Breakeven at expiry: <b style={{color:"var(--txt)"}}>{fmt(e.put.breakeven)}</b></div>
-                            </div>
-                            {/* Premium selling (Iron Condor) */}
-                            {e.iv>=50&&(
-                              <div style={{background:"rgba(245,166,35,.05)",border:"1px solid rgba(245,166,35,.2)",borderRadius:9,padding:"12px"}}>
-                                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:11,color:"var(--gold)",marginBottom:8}}>⚡ PREMIUM SELL — Iron Condor</div>
-                                <div style={{fontSize:9.5,color:"var(--dim)",fontFamily:"DM Mono,monospace",lineHeight:1.5,marginBottom:6}}>{e.condor.setup}</div>
-                                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
-                                  <div style={{background:"rgba(255,255,255,.03)",borderRadius:6,padding:"6px 8px",textAlign:"center"}}>
-                                    <div style={{fontSize:8,color:"var(--dim)",marginBottom:2}}>Max Credit</div>
-                                    <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,color:"var(--gold)"}}>{fmt(e.condor.credit)}</div>
-                                  </div>
-                                  <div style={{background:"rgba(255,255,255,.03)",borderRadius:6,padding:"6px 8px",textAlign:"center"}}>
-                                    <div style={{fontSize:8,color:"var(--dim)",marginBottom:2}}>Max Loss</div>
-                                    <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,color:"var(--red)"}}>${e.condor.maxLoss}</div>
-                                  </div>
-                                </div>
-                                <div style={{fontSize:10,color:"var(--dim)",lineHeight:1.6,marginBottom:4}}>{e.condor.entryNote}</div>
-                                <div style={{fontSize:10,color:"var(--gold)",lineHeight:1.6}}><b>Exit:</b> {e.condor.exitNote}</div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="disc" style={{marginTop:8}}>⚠ Earnings plays are high-risk. IV crush can destroy option value even on correct directional calls. Entry/exit levels are estimates based on current IV and price data — always verify live bid/ask before entering. Not financial advice.</div>
-              </div>
-            );
-          })()}
+          <EarningsPlaybook prices={prices} OPT_BASE={OPT_BASE} UNIVERSE_BASE={UNIVERSE_BASE} calcDipTrigger={calcDipTrigger} fmt={fmt}/>
         </div>}
 
         {/* PORTFOLIO HEAT MAP — EDGE TIER */}
