@@ -3179,7 +3179,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               <div className="fld"><label>Sector</label><div className="sel-wrap"><select value={sector} onChange={e=>setSector(e.target.value)} disabled={sLoading}>{SECTORS.map(s=><option key={s}>{s}</option>)}</select></div></div>
               <div className="fld"><label>Market / Geography</label><div className="sel-wrap"><select value={market} onChange={e=>setMarket(e.target.value)} disabled={sLoading}>{MARKETS.map(m=><option key={m}>{m}</option>)}</select></div></div>
             </div>
-            <button className="btn-green" onClick={runStocks} disabled={sLoading}>{sLoading?<><div className="spin"/>Scanning…</></>:<>Run Screen — Find All Matching Stocks<span className="kbd">↵ Enter</span></>}</button>
+            <button className="btn-green" onClick={runStocks} disabled={sLoading}>{sLoading?<><div className="spin"/>Scanning…</>:<>Run Screen — Find All Matching Stocks<span className="kbd">↵ Enter</span></>}</button>
             {!hasFullAccess&&<div className="scan-counter">
               Stock scans: <b>{Math.max(0,FREE_STOCK_LIMIT-freeScansUsed)}</b>/{FREE_STOCK_LIMIT} remaining · AI insights: <b>{Math.max(0,FREE_AI_LIMIT-freeAiUsed)}</b>/{FREE_AI_LIMIT} remaining today ·{" "}
               <span onClick={()=>{goUpgrade(STRIPE_PRO_LINK);}} style={{color:"var(--green)",cursor:"pointer",textDecoration:"underline"}}>Upgrade to Pro via Stripe</span>
@@ -3393,7 +3393,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               </div>
               <div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={optStrat} onChange={e=>setOptStrat(e.target.value)} disabled={oLoading}>{OSTRATEGIES.map(x=><option key={x}>{x}</option>)}</select></div></div>
             </div>
-            <button className="btn-blue" onClick={runOptions} disabled={oLoading}>{oLoading?<><div className="spin-w"/>Scanning…</></>:<>⚡ Scan Option Chain — Generate Entry Points<span className="kbd" style={{background:"rgba(61,158,255,.15)",borderColor:"rgba(61,158,255,.3)",color:"var(--blue)"}}>↵ Enter</span></>}</button>
+            <button className="btn-blue" onClick={runOptions} disabled={oLoading}>{oLoading?<><div className="spin-w"/>Scanning…</>:<>⚡ Scan Option Chain — Generate Entry Points<span className="kbd" style={{background:"rgba(61,158,255,.15)",borderColor:"rgba(61,158,255,.3)",color:"var(--blue)"}}>↵ Enter</span></>}</button>
             {!hasFullAccess&&<div className="scan-counter" style={{marginTop:8}}>
               Entry point scans: <b>{Math.max(0,FREE_OPT_LIMIT-freeOptScans)}</b>/{FREE_OPT_LIMIT} remaining ·
               AI insights: <b>{Math.max(0,FREE_AI_LIMIT-freeAiUsed)}</b>/{FREE_AI_LIMIT} remaining ·
