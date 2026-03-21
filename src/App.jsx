@@ -2287,7 +2287,7 @@ function HLRow({label,r,cur,ot}){
   );
 }
 
-function App({ session, onSignOut }) {
+function App({ session, onSignOut, onRequestAuth }) {
   const [tab,setTab]=useState("stocks");
   // ── USER SESSION ──
   const user = session?.user || null;
@@ -2361,6 +2361,15 @@ function App({ session, onSignOut }) {
   const isOwner=adminUnlocked||isOwnerEmail; // Owner = admin PIN OR owner email
   const hasFullAccess=isOwner||isPro;
   const hasEdgeAccess=isOwner||(isPro&&userTier==="edge"); // Edge features
+
+  // Gate upgrade: guests must log in first, then go to Stripe
+  const goUpgrade=(link)=>{
+    if(!session){
+      if(onRequestAuth)onRequestAuth();
+    } else {
+      window.location.href=link;
+    }
+  };
   // Freemium daily counters — all reset at midnight
   const _getDaily=(key,def=0)=>{
     try{
@@ -2710,7 +2719,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             <span className="chip live">● {clock}</span>
             <span className={`chip ${msClass}`}>{msLabel}</span>
             {lastRefresh&&<span className="chip ai">LIVE ✓</span>}
-            {user&&(
+            {user ? (
               <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:20,padding:"4px 10px 4px 6px"}}>
                 <div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#00e87a,#00d4ff)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"#000",flexShrink:0}}>
                   {userEmail.charAt(0).toUpperCase()}
@@ -2722,6 +2731,10 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                   ⏏
                 </button>
               </div>
+            ) : (
+              <button onClick={()=>{if(onRequestAuth)onRequestAuth();}} style={{background:"linear-gradient(135deg,rgba(0,232,122,.15),rgba(0,212,255,.08))",border:"1px solid rgba(0,232,122,.3)",borderRadius:20,padding:"5px 14px",color:"var(--green)",fontSize:10,fontFamily:"DM Mono,monospace",cursor:"pointer",fontWeight:700,letterSpacing:.4}}>
+                Sign In / Sign Up
+              </button>
             )}
           </div>
         </header>
@@ -2762,7 +2775,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             <button className="btn-green" onClick={runStocks} disabled={sLoading}>{sLoading?<><div className="spin"/>Scanning…</>:"Run Screen — Find All Matching Stocks"}</button>
             {!hasFullAccess&&<div className="scan-counter">
               Stock scans: <b>{Math.max(0,FREE_STOCK_LIMIT-freeScansUsed)}</b>/{FREE_STOCK_LIMIT} remaining · AI insights: <b>{Math.max(0,FREE_AI_LIMIT-freeAiUsed)}</b>/{FREE_AI_LIMIT} remaining today ·{" "}
-              <span onClick={()=>{window.location.href=STRIPE_PRO_LINK;}} style={{color:"var(--green)",cursor:"pointer",textDecoration:"underline"}}>Upgrade to Pro via Stripe</span>
+              <span onClick={()=>{goUpgrade(STRIPE_PRO_LINK);}} style={{color:"var(--green)",cursor:"pointer",textDecoration:"underline"}}>Upgrade to Pro via Stripe</span>
             </div>}
             {hasFullAccess&&<div className="scan-counter"><span style={{color:"var(--green)"}}>✓ {isOwner?"Owner — Unlimited access":"Pro — Unlimited access"}</span></div>}
           </div>
@@ -2937,7 +2950,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               Entry point scans: <b>{Math.max(0,FREE_OPT_LIMIT-freeOptScans)}</b>/{FREE_OPT_LIMIT} remaining ·
               AI insights: <b>{Math.max(0,FREE_AI_LIMIT-freeAiUsed)}</b>/{FREE_AI_LIMIT} remaining ·
               Ticker lock: <b>{freeOptTickers.size>0?[...freeOptTickers].join(", "):"none scanned yet"}</b>{" "}
-              · <span onClick={()=>{window.location.href=STRIPE_PRO_LINK;}} style={{color:"var(--green)",cursor:"pointer",textDecoration:"underline"}}>Upgrade via Stripe</span>
+              · <span onClick={()=>{goUpgrade(STRIPE_PRO_LINK);}} style={{color:"var(--green)",cursor:"pointer",textDecoration:"underline"}}>Upgrade via Stripe</span>
             </div>}
             {hasFullAccess&&<div className="scan-counter"><span style={{color:"var(--green)"}}>✓ {isOwner?"Owner — Unlimited access":"Pro — Unlimited access"}</span></div>}
           </div>
@@ -2970,7 +2983,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                 {aiLocked&&(
                   <div style={{borderTop:"1px solid rgba(0,232,122,.2)",paddingTop:10,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
                     <div style={{fontSize:11,color:"var(--dim)"}}>🔒 <b style={{color:"var(--gold)"}}>AI insights limit reached</b> — you've used your {FREE_AI_LIMIT} free AI insights today. Full entry timing, IV analysis, and risk details unlock with Pro.</div>
-                    <button className="btn-upgrade" style={{padding:"7px 18px",fontSize:11}} onClick={()=>{window.location.href=STRIPE_PRO_LINK;}}>Upgrade → $19/mo via Stripe</button>
+                    <button className="btn-upgrade" style={{padding:"7px 18px",fontSize:11}} onClick={()=>{goUpgrade(STRIPE_PRO_LINK);}}>Upgrade → $19/mo via Stripe</button>
                   </div>
                 )}
               </div>
@@ -3172,7 +3185,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               {isPro
                 ? <button className="pricing-cta secondary" disabled>✓ Active Plan</button>
                 : <button className="pricing-cta primary" onClick={()=>{
-                    window.location.href=STRIPE_PRO_LINK;
+                    goUpgrade(STRIPE_PRO_LINK);
                   }}>
                     <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.831 3.47 1.426 3.47 2.338 0 .99-.893 1.548-2.585 1.548-2.227 0-5.028-.917-7.083-2.034l-.89 5.594c2.043 1.02 5.08 1.694 8.21 1.694 2.583 0 4.777-.618 6.381-1.84 1.72-1.305 2.586-3.203 2.586-5.597 0-4.094-2.526-5.868-6.346-7.19z"/></svg>
@@ -3205,7 +3218,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               {userTier==="edge"
                 ? <button className="pricing-cta secondary" disabled>✓ Active Plan</button>
                 : <button className="pricing-cta primary" onClick={()=>{
-                    window.location.href=STRIPE_EDGE_LINK;
+                    goUpgrade(STRIPE_EDGE_LINK);
                   }}>
                     <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.831 3.47 1.426 3.47 2.338 0 .99-.893 1.548-2.585 1.548-2.227 0-5.028-.917-7.083-2.034l-.89 5.594c2.043 1.02 5.08 1.694 8.21 1.694 2.583 0 4.777-.618 6.381-1.84 1.72-1.305 2.586-3.203 2.586-5.597 0-4.094-2.526-5.868-6.346-7.19z"/></svg>
@@ -3699,7 +3712,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             </div>
             <div className="paywall-btns">
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                <button className="btn-upgrade" onClick={()=>{setShowPaywall(false);window.location.href=STRIPE_PRO_LINK;}}>
+                <button className="btn-upgrade" onClick={()=>{setShowPaywall(false);goUpgrade(STRIPE_PRO_LINK);}}>
                   <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.831 3.47 1.426 3.47 2.338 0 .99-.893 1.548-2.585 1.548-2.227 0-5.028-.917-7.083-2.034l-.89 5.594c2.043 1.02 5.08 1.694 8.21 1.694 2.583 0 4.777-.618 6.381-1.84 1.72-1.305 2.586-3.203 2.586-5.597 0-4.094-2.526-5.868-6.346-7.19z"/></svg>
                     Upgrade to Pro — $19/mo via Stripe
