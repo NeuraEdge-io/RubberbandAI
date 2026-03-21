@@ -2348,7 +2348,7 @@ function App({ session, onSignOut, onRequestAuth }) {
       const success=params.get("rb_success");
       if(success==="pro"||success==="edge"){
         localStorage.setItem("rb_pro","true");
-        if(success==="edge")localStorage.setItem("rb_tier","edge");
+        localStorage.setItem("rb_tier","edge"); // always grant edge on payment
         window.history.replaceState({},"",window.location.pathname);
         return true;
       }
@@ -2356,7 +2356,13 @@ function App({ session, onSignOut, onRequestAuth }) {
     }catch{return false;}
   });
   const [userTier,setUserTier]=useState(()=>{
-    try{return localStorage.getItem("rb_tier")||"free";}catch{return "free";}
+    try{
+      // Owner email always gets edge tier
+      const storedEmail=localStorage.getItem("sb-ehoztnrwozqqvbwcgjmc-auth-token");
+      const isOwnerStored=storedEmail&&storedEmail.includes("rubberband.ai.io@gmail.com");
+      if(isOwnerStored){localStorage.setItem("rb_tier","edge");return "edge";}
+      return localStorage.getItem("rb_tier")||"free";
+    }catch{return "free";}
   });
   const isOwner=adminUnlocked||isOwnerEmail; // Owner = admin PIN OR owner email
   const hasFullAccess=isOwner||isPro;
@@ -3118,11 +3124,11 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
         {/* PRICING TAB */}
         {tab==="pricing"&&<div className="page">
           {/* Success banner after Stripe redirect */}
-          {isPro&&userTier&&(
+          {(isPro||isOwner)&&(
             <div style={{background:"linear-gradient(135deg,rgba(0,232,122,.15),rgba(0,212,255,.08))",border:"1px solid var(--green)",borderRadius:12,padding:"14px 20px",marginBottom:24,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
               <span style={{fontSize:20}}>🎉</span>
               <div>
-                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,color:"var(--green)"}}>You're on {userTier==="edge"?"Edge":"Pro"} — Unlimited Access Active</div>
+                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13,color:"var(--green)"}}>You're on {isOwner||userTier==="edge"?"Edge":"Pro"} — Unlimited Access Active</div>
                 <div style={{fontSize:11,color:"var(--dim)",marginTop:2}}>All features unlocked. Manage your subscription at <a href="https://billing.stripe.com" target="_blank" rel="noopener noreferrer" style={{color:"var(--green)"}}>billing.stripe.com</a></div>
               </div>
             </div>
@@ -3185,7 +3191,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                   <li key={i} className="pricing-feat"><span className="pricing-feat-check">✓</span>{f}</li>
                 ))}
               </ul>
-              {isPro
+              {isPro&&!isOwner&&userTier!=="edge"
                 ? <button className="pricing-cta secondary" disabled>✓ Active Plan</button>
                 : <button className="pricing-cta primary" onClick={()=>{
                     goUpgrade(STRIPE_PRO_LINK);
@@ -3218,7 +3224,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                   <li key={i} className="pricing-feat"><span className="pricing-feat-check">✓</span>{f}</li>
                 ))}
               </ul>
-              {userTier==="edge"
+              {(userTier==="edge"||isOwner)
                 ? <button className="pricing-cta secondary" disabled>✓ Active Plan</button>
                 : <button className="pricing-cta primary" onClick={()=>{
                     goUpgrade(STRIPE_EDGE_LINK);
@@ -3815,7 +3821,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                 <button className="export-btn" onClick={exportCSV}>⬇ Export CSV — Import to Mailchimp / ConvertKit</button>
               </div>}
               <div className="stats-row" style={{marginTop:20}}>
-                <div className="sbox"><div className="sv g">{isOwner?"Owner":isPro?"Pro":"Free"}</div><div className="sl">Access Tier</div></div>
+                <div className="sbox"><div className="sv g">{isOwner?"Edge 👑":isPro&&userTier==="edge"?"Edge ⚡":isPro?"Pro ⭐":"Free"}</div><div className="sl">Access Tier</div></div>
                 <div className="sbox"><div className="sv gold">{freeScansUsed}/{FREE_STOCK_LIMIT}</div><div className="sl">Stock Scans Today</div></div>
                 <div className="sbox"><div className="sv b">{freeOptScans}/{FREE_OPT_LIMIT}</div><div className="sl">Opt Scans Today</div></div>
                 <div className="sbox"><div className="sv p">{freeAiUsed}/{FREE_AI_LIMIT}</div><div className="sl">AI Insights Today</div></div>
@@ -3829,8 +3835,8 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               <div className="panel" style={{marginTop:20}}>
                 <div className="panel-title">Owner Controls</div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:12}}>
-                  <button className="btn-green" style={{fontSize:11,padding:"8px 18px"}} onClick={()=>{setIsPro(true);try{localStorage.setItem("rb_pro","true");}catch{}}}>✓ Grant Pro Access</button>
-                  <button className="btn-sm" onClick={()=>{setIsPro(false);try{localStorage.removeItem("rb_pro");}catch{}}}>Revoke Pro</button>
+                  <button className="btn-green" style={{fontSize:11,padding:"8px 18px"}} onClick={()=>{setIsPro(true);setUserTier("edge");try{localStorage.setItem("rb_pro","true");localStorage.setItem("rb_tier","edge");}catch{}}}>⚡ Grant Edge Access</button>
+                  <button className="btn-sm" onClick={()=>{setIsPro(false);setUserTier("free");try{localStorage.removeItem("rb_pro");localStorage.removeItem("rb_tier");}catch{}}}>Revoke Edge</button>
                   <button className="btn-sm" onClick={()=>{
                     setFreeScansUsed(0);setFreeOptScans(0);setFreeAiUsed(0);setFreeOptTickers(new Set());
                     _setDaily("rb_stock_scans",0);_setDaily("rb_opt_scans",0);_setDaily("rb_ai_used",0);
@@ -3838,7 +3844,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                   }}>Reset All Daily Limits</button>
                 </div>
                 <div style={{fontSize:10,color:"var(--dim)",lineHeight:1.8}}>
-                  As owner (PIN unlocked) you always have full access regardless of Pro status. Use "Grant Pro Access" to test the Pro experience as a regular user would see it.
+                  As owner (PIN unlocked) you always have full Edge access. Use "Grant Edge Access" to persist the Edge tier to localStorage so the Pro tab always shows Edge as your active plan.
                 </div>
               </div>
               <div className="panel" style={{marginTop:16}}>
