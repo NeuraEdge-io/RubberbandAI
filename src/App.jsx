@@ -2743,6 +2743,11 @@ function App({ session, onSignOut, onRequestAuth }) {
     return()=>clearInterval(id);
   },[]);
 
+  // Silently redirect away from admin if not owner
+  useEffect(()=>{
+    if(tab==="admin"&&!isOwnerEmail) setTab("stocks");
+  },[tab,isOwnerEmail]);
+
   // NO background fetching — Finnhub only called when user hits Scan or Run Screen
 
   useEffect(()=>{try{localStorage.setItem("rubberband_emails",JSON.stringify(eList));}catch{};},[eList]);
@@ -3093,7 +3098,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
         <div className="tab-bar">
           {/* Sign Up / Sign In — leftmost, always visible */}
           {user ? (
-            <div style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:8,margin:"auto 8px auto 0",padding:"5px 10px 5px 6px",cursor:"pointer",flexShrink:0}} onClick={()=>setTab("admin")}>
+            <div style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:8,margin:"auto 8px auto 0",padding:"5px 10px 5px 6px",cursor:isOwnerEmail?"pointer":"default",flexShrink:0}} onClick={()=>{if(isOwnerEmail)setTab("admin");}}>
               <div style={{width:22,height:22,borderRadius:"50%",background:"linear-gradient(135deg,#00e87a,#00d4ff)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:"#000",flexShrink:0}}>
                 {userEmail.charAt(0).toUpperCase()}
               </div>
@@ -3118,7 +3123,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           {hasEdgeAccess&&<div className={`tab ${tab==="earnings"?"active":""}`} onClick={()=>setTab("earnings")} style={{fontSize:11,color:"var(--gold)"}}>📅 Earnings</div>}
           {hasEdgeAccess&&<div className={`tab ${tab==="heatmap"?"active":""}`} onClick={()=>setTab("heatmap")} style={{fontSize:11,color:"var(--gold)"}}>🔥 Heat Map</div>}
           <div style={{marginLeft:"auto",paddingRight:4,flexShrink:0}}>
-            <button onClick={()=>setTab("admin")} style={{background:"none",border:"none",cursor:"pointer",color:"var(--dim)",fontSize:10,opacity:.15,padding:"14px 4px",fontFamily:"DM Mono,monospace",letterSpacing:1}}>⬤</button>
+            {isOwnerEmail&&<button onClick={()=>setTab("admin")} style={{background:"none",border:"none",cursor:"pointer",color:"var(--dim)",fontSize:10,opacity:.2,padding:"14px 4px",fontFamily:"DM Mono,monospace",letterSpacing:1}} title="Owner Panel">⬤</button>}
           </div>
         </div>
 
@@ -4033,7 +4038,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
         </div>}
 
         {/* ADMIN TAB */}
-        {tab==="admin"&&<div className="page">
+        {tab==="admin"&&isOwnerEmail&&<div className="page">
           {!adminUnlocked?(
             <div style={{maxWidth:360,margin:"80px auto",textAlign:"center"}}>
               <div style={{fontSize:32,marginBottom:16}}>🔒</div>
