@@ -2723,6 +2723,24 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
         </header>
 
         <div className="tab-bar">
+          {/* Sign Up / Sign In — leftmost, always visible */}
+          {user ? (
+            <div style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:8,margin:"auto 8px auto 0",padding:"5px 10px 5px 6px",cursor:"pointer",flexShrink:0}} onClick={()=>setTab("admin")}>
+              <div style={{width:22,height:22,borderRadius:"50%",background:"linear-gradient(135deg,#00e87a,#00d4ff)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:"#000",flexShrink:0}}>
+                {userEmail.charAt(0).toUpperCase()}
+              </div>
+              <span style={{fontSize:10,color:"rgba(255,255,255,.55)",fontFamily:"DM Mono,monospace",maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                {isOwner?"👑 ":isPro?"⭐ ":""}{userEmail.split("@")[0]}
+              </span>
+              <button onClick={e=>{e.stopPropagation();onSignOut();}} style={{background:"none",border:"none",color:"rgba(255,255,255,.3)",cursor:"pointer",fontSize:10,padding:"0 0 0 3px",fontFamily:"DM Mono,monospace",lineHeight:1}} title="Sign out">⏏</button>
+            </div>
+          ) : (
+            <button
+              onClick={()=>{ if(onRequestAuth) onRequestAuth(); }}
+              style={{display:"flex",alignItems:"center",gap:6,background:"linear-gradient(135deg,rgba(0,232,122,.15),rgba(0,212,255,.08))",border:"1px solid rgba(0,232,122,.35)",borderRadius:8,margin:"auto 10px auto 0",padding:"6px 14px",color:"var(--green)",fontSize:11,fontFamily:"Syne,sans-serif",fontWeight:800,cursor:"pointer",letterSpacing:.3,whiteSpace:"nowrap",flexShrink:0}}>
+              👤 Sign Up / Sign In
+            </button>
+          )}
           <div className={`tab ${tab==="stocks"?"active":""}`} onClick={()=>setTab("stocks")}>📊 Stock Screener{stocks.length>0&&<span className="tab-badge">{stocks.length}</span>}</div>
           <div className={`tab ${tab==="options"?"active":""}`} onClick={()=>setTab("options")}>⚡ Options Screener{oContracts.length>0&&<span className="tab-badge">{oContracts.length}</span>}</div>
           <div className={`tab ${tab==="pricing"?"active":""}`} onClick={()=>setTab("pricing")} style={{fontSize:11}}>💎 Pro</div>
@@ -2731,22 +2749,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           {hasEdgeAccess&&<div className={`tab ${tab==="premarket"?"active":""}`} onClick={()=>setTab("premarket")} style={{fontSize:11,color:"var(--gold)"}}>⚡ Pre-Market</div>}
           {hasEdgeAccess&&<div className={`tab ${tab==="earnings"?"active":""}`} onClick={()=>setTab("earnings")} style={{fontSize:11,color:"var(--gold)"}}>📅 Earnings</div>}
           {hasEdgeAccess&&<div className={`tab ${tab==="heatmap"?"active":""}`} onClick={()=>setTab("heatmap")} style={{fontSize:11,color:"var(--gold)"}}>🔥 Heat Map</div>}
-          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6,paddingRight:4,flexShrink:0}}>
-            {user ? (
-              <div style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.08)",borderRadius:16,padding:"3px 8px 3px 5px",cursor:"pointer"}} onClick={()=>setTab("admin")}>
-                <div style={{width:20,height:20,borderRadius:"50%",background:"linear-gradient(135deg,#00e87a,#00d4ff)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:800,color:"#000",flexShrink:0}}>
-                  {userEmail.charAt(0).toUpperCase()}
-                </div>
-                <span style={{fontSize:9,color:"rgba(255,255,255,.5)",fontFamily:"DM Mono,monospace",maxWidth:90,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                  {isOwner?"👑":isPro?"⭐":""}{userEmail.split("@")[0]}
-                </span>
-                <button onClick={e=>{e.stopPropagation();onSignOut();}} style={{background:"none",border:"none",color:"rgba(255,255,255,.25)",cursor:"pointer",fontSize:9,padding:"0 0 0 2px",fontFamily:"DM Mono,monospace",lineHeight:1}} title="Sign out">⏏</button>
-              </div>
-            ) : (
-              <button onClick={()=>{if(onRequestAuth)onRequestAuth();}} style={{background:"linear-gradient(135deg,rgba(0,232,122,.12),rgba(0,212,255,.06))",border:"1px solid rgba(0,232,122,.25)",borderRadius:14,padding:"4px 12px",color:"var(--green)",fontSize:9.5,fontFamily:"DM Mono,monospace",cursor:"pointer",fontWeight:700,letterSpacing:.3,whiteSpace:"nowrap"}}>
-                Sign In
-              </button>
-            )}
+          <div style={{marginLeft:"auto",paddingRight:4,flexShrink:0}}>
             <button onClick={()=>setTab("admin")} style={{background:"none",border:"none",cursor:"pointer",color:"var(--dim)",fontSize:10,opacity:.15,padding:"14px 4px",fontFamily:"DM Mono,monospace",letterSpacing:1}}>⬤</button>
           </div>
         </div>
