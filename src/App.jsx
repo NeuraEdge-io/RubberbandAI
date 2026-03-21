@@ -2288,7 +2288,7 @@ function HLRow({label,r,cur,ot}){
 }
 
 function EarningsPlaybook({ prices, OPT_BASE, UNIVERSE_BASE, calcDipTrigger, fmt }) {
-  const [expanded, setExpanded] = React.useState(null);
+  const [expanded, setExpanded] = useState(null);
 
   const strikeGrid = (price) => {
     const incr = price<25?1:price<100?2.5:price<200?5:price<500?10:25;
