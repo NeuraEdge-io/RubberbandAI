@@ -3,6 +3,14 @@ import { useState, useCallback, useRef, useEffect } from "react";
 const FINNHUB_KEY = "d6ogvahr01qnu98i1cp0d6ogvahr01qnu98i1cpg";
 const FINNHUB_URL = "https://finnhub.io/api/v1";
 
+// ── RATE LIMIT TRACKER ──
+const _rl={count:0,reset:Date.now()+60000,hits:0};
+function trackFinnhub(){
+  if(Date.now()>_rl.reset){_rl.count=0;_rl.reset=Date.now()+60000;}
+  _rl.count++;_rl.hits++;
+  return _rl.count>55; // warn near free tier limit
+}
+
 // ── STRIPE PAYMENT LINKS ──
 // Replace these with your actual Stripe Payment Link URLs.
 // Create them at: dashboard.stripe.com → Payment Links → Create
@@ -96,6 +104,61 @@ body{background:var(--bg);color:var(--txt);font-family:'DM Mono','Courier New',m
 .alert-status{font-size:9px;padding:2px 8px;border-radius:4px;font-weight:700;}
 .alert-status.triggered{background:rgba(0,232,122,.1);color:var(--green);border:1px solid rgba(0,232,122,.2);}
 .alert-status.watching{background:rgba(245,166,35,.08);color:var(--gold);border:1px solid rgba(245,166,35,.18);}
+/* ── SKELETON LOADING ── */
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.skel{background:linear-gradient(90deg,var(--s1) 25%,rgba(255,255,255,.06) 50%,var(--s1) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;}
+.skel-row{height:14px;margin-bottom:10px;}
+.skel-sm{height:10px;width:60%;}
+.skel-card{background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:18px;margin-bottom:12px;}
+.skel-title{height:18px;width:40%;margin-bottom:12px;}
+.skel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px;}
+.skel-metric{height:60px;border-radius:10px;}
+/* ── COPY BUTTON ── */
+.copy-btn{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.5);border-radius:5px;padding:2px 8px;font-size:9px;cursor:pointer;font-family:'DM Mono',monospace;transition:all .15s;white-space:nowrap;}
+.copy-btn:hover{background:rgba(0,232,122,.1);border-color:rgba(0,232,122,.3);color:var(--green);}
+.copy-btn.copied{background:rgba(0,232,122,.15);border-color:rgba(0,232,122,.4);color:var(--green);}
+/* ── DARK/LIGHT TOGGLE ── */
+.theme-btn{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:4px 10px;font-size:11px;cursor:pointer;color:var(--dim);transition:all .15s;font-family:'DM Mono',monospace;}
+.theme-btn:hover{border-color:var(--green);color:var(--green);}
+/* ── TOAST NOTIFICATIONS ── */
+.toast-stack{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+.toast{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 16px;font-size:12px;color:var(--txt);box-shadow:0 8px 32px rgba(0,0,0,.5);pointer-events:auto;animation:toastIn .2s ease;max-width:300px;display:flex;align-items:center;gap:8px;}
+.toast.success{border-color:rgba(0,232,122,.4);background:rgba(0,232,122,.08);}
+.toast.error{border-color:rgba(255,77,106,.4);background:rgba(255,77,106,.08);}
+.toast.info{border-color:rgba(0,212,255,.4);background:rgba(0,212,255,.08);}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+/* ── DEMO MODE BANNER ── */
+.demo-banner{background:linear-gradient(135deg,rgba(245,166,35,.15),rgba(245,100,0,.08));border:1px solid rgba(245,166,35,.4);border-radius:10px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--gold);}
+/* ── KEYBOARD SHORTCUT BADGE ── */
+.kbd{display:inline-block;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:4px;padding:1px 5px;font-size:9px;font-family:'DM Mono',monospace;color:rgba(255,255,255,.5);margin-left:4px;}
+/* ── EXPORT BUTTON ROW ── */
+.export-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.export-btn-sm{background:rgba(255,255,255,.04);border:1px solid var(--b2);color:var(--dim);border-radius:7px;padding:6px 14px;font-size:10px;cursor:pointer;font-family:'DM Mono',monospace;transition:all .15s;display:flex;align-items:center;gap:5px;}
+.export-btn-sm:hover{border-color:var(--green);color:var(--green);}
+/* ── BOTTOM NAV (mobile) ── */
+.bottom-nav{display:none;}
+@media(max-width:600px){
+  .bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:300;background:rgba(7,9,13,.97);backdrop-filter:blur(20px);border-top:1px solid var(--b1);padding:0;height:56px;}
+  .bottom-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;color:var(--dim);font-size:9px;font-family:'DM Mono',monospace;border:none;background:none;padding:4px 0;transition:all .15s;}
+  .bottom-nav-item.active{color:var(--green);}
+  .bottom-nav-icon{font-size:18px;line-height:1;}
+  .page{padding-bottom:72px!important;}
+}
+/* ── SHAREABLE LINK BADGE ── */
+.share-pill{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);border-radius:20px;padding:4px 12px;font-size:9.5px;color:var(--cyan);cursor:pointer;font-family:'DM Mono',monospace;display:inline-flex;align-items:center;gap:5px;transition:all .15s;}
+.share-pill:hover{background:rgba(0,212,255,.15);border-color:rgba(0,212,255,.4);}
+/* ── LITE SCAN MODES ── */
+.lite-scan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px;}
+.lite-scan-card{background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s;}
+.lite-scan-card:hover{border-color:var(--green);background:rgba(0,232,122,.04);}
+.lite-scan-icon{font-size:20px;margin-bottom:6px;}
+.lite-scan-name{font-family:'Syne',sans-serif;font-weight:800;font-size:12px;margin-bottom:3px;}
+.lite-scan-desc{font-size:10px;color:var(--dim);line-height:1.5;}
+.lite-badge{background:rgba(0,232,122,.1);border:1px solid rgba(0,232,122,.2);color:var(--green);font-size:8px;padding:1px 6px;border-radius:3px;font-weight:700;margin-left:5px;}
+/* ── LIGHT MODE ── */
+body.light{--bg:#f0f2f5;--s1:#ffffff;--s2:#f8f9fb;--txt:#0d1117;--dim:#5a6478;--b1:rgba(0,0,0,.08);--b2:rgba(0,0,0,.12);}
+body.light .hdr{background:rgba(240,242,245,.97);}
+body.light .tab-bar{background:rgba(240,242,245,.95);}
 .app-footer{background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,.4) 100%);border-top:1px solid var(--b1);padding:28px 24px 32px;margin-top:40px;}
 .footer-inner{max-width:960px;margin:0 auto;}
 .footer-disc{background:rgba(255,59,48,.06);border:1px solid rgba(255,59,48,.18);border-radius:10px;padding:14px 18px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-start;}
@@ -2487,9 +2550,9 @@ function App({ session, onSignOut, onRequestAuth }) {
   const [prices,setPrices]=useState({});
   const [lastRefresh,setLastRefresh]=useState(null);
   const [ms,setMs]=useState(mktStatus());
-  const [strategy,setStrategy]=useState("Growth");
-  const [sector,setSector]=useState("Technology");
-  const [market,setMarket]=useState("US Large Cap");
+  const [strategy,setStrategy]=useState(()=>{try{return JSON.parse(localStorage.getItem("rb_scan_cfg")||"{}").strategy||"Growth";}catch{return"Growth";}});
+  const [sector,setSector]=useState(()=>{try{return JSON.parse(localStorage.getItem("rb_scan_cfg")||"{}").sector||"Technology";}catch{return"Technology";}});
+  const [market,setMarket]=useState(()=>{try{return JSON.parse(localStorage.getItem("rb_scan_cfg")||"{}").market||"US Large Cap";}catch{return"US Large Cap";}});
   const [sLoading,setSLoading]=useState(false);
   const [sStep,setSStep]=useState(0);
   const [sProg,setSProg]=useState(0);
@@ -2497,7 +2560,7 @@ function App({ session, onSignOut, onRequestAuth }) {
   const [stocks,setStocks]=useState([]);
   const [sFilter,setSFilter]=useState("All");
   const [sSort,setSSort]=useState("score");
-  const [optTicker,setOptTicker]=useState("NVDA");
+  const [optTicker,setOptTicker]=useState(()=>{try{return JSON.parse(localStorage.getItem("rb_opt_cfg")||"{}").optTicker||"NVDA";}catch{return"NVDA";}});
   const [optType,setOptType]=useState("Both Calls & Puts");
   // Always generate fresh on component mount — pure JS, <1ms, guarantees 1 DTE & 2 DTE
   const [availExps,setAvailExps]=useState(()=>generateExpirationDates());
@@ -2529,6 +2592,81 @@ function App({ session, onSignOut, onRequestAuth }) {
   const runId=useRef(0);
   const optRunId=useRef(0);
   const [clock,setClock]=useState(new Date().toLocaleTimeString());
+
+  // ── THEME ──
+  const [theme,setTheme]=useState(()=>{try{return localStorage.getItem("rb_theme")||"dark";}catch{return"dark";}});
+  useEffect(()=>{
+    document.body.className=theme==="light"?"light":"";
+    try{localStorage.setItem("rb_theme",theme);}catch{}
+  },[theme]);
+
+  // ── TOAST SYSTEM ──
+  const [toasts,setToasts]=useState([]);
+  const toast=(msg,type="info",dur=2800)=>{
+    const id=Date.now();
+    setToasts(p=>[...p,{id,msg,type}]);
+    setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),dur);
+  };
+
+  // ── COPY TO CLIPBOARD ──
+  const [copied,setCopied]=useState({});
+  const copyToClipboard=(text,key)=>{
+    navigator.clipboard?.writeText(text).then(()=>{
+      setCopied(p=>({...p,[key]:true}));
+      toast("Copied to clipboard","success",1800);
+      setTimeout(()=>setCopied(p=>({...p,[key]:false})),1800);
+    }).catch(()=>toast("Copy failed","error"));
+  };
+
+  // ── DEMO MODE ──
+  const [isDemo]=useState(()=>new URLSearchParams(window.location.search).get("demo")==="true");
+
+  // ── PERSIST LAST SCAN CONFIG ──
+  useEffect(()=>{
+    try{localStorage.setItem("rb_scan_cfg",JSON.stringify({strategy,sector,market,sFilter,sSort}));}catch{}
+  },[strategy,sector,market,sFilter,sSort]);
+  useEffect(()=>{
+    try{localStorage.setItem("rb_opt_cfg",JSON.stringify({optTicker,optType,optStrat,optCatFilter}));}catch{}
+  },[optTicker,optType,optStrat,optCatFilter]);
+
+  // ── SHAREABLE LINK ──
+  const getShareableLink=()=>{
+    const cfg=btoa(JSON.stringify({strategy,sector,market,tab}));
+    return `${window.location.origin}${window.location.pathname}?cfg=${cfg}`;
+  };
+  const applyShareableLink=()=>{
+    try{
+      const cfg=new URLSearchParams(window.location.search).get("cfg");
+      if(!cfg)return;
+      const p=JSON.parse(atob(cfg));
+      if(p.strategy)setStrategy(p.strategy);
+      if(p.sector)setSector(p.sector);
+      if(p.market)setMarket(p.market);
+      if(p.tab)setTab(p.tab);
+      window.history.replaceState({},"",window.location.pathname);
+    }catch{}
+  };
+  useEffect(()=>{applyShareableLink();},[]);
+
+  // ── KEYBOARD SHORTCUTS ──
+  useEffect(()=>{
+    const handler=(e)=>{
+      if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT")return;
+      if(e.key==="Enter"&&tab==="stocks"&&!sLoading)runStocks();
+      if(e.key==="Enter"&&tab==="options"&&!oLoading)runOptions();
+      if(e.key==="/"){ e.preventDefault(); document.querySelector(".opt-search-input")?.focus(); }
+      if(e.key==="1"&&!e.metaKey&&!e.ctrlKey)setTab("stocks");
+      if(e.key==="2"&&!e.metaKey&&!e.ctrlKey)setTab("options");
+      if(e.key==="3"&&!e.metaKey&&!e.ctrlKey)setTab("pricing");
+    };
+    window.addEventListener("keydown",handler);
+    return()=>window.removeEventListener("keydown",handler);
+  },[tab,sLoading,oLoading]);
+
+  // ── LITE SCAN RESULTS ──
+  const [liteResults,setLiteResults]=useState([]);
+  const [liteLoading,setLiteLoading]=useState(false);
+  const [liteMode,setLiteMode]=useState(null);
 
   // ── FREEMIUM / OWNER ACCESS ──
   // Owner (PIN 2580) gets full access forever. Free users pay via Stripe.
@@ -2630,6 +2768,36 @@ function App({ session, onSignOut, onRequestAuth }) {
   }).filter(s=>s.p!==null);
 
   /* STOCK SCREENER */
+  const runLiteScan=useCallback(async(mode)=>{
+    setLiteMode(mode);setLiteLoading(true);setLiteResults([]);
+    try{
+      // Lite scans never count against daily limit — always free
+      const tickers=UNIVERSE_BASE.slice(0,80).map(s=>s.t);
+      const chunks=[];
+      for(let i=0;i<tickers.length;i+=8)chunks.push(tickers.slice(i,i+8));
+      const results={};
+      for(const chunk of chunks){
+        await Promise.allSettled(chunk.map(async t=>{
+          try{
+            const r=await fetchQuote(t);
+            if(r)results[t]={...r,t};
+          }catch{}
+        }));
+        await new Promise(res=>setTimeout(res,120));
+      }
+      let sorted=Object.values(results).filter(q=>q.price>0);
+      if(mode==="momentum")sorted=sorted.sort((a,b)=>(b.change||0)-(a.change||0)).slice(0,10);
+      else if(mode==="dip")sorted=sorted.sort((a,b)=>(a.change||0)-(b.change||0)).slice(0,10);
+      else if(mode==="52wk_low")sorted=sorted.sort((a,b)=>{
+        const aR=(a.price/(a.high||a.price))-1;
+        const bR=(b.price/(b.high||b.price))-1;
+        return aR-bR;
+      }).slice(0,10);
+      setLiteResults(sorted);
+    }catch(e){console.error(e);}
+    setLiteLoading(false);
+  },[]);
+
   const runStocks=useCallback(async()=>{
     // Freemium gate — owner always bypasses
     if(!hasFullAccess){
@@ -2916,6 +3084,9 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             <span className="chip live">● {clock}</span>
             <span className={`chip ${msClass}`}>{msLabel}</span>
             {lastRefresh&&<span className="chip ai">LIVE ✓</span>}
+            <button className="theme-btn" onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} title="Toggle theme">
+              {theme==="dark"?"☀️ Light":"🌙 Dark"}
+            </button>
           </div>
         </header>
 
@@ -2953,6 +3124,42 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
 
         {/* STOCK TAB */}
         {tab==="stocks"&&<div className="page">
+          {/* ── FREE LITE SCANS ── */}
+          <div className="panel" style={{marginBottom:24}}>
+            <div className="panel-title" style={{marginBottom:12}}>
+              ⚡ Quick Scans <span className="lite-badge">FREE · No limit</span>
+              <span style={{fontSize:10,color:"var(--dim)",fontWeight:400,marginLeft:8}}>These never count toward your daily scan limit</span>
+            </div>
+            <div className="lite-scan-grid">
+              {[
+                {id:"momentum",icon:"🚀",name:"Top 10 Momentum",desc:"Highest % gainers right now"},
+                {id:"dip",icon:"📉",name:"Top 10 Dip Plays",desc:"Biggest pullbacks today"},
+                {id:"52wk_low",icon:"📍",name:"Near 52-Week Lows",desc:"Beaten-down tickers near range floor"},
+              ].map(scan=>(
+                <div key={scan.id} className="lite-scan-card" onClick={()=>runLiteScan(scan.id)}>
+                  <div className="lite-scan-icon">{scan.icon}</div>
+                  <div className="lite-scan-name">{scan.name}</div>
+                  <div className="lite-scan-desc">{scan.desc}</div>
+                </div>
+              ))}
+            </div>
+            {liteLoading&&<div style={{padding:"8px 0",fontSize:11,color:"var(--dim)"}}>⟳ Running {liteMode} scan…</div>}
+            {!liteLoading&&liteResults.length>0&&(
+              <div>
+                <div style={{fontSize:10,color:"var(--dim)",marginBottom:8,fontFamily:"DM Mono,monospace",textTransform:"uppercase",letterSpacing:.6}}>{liteMode} results</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {liteResults.map((q,i)=>(
+                    <div key={q.t} style={{background:"var(--s2)",border:"1px solid var(--b1)",borderRadius:8,padding:"6px 12px",display:"flex",gap:8,alignItems:"center",cursor:"pointer"}} onClick={()=>{setOptTicker(q.t);setTab("options");}}>
+                      <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:13}}>{q.t}</span>
+                      <span style={{fontFamily:"Syne,sans-serif",fontWeight:700,fontSize:12}}>${q.price?.toFixed(2)}</span>
+                      <span style={{fontSize:10,fontWeight:700,color:q.change>=0?"var(--green)":"var(--red)"}}>{q.change>=0?"+":""}{q.change?.toFixed(2)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="hero">
             <h1>Find every <span>hidden gem</span><br/>in the market.</h1>
             <p>RUBBERBAND.AI scans all {UNIVERSE_BASE.length} tickers with <b style={{color:"var(--green)"}}>real-time Finnhub prices</b>. Prices fetched fresh on each scan.</p>
@@ -2972,7 +3179,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               <div className="fld"><label>Sector</label><div className="sel-wrap"><select value={sector} onChange={e=>setSector(e.target.value)} disabled={sLoading}>{SECTORS.map(s=><option key={s}>{s}</option>)}</select></div></div>
               <div className="fld"><label>Market / Geography</label><div className="sel-wrap"><select value={market} onChange={e=>setMarket(e.target.value)} disabled={sLoading}>{MARKETS.map(m=><option key={m}>{m}</option>)}</select></div></div>
             </div>
-            <button className="btn-green" onClick={runStocks} disabled={sLoading}>{sLoading?<><div className="spin"/>Scanning…</>:"Run Screen — Find All Matching Stocks"}</button>
+            <button className="btn-green" onClick={runStocks} disabled={sLoading}>{sLoading?<><div className="spin"/>Scanning…</></>:<>Run Screen — Find All Matching Stocks<span className="kbd">↵ Enter</span></>}</button>
             {!hasFullAccess&&<div className="scan-counter">
               Stock scans: <b>{Math.max(0,FREE_STOCK_LIMIT-freeScansUsed)}</b>/{FREE_STOCK_LIMIT} remaining · AI insights: <b>{Math.max(0,FREE_AI_LIMIT-freeAiUsed)}</b>/{FREE_AI_LIMIT} remaining today ·{" "}
               <span onClick={()=>{goUpgrade(STRIPE_PRO_LINK);}} style={{color:"var(--green)",cursor:"pointer",textDecoration:"underline"}}>Upgrade to Pro via Stripe</span>
@@ -2980,12 +3187,51 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             {hasFullAccess&&<div className="scan-counter"><span style={{color:"var(--green)"}}>✓ {isOwner?"Owner — Unlimited access":"Pro — Unlimited access"}</span></div>}
           </div>
 
-          {sLoading&&<div className="lbox"><div className="lsteps">{SSTEPS.map((s,i)=><div key={i} className={`lstep ${sStep>i?"done":sStep===i?"active":""}`}><div className="lstep-ico">{sStep>i?"✓":sStep===i?"…":i+1}</div><span>{s}</span></div>)}</div><div className="pbar"><div className="pfill g" style={{width:`${sProg}%`}}/></div></div>}
+          {sLoading&&(
+            <div>
+              <div className="lbox"><div className="lsteps">{SSTEPS.map((s,i)=><div key={i} className={`lstep ${sStep>i?"done":sStep===i?"active":""}`}><div className="lstep-ico">{sStep>i?"✓":sStep===i?"…":i+1}</div><span>{s}</span></div>)}</div><div className="pbar"><div className="pfill g" style={{width:`${sProg}%`}}/></div></div>
+              <div className="skel-grid">
+                {[...Array(6)].map((_,i)=>(
+                  <div key={i} className="skel-card">
+                    <div className="skel skel-title"/>
+                    <div className="skel skel-row"/>
+                    <div className="skel skel-row skel-sm"/>
+                    <div className="skel skel-metric" style={{marginTop:8}}/>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          {!sResult&&!sLoading&&<div className="empty"><div className="ico">🔍</div><h3>Ready to scan</h3><p>Configure above and click Run.<br/>All prices are live from Finnhub.</p></div>}
+          {!sResult&&!sLoading&&<div className="empty"><div className="ico">🔍</div><h3>Ready to scan</h3><p>Configure above and click Run.<br/>All prices are live from Finnhub.</p>
+            <div style={{marginTop:12,fontSize:10,color:"var(--dim)",lineHeight:1.7,maxWidth:320,textAlign:"left",background:"var(--s2)",border:"1px solid var(--b1)",borderRadius:8,padding:"10px 14px"}}>
+              <b style={{color:"var(--txt)"}}>💡 Tips if scan returns few results:</b><br/>
+              • Try a broader sector ("All Sectors")<br/>
+              • Switch market to "US Large Cap" for most coverage<br/>
+              • Finnhub free tier may rate-limit after many scans — wait 60s and retry<br/>
+              • Press <span className="kbd">↵ Enter</span> to re-run
+            </div>
+          </div>}
 
           {sResult&&!sLoading&&<div className="results">
-            <div className="sumbox"><div className="sum-title">{sResult.title}</div><div className="sum-body">{sResult.summary}</div>{sResult.tags?.length>0&&<div className="tags">{sResult.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}</div>
+            <div className="export-row">
+              <button className="export-btn-sm" onClick={()=>{
+                const csv=["Ticker,Name,Price,Score,Rating",...stocks.map(s=>`${s.t},"${s.n}",${prices[s.t]?.price||""},${s.score},${s.rating}`)].join("\n");
+                const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=`rubberband_scan_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+                toast("CSV downloaded","success");
+              }}>⬇ Export CSV</button>
+              <button className="export-btn-sm" onClick={()=>{
+                const md=["| # | Ticker | Price | Score | Rating |","|-|-|-|-|-|",...stocks.map((s,i)=>`| ${i+1} | ${s.t} | ${prices[s.t]?.price?.toFixed(2)||"-"} | ${s.score} | ${s.rating} |`)].join("\n");
+                copyToClipboard(md,"scan_md");
+              }}>📋 Copy as Markdown</button>
+              <button className="share-pill" onClick={()=>{copyToClipboard(getShareableLink(),"share");toast("Shareable link copied","success");}}>🔗 Share Config</button>
+            </div>
+            <div className="sumbox">
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:4}}>
+                <div className="sum-title" style={{margin:0}}>{sResult.title}</div>
+                <button className="copy-btn" onClick={()=>copyToClipboard(`${sResult.title}\n\n${sResult.summary}`,"ai_sum")}>{copied["ai_sum"]?"✓ Copied":"⎘ Copy"}</button>
+              </div>
+              <div className="sum-body">{sResult.summary}</div>{sResult.tags?.length>0&&<div className="tags">{sResult.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}</div>
             <div className="stats-row">
               <div className="sbox"><div className="sv g">{dispStocks.length}</div><div className="sl">Stocks Found</div></div>
               <div className="sbox"><div className="sv g">{sBuys}</div><div className="sl">Strong Buys</div></div>
@@ -3002,7 +3248,9 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                 <td style={{color:"var(--dim)",fontSize:10}}>{i+1}</td>
                 <td>
                   <a className="tkr-cell" href={`https://www.tradingview.com/chart/?symbol=${s.t}`} target="_blank" rel="noopener noreferrer" style={{cursor:"pointer",textDecoration:"none",color:"inherit"}}>
-                    <div className="tkr-top"><div className="tk">{s.t}</div>{s.isGem&&<div className="gem">💎</div>}</div>
+                    <div className="tkr-top"><div className="tk">{s.t}</div>{s.isGem&&<div className="gem">💎</div>}
+                      <button className="copy-btn" style={{marginLeft:4}} onClick={e=>{e.preventDefault();e.stopPropagation();copyToClipboard(s.t,"tkr_"+s.t);}} title="Copy ticker">{copied["tkr_"+s.t]?"✓":"⎘"}</button>
+                    </div>
                     <div className="co">{s.n}</div>
                     <div className="tkr-chart-btn">📈 View Chart</div>
                     {s.p&&<div className="tkr-price">
@@ -3145,7 +3393,7 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               </div>
               <div className="fld"><label>Strategy</label><div className="sel-wrap"><select value={optStrat} onChange={e=>setOptStrat(e.target.value)} disabled={oLoading}>{OSTRATEGIES.map(x=><option key={x}>{x}</option>)}</select></div></div>
             </div>
-            <button className="btn-blue" onClick={runOptions} disabled={oLoading}>{oLoading?<><div className="spin-w"/>Scanning…</>:"⚡ Scan Option Chain — Generate Entry Points"}</button>
+            <button className="btn-blue" onClick={runOptions} disabled={oLoading}>{oLoading?<><div className="spin-w"/>Scanning…</></>:<>⚡ Scan Option Chain — Generate Entry Points<span className="kbd" style={{background:"rgba(61,158,255,.15)",borderColor:"rgba(61,158,255,.3)",color:"var(--blue)"}}>↵ Enter</span></>}</button>
             {!hasFullAccess&&<div className="scan-counter" style={{marginTop:8}}>
               Entry point scans: <b>{Math.max(0,FREE_OPT_LIMIT-freeOptScans)}</b>/{FREE_OPT_LIMIT} remaining ·
               AI insights: <b>{Math.max(0,FREE_AI_LIMIT-freeAiUsed)}</b>/{FREE_AI_LIMIT} remaining ·
@@ -3252,7 +3500,22 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
             );
           })()}
 
-          {oLoading&&<div className="lbox"><div className="lsteps">{OSTEPS.map((s,i)=><div key={i} className={`lstep ${oStep>i?"done":oStep===i?"active":""}`}><div className="lstep-ico">{oStep>i?"✓":oStep===i?"…":i+1}</div><span>{s}</span></div>)}</div><div className="pbar"><div className="pfill b" style={{width:`${oProg}%`}}/></div></div>}
+          {oLoading&&(
+            <div>
+              <div className="lbox"><div className="lsteps">{OSTEPS.map((s,i)=><div key={i} className={`lstep ${oStep>i?"done":oStep===i?"active":""}`}><div className="lstep-ico">{oStep>i?"✓":oStep===i?"…":i+1}</div><span>{s}</span></div>)}</div><div className="pbar"><div className="pfill b" style={{width:`${oProg}%`}}/></div></div>
+              <div className="skel-grid">
+                {[...Array(4)].map((_,i)=>(
+                  <div key={i} className="skel-card">
+                    <div className="skel skel-title"/>
+                    <div className="skel skel-row"/>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:8}}>
+                      <div className="skel skel-metric"/><div className="skel skel-metric"/><div className="skel skel-metric"/>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {!oContracts.length&&!oLoading&&oInsights?.error&&(
             <div style={{background:"rgba(255,59,48,0.1)",border:"1px solid rgba(255,59,48,0.35)",borderRadius:12,padding:"20px 24px",margin:"16px 0",textAlign:"center"}}>
@@ -3262,7 +3525,14 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
               <button onClick={runOptions} style={{marginTop:14,padding:"8px 20px",background:"rgba(255,59,48,0.2)",border:"1px solid rgba(255,59,48,0.4)",borderRadius:8,color:"#ff6b6b",cursor:"pointer",fontSize:12,fontWeight:700}}>↺ Retry</button>
             </div>
           )}
-          {!oContracts.length&&!oLoading&&!oInsights?.error&&<div className="empty"><div className="ico">⚡</div><h3>Ready to scan options</h3><p>Select a ticker above, then hit Scan.<br/>Prices are live from Finnhub.</p></div>}
+          {!oContracts.length&&!oLoading&&!oInsights?.error&&<div className="empty"><div className="ico">⚡</div><h3>Ready to scan options</h3><p>Select a ticker above, then hit Scan.<br/>Prices are live from Finnhub.</p>
+            <div style={{marginTop:12,fontSize:10,color:"var(--dim)",lineHeight:1.7,maxWidth:320,textAlign:"left",background:"var(--s2)",border:"1px solid var(--b1)",borderRadius:8,padding:"10px 14px"}}>
+              <b style={{color:"var(--txt)"}}>💡 Tips:</b><br/>
+              • Try different expiration dates if chain is empty<br/>
+              • Some tickers have limited options data on Finnhub free tier<br/>
+              • Press <span className="kbd">↵ Enter</span> to scan selected ticker
+            </div>
+          </div>}
 
                     {oContracts.length>0&&!oLoading&&oInsights&&oTicker&&<div className="results">
             <div className="sumbox">
@@ -3283,6 +3553,10 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                 <span>⏱ At: <b style={{color:"var(--txt)"}}>{oTicker.scanTime}</b></span>
                 <span>💰 Price: <b style={{color:"var(--green)"}}>${oTicker.p}</b></span>
                 <span>📅 Exp: <b style={{color:"var(--gold)"}}>{oTicker.expLabel?labelExpDate(oTicker.expLabel)?.display||oTicker.expLabel:""}</b></span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:4}}>
+                <div/>
+                <button className="copy-btn" onClick={()=>copyToClipboard(oInsights.summary,"oai_sum")}>{copied["oai_sum"]?"✓":"⎘ Copy Insight"}</button>
               </div>
               <div className="sum-body">{oInsights.summary}</div>
               {oInsights.tags?.length>0&&<div className="tags">{oInsights.tags.map((t,i)=><span className="tag" key={i}>{t}</span>)}</div>}
@@ -3827,6 +4101,17 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
                 </div>
               </div>
               <div className="panel" style={{marginTop:16}}>
+                <div className="panel-title">⌨ Keyboard Shortcuts</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:8,marginTop:4}}>
+                  {[["↵ Enter","Run scan (on active tab)"],["1","Go to Stock Screener"],["2","Go to Options Screener"],["3","Go to Pro page"],["/","Focus search/ticker input"]].map(([k,d])=>(
+                    <div key={k} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid var(--b1)"}}>
+                      <span className="kbd" style={{fontSize:10}}>{k}</span>
+                      <span style={{fontSize:11,color:"var(--dim)"}}>{d}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="panel" style={{marginTop:16}}>
                 <div className="panel-title">Monetization Roadmap</div>
                 <div className="li-list">
                   {["Export subscriber list → import into Mailchimp (free ≤500 contacts)","Sunday email: top 3 AI dip setups of the week — drives upgrades","Share your Pro access code via X/IG/TikTok to drive paid signups","Add Tastytrade or Webull affiliate links next to each options card","Launch Edge tier ($29/mo) with pre-market brief and earnings playbook","Offer annual Pro at $149/yr (save $79) to boost LTV"].map((t,i)=><div className="li-item" key={i}><div className="li-ico ok">{i+1}</div><span>{t}</span></div>)}
@@ -3836,6 +4121,22 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           )}
         </div>}
       </div>
+
+      {/* ── TOAST STACK ── */}
+      <div className="toast-stack">
+        {toasts.map(t=>(
+          <div key={t.id} className={`toast ${t.type}`}>
+            <span>{t.type==="success"?"✓":t.type==="error"?"✗":"ℹ"}</span>
+            <span>{t.msg}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── DEMO MODE BANNER ── */}
+      {isDemo&&<div className="demo-banner">
+        <span style={{fontSize:16}}>🎭</span>
+        <div><b>Demo Mode</b> — You're viewing RUBBERBAND.AI with sample data. <span style={{opacity:.7}}>Share this link: {window.location.href}</span></div>
+      </div>}
 
       {/* ── PAYWALL MODAL ── */}
       {showPaywall&&(
@@ -3864,6 +4165,20 @@ Return ONLY raw JSON: {"summary":"str","topPlay":"str","entryTiming":"str","risk
           </div>
         </div>
       )}
+
+      {/* ── MOBILE BOTTOM NAV ── */}
+      <nav className="bottom-nav">
+        {[["📊","Stocks","stocks"],["⚡","Options","options"],["💎","Pro","pricing"],["📓","Journal","journal"]].map(([icon,label,t])=>(
+          <button key={t} className={`bottom-nav-item ${tab===t?"active":""}`} onClick={()=>setTab(t)}>
+            <span className="bottom-nav-icon">{icon}</span>
+            <span>{label}</span>
+          </button>
+        ))}
+        {!user&&<button className="bottom-nav-item" onClick={()=>{if(onRequestAuth)onRequestAuth();}}>
+          <span className="bottom-nav-icon">👤</span>
+          <span>Sign In</span>
+        </button>}
+      </nav>
 
       {/* ── GLOBAL DISCLOSURE FOOTER ── */}
       <footer className="app-footer">
